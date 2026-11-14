@@ -73,6 +73,8 @@ scripts/               # build-replay.sh and helpers
 - Run locally (full stack): `docker compose -f deploy/docker-compose.yml up --build` → http://localhost · stop: `docker compose -f deploy/docker-compose.yml down`
 - Practice mode: `USE_FAKES=true` (default) runs GoDaddy/DNS/mailbox/HTTP against in-memory fakes; set `SERVER_IP`, `USE_FAKES=false` on the VPS once the real integrations exist (see PROGRESS.md "Real integration TODO").
 - Live Reader fixtures (only with the user's OK, 1 call per seller): `cd backend && CLAUDE_MODE=live ../.venv/bin/python ../scripts/capture_reader_fixtures.py`
+- Team (admin) access in the browser: set `ADMIN_TOKEN` (16+ chars) in `.env`, open `/#/admin`, paste it. The report page then shows the demo fault switch. Owners use their private link (`/#/b/<id>?key=…`, shown once after "describe").
+- Monitoring: on by default (`MONITOR_ENABLED=true`, starts with the app); tests never start it.
 - Save session transcript: `bash scripts/save-transcript.sh <N> <milestone>` · build replay page: `bash scripts/build-replay.sh` (reads `~/.claude/projects` + `replay/sessions/`)
 - Prod on the VPS (HTTPS + on-demand TLS): set `APP_DOMAIN` and `CADDYFILE=Caddyfile.prod` in `.env`, then `docker compose --env-file .env -f deploy/docker-compose.yml up -d --build`
 
