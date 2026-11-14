@@ -101,6 +101,8 @@ Everything below is behind an interface with a working fake; tests cover the fak
 - 2026-11-14 (M3): Approve writes `Approval(action="launch")` (+ `buy_domain` when there's a cost) and sets `Business.domain` — that's when a domain becomes "in the app's database". Step log = `Plan.steps_json`, UI polls every second. Failed/blocked plans can be resumed; finished steps are skipped.
 - 2026-11-14 (M4): Doctor must pick a fix that is in the playbook AND listed for that check (`FIXES_FOR`); else refused + logged. Sandbox launches run site checks only (site, HTTPS, test order, launch clean); email checks are for full launches.
 
+- 2026-11-14 (session 2): Transcript scrubber (`scripts/transcript_scrub.py`, called by `save-transcript.sh`) redacts values instead of dropping the whole transcript: emails → `[redacted-email]`, key/secret values → `[REDACTED]`; skips base64 image data and code-annotation values (`SecretStr`, `settings.…`, `self.…`, env lookups, type names); an independent re-scan refuses to save if anything remains. It over-redacts code/test text that *talks about* secrets (safe direction). Session 2 transcript saved as `replay/sessions/2026-11-14-s2-m2-m3.jsonl`.
+
 ## Open questions
 
 - Should seller sites also answer on `www.<domain>` (needs tls-ask + DNS change)? Currently no.

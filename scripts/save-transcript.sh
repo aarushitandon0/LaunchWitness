@@ -8,10 +8,12 @@
 # - Without a path, takes the most recently modified transcript for this repo
 #   under ~/.claude/projects (subagent files are skipped).
 # - Replaces with [redacted-email]: every address in REDACT_EMAILS (comma-separated;
-#   defaults to the repo's git user.email) AND any personal webmail address
-#   (gmail, yahoo, outlook, hotmail, live, icloud, proton, rediffmail).
-# - Secret-scans the result. On ANY match the copy is deleted and the script
-#   exits 1: never commit a transcript the scan flagged.
+#   defaults to the repo's git user.email) AND any personal webmail address.
+# - Replaces each secret-looking VALUE with [REDACTED] (strict patterns: Anthropic,
+#   GitHub, AWS keys, private keys, api_secret=…, password=…) and keeps the rest.
+#   Code like `password: SecretStr` and base64 screenshot data are not flagged.
+# - Re-scans; if anything real-looking remains, nothing is saved and it exits 1:
+#   never commit a transcript the scan refused.
 
 set -euo pipefail
 
@@ -55,31 +57,11 @@ mkdir -p "$DEST_DIR"
 DEST="$DEST_DIR/$(date +%F)-s${N}-${MS}.jsonl"
 
 EMAILS="${REDACT_EMAILS:-$(git -C "$REPO" config user.email 2>/dev/null || true)}"
-python3 - "$SRC" "$DEST" "$EMAILS" <<'PY'
-import re, sys
-src, dest, emails = sys.argv[1], sys.argv[2], [e.strip() for e in sys.argv[3].split(",") if e.strip()]
-text = open(src, encoding="utf-8", errors="replace").read()
-for e in emails:
-    text = re.sub(re.escape(e), "[redacted-email]", text, flags=re.IGNORECASE)
-WEBMAIL = r"[A-Za-z0-9._%+-]+@(gmail|googlemail|yahoo|outlook|hotmail|live|icloud|me|proton|protonmail|rediffmail)\.[a-z.]{2,6}"
-text = re.sub(WEBMAIL, "[redacted-email]", text, flags=re.IGNORECASE)
-open(dest, "w", encoding="utf-8").write(text)
-PY
-
-# Secret scan (same patterns as build-replay.sh, plus common key formats and the
-# redacted addresses themselves in case a variant slipped through).
-PATTERN='(sk-ant-[a-z0-9_-]{10,}|api[_-]?secret["'"'"' :=]+[a-z0-9]{12,}|password["'"'"' :=]+[^ "'"'"'$<{]{6,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16})'
-HITS="$(grep -Ein "$PATTERN" "$DEST" | cut -d: -f1 | sort -un | head -20 | sed 's/^/possible secret on line /' || true)"
-if grep -Eiq '[A-Za-z0-9._%+-]+@(gmail|googlemail|yahoo|outlook|hotmail|live|icloud|me|proton|protonmail|rediffmail)\.[a-z.]{2,6}' "$DEST"; then
-  HITS="$HITS"$'\n'"unredacted webmail address"
-fi
-for e in ${EMAILS//,/ }; do
-  if grep -qiF "$e" "$DEST"; then HITS="$HITS"$'\n'"unredacted email"; fi
-done
-if [ -n "${HITS//[$'\n ']/}" ]; then
+# Redact (emails + secret values -> [REDACTED]), re-scan, and refuse to save if
+# anything real-looking remains. Values are never printed. See transcript_scrub.py.
+if ! python3 "$REPO/scripts/transcript_scrub.py" "$SRC" "$DEST" "$EMAILS"; then
   rm -f "$DEST"
-  echo "SECRET SCAN MATCHED — transcript NOT saved (values are not printed):" >&2
-  echo "$HITS" | sed '/^$/d' >&2
+  echo "Transcript NOT saved — do not commit it." >&2
   exit 1
 fi
 echo "Saved $DEST (redacted, secret scan clean)"
