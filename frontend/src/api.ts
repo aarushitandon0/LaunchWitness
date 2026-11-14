@@ -1,4 +1,11 @@
-export type Product = { name: string; price_inr: number; description: string; category: string };
+export type Product = {
+  name: string;
+  price_inr: number;
+  description: string;
+  category: string;
+  addon: boolean; // an extra on top of another item
+  price_from: boolean; // shown as "from ₹X"
+};
 
 export type Profile = {
   name: string;
@@ -11,6 +18,16 @@ export type Profile = {
   upi_id: string;
   tone: string;
   products: Product[];
+  selling_point: string;
+  min_notice_days: number;
+  pickup_available: boolean;
+  delivery_available: boolean;
+  delivery_fee_inr: number;
+  allow_item_message: boolean;
+  upi_display_name: string;
+  fssai_number: string;
+  kind: "orders" | "appointments";
+  not_supported_reason: string;
 };
 
 export type Business = {

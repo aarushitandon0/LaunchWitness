@@ -2,7 +2,9 @@ import { FormEvent, useEffect, useState } from "react";
 import { api, ApiError, Business, inr, keys, Order, Product, Profile } from "./api";
 import { ErrorBox } from "./Describe";
 
-type TextKey = Exclude<keyof Profile, "products">;
+type TextKey = {
+  [K in keyof Profile]: Profile[K] extends string ? (K extends "kind" | "not_supported_reason" ? never : K) : never;
+}[keyof Profile];
 
 const FIELDS: { key: TextKey; label: string; hint?: string; long?: boolean }[] = [
   { key: "name", label: "Business name" },
@@ -13,9 +15,22 @@ const FIELDS: { key: TextKey; label: string; hint?: string; long?: boolean }[] =
   { key: "phone", label: "Phone number" },
   { key: "whatsapp", label: "WhatsApp number", hint: "Customers get an “Order on WhatsApp” button." },
   { key: "upi_id", label: "UPI ID", hint: "e.g. yourname@okaxis — we show a QR code customers can scan to pay." },
+  {
+    key: "upi_display_name",
+    label: "Name your UPI app shows",
+    hint: "Customers see “Your UPI app should show: …” so they know they're paying the right person.",
+  },
+  { key: "fssai_number", label: "Food licence (FSSAI) number", hint: "Optional, 14 digits. Shown at the bottom of your site." },
 ];
 
-const emptyProduct = (category: string): Product => ({ name: "", price_inr: 0, description: "", category });
+const emptyProduct = (category: string): Product => ({
+  name: "",
+  price_inr: 0,
+  description: "",
+  category,
+  addon: false,
+  price_from: false,
+});
 
 export default function Review({ id }: { id: number }) {
   const [biz, setBiz] = useState<Business | null>(null);
@@ -97,6 +112,65 @@ export default function Review({ id }: { id: number }) {
         ))}
       </section>
 
+      <h2>How customers order</h2>
+      <section className="card">
+        <label className="field">
+          <span>What makes you special (optional)</span>
+          <input
+            value={profile.selling_point}
+            maxLength={40}
+            placeholder="e.g. Home-style, Handmade"
+            onChange={(e) => update({ selling_point: e.target.value })}
+          />
+          <small>A few words shown as a label at the top of your site. Leave empty to show nothing.</small>
+        </label>
+        <label className="field">
+          <span>Days of notice you need</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={60}
+            value={profile.min_notice_days}
+            onChange={(e) => update({ min_notice_days: Math.min(60, Math.max(0, Math.round(Number(e.target.value) || 0))) })}
+          />
+          <small>0 means customers can order for the same day.</small>
+        </label>
+        <label className="check">
+          <input type="checkbox" checked={profile.pickup_available} onChange={(e) => update({ pickup_available: e.target.checked })} />
+          <span>Customers can pick up</span>
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={profile.delivery_available}
+            onChange={(e) => update({ delivery_available: e.target.checked })}
+          />
+          <span>I deliver</span>
+        </label>
+        {profile.delivery_available && (
+          <label className="field">
+            <span>Delivery charge (₹)</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={profile.delivery_fee_inr}
+              onChange={(e) => update({ delivery_fee_inr: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
+            />
+            <small>0 means free delivery.</small>
+          </label>
+        )}
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={profile.allow_item_message}
+            onChange={(e) => update({ allow_item_message: e.target.checked })}
+          />
+          <span>Customers can add a message for the item (for example a name to write on it)</span>
+        </label>
+      </section>
+
       <h2>Menu and prices</h2>
       <p className="muted">Items with the same group are shown together on your site.</p>
       <section className="card products">
@@ -123,6 +197,14 @@ export default function Review({ id }: { id: number }) {
             <label className="field grow">
               <span>Short description</span>
               <input value={p.description} onChange={(e) => updateProduct(i, { description: e.target.value })} />
+            </label>
+            <label className="check">
+              <input type="checkbox" checked={p.addon} onChange={(e) => updateProduct(i, { addon: e.target.checked })} />
+              <span>Extra (only added to another item)</span>
+            </label>
+            <label className="check">
+              <input type="checkbox" checked={p.price_from} onChange={(e) => updateProduct(i, { price_from: e.target.checked })} />
+              <span>Starting price (“from ₹…”)</span>
             </label>
             <button
               type="button"
