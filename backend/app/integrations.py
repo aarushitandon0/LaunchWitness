@@ -85,6 +85,16 @@ def _shared_fakes() -> Integrations:
 
 
 def get_integrations() -> Integrations:
-    """FastAPI dependency. Tests override this."""
+    """FastAPI dependency: the server's own integrations (real when USE_FAKES=false). Tests override this."""
     settings = get_settings()
     return _shared_fakes() if settings.use_fakes else real_integrations(settings)
+
+
+def get_practice_integrations() -> Integrations:
+    """FastAPI dependency: the shared fake world, used for practice businesses. Tests override this."""
+    return _shared_fakes()
+
+
+def for_business(business, server: Integrations, practice: Integrations) -> Integrations:
+    """Practice businesses NEVER get real integrations, whatever the server mode."""
+    return practice if business.practice or server.fake else server

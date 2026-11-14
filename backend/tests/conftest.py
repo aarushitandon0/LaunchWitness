@@ -15,12 +15,13 @@ from sqlmodel import Session
 
 from app.agents.claude_client import FixtureClaudeClient
 from app.config import Settings, get_settings
-from app.integrations import Integrations, fake_integrations, get_integrations
+from app.integrations import Integrations, fake_integrations, get_integrations, get_practice_integrations
 from app.mail.smtp import FakeMailer, get_mailer
 from app.routers.businesses import get_claude
 from app.db import get_session, init_db, make_engine
 from app.main import create_app
 
+ADMIN_TOKEN = "test-admin-token-0123456789"
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "testserver"}
 
 
@@ -87,6 +88,10 @@ def clean_env(monkeypatch):
 def make_settings(clean_env):
     def _make(**overrides) -> Settings:
         overrides.setdefault("database_url", "sqlite://")
+        overrides.setdefault("monitor_enabled", False)
+        overrides.setdefault("admin_token", ADMIN_TOKEN)
+        overrides.setdefault("visitor_describes_per_day", 1000)  # limit tests set these low explicitly
+        overrides.setdefault("visitor_launches_per_day", 1000)
         return Settings(_env_file=None, **overrides)
 
     return _make
@@ -139,5 +144,6 @@ def client(settings, engine, mailer, claude, integ) -> Iterator[TestClient]:
     app.dependency_overrides[get_mailer] = lambda: mailer
     app.dependency_overrides[get_claude] = lambda: claude
     app.dependency_overrides[get_integrations] = lambda: integ
+    app.dependency_overrides[get_practice_integrations] = lambda: integ
     with TestClient(app) as c:
         yield c

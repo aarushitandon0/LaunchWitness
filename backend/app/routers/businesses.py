@@ -5,8 +5,8 @@ import re
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from app import audit
@@ -15,6 +15,8 @@ from app.agents.reader import MAX_IMAGE_BYTES, Profile, ReaderError, read_busine
 from app.config import Settings, get_settings
 from app.db import get_engine, get_session
 from app.models import Business, Order
+from app.safety.access import (admin_flag, describes_today, hash_key, new_owner_key, owned_business, owner_link,
+                               require_admin, visitor_id)
 from app.sites.hosts import RESERVED_SUBDOMAINS, SUBDOMAIN, site_url
 
 router = APIRouter(prefix="/api", tags=["businesses"])
@@ -44,15 +46,13 @@ def business_out(b: Business, settings: Settings) -> dict:
         "subdomain": b.subdomain,
         "site_url": site_url(b.subdomain, settings) if b.subdomain else None,
         "status": b.status,
+        "practice": b.practice,
+        "owner_email": b.owner_email,
         "profile": json.loads(b.profile_json),
     }
 
 
-def get_business(session: Session, business_id: int) -> Business:
-    b = session.get(Business, business_id)
-    if b is None:
-        raise HTTPException(status_code=404, detail="We couldn't find that business.")
-    return b
+EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 @router.get("/samples")
@@ -68,6 +68,8 @@ def samples() -> list[dict]:
 
 @router.post("/businesses", status_code=201)
 async def create_business(
+    request: Request,
+    admin: Annotated[bool, Depends(admin_flag)],
     settings: Annotated[Settings, Depends(get_settings)],
     session: Annotated[Session, Depends(get_session)],
     claude: Annotated[Claude, Depends(get_claude)],
@@ -75,6 +77,10 @@ async def create_business(
     price_list: Annotated[str, Form(max_length=4000)] = "",
     photo: Annotated[UploadFile | None, File()] = None,
 ) -> dict:
+    visitor = visitor_id(request)
+    if not admin and describes_today(session, visitor) >= settings.visitor_describes_per_day:
+        raise HTTPException(status_code=429, detail="You've set up several shops today already. "
+                            "Please come back tomorrow to try another one.")
     image = None
     if photo is not None and photo.filename:
         data = await photo.read(MAX_IMAGE_BYTES + 1)
@@ -88,17 +94,23 @@ async def create_business(
         audit.record(session, actor="reader", action="read_business", result="blocked", detail=str(e))
         raise HTTPException(status_code=503, detail="Our assistant has reached today's limit. Please try again tomorrow.") from e
 
+    key = new_owner_key()
+    # Only the admin on a real server creates real businesses; everyone else practises (never real GoDaddy/DNS).
+    practice = not (admin and not settings.use_fakes)
     b = Business(name=profile.name, description=description, price_list_text=price_list,
-                 profile_json=profile.model_dump_json(), subdomain=unique_subdomain(session, slugify(profile.name)))
+                 profile_json=profile.model_dump_json(), subdomain=unique_subdomain(session, slugify(profile.name)),
+                 owner_key_hash=hash_key(key), practice=practice, visitor="" if admin else visitor)
     session.add(b)
     session.commit()
     session.refresh(b)
     audit.record(session, actor="reader", action="read_business", target=f"business:{b.id}", result="ok",
-                 business_id=b.id, detail=f"{len(profile.products)} products" + (", with photo" if image else ""))
-    return business_out(b, settings)
+                 business_id=b.id, detail=f"{len(profile.products)} products" + (", with photo" if image else "")
+                 + (", practice" if practice else ", real"))
+    # The owner key is returned ONCE, here. Only its hash is stored.
+    return {**business_out(b, settings), "owner_key": key, "owner_link": owner_link(settings, b.id, key)}
 
 
-@router.get("/businesses")
+@router.get("/businesses", dependencies=[Depends(require_admin)])
 def list_businesses(settings: Annotated[Settings, Depends(get_settings)],
                     session: Annotated[Session, Depends(get_session)]) -> list[dict]:
     rows = session.exec(select(Business).order_by(Business.id.desc())).all()
@@ -107,20 +119,23 @@ def list_businesses(settings: Annotated[Settings, Depends(get_settings)],
 
 
 @router.get("/businesses/{business_id}")
-def read_one(business_id: int, settings: Annotated[Settings, Depends(get_settings)],
-             session: Annotated[Session, Depends(get_session)]) -> dict:
-    return business_out(get_business(session, business_id), settings)
+def read_one(b: Annotated[Business, Depends(owned_business)], settings: Annotated[Settings, Depends(get_settings)]) -> dict:
+    return business_out(b, settings)
 
 
 class ProfileUpdate(BaseModel):
     profile: Profile
     subdomain: str
+    owner_email: str | None = Field(default=None, max_length=254)  # personal email for alerts; None = unchanged
 
 
 @router.put("/businesses/{business_id}")
-def update_business(business_id: int, body: ProfileUpdate, settings: Annotated[Settings, Depends(get_settings)],
+def update_business(body: ProfileUpdate, b: Annotated[Business, Depends(owned_business)],
+                    settings: Annotated[Settings, Depends(get_settings)],
                     session: Annotated[Session, Depends(get_session)]) -> dict:
-    b = get_business(session, business_id)
+    email = body.owner_email.strip() if body.owner_email is not None else None
+    if email and not EMAIL.match(email):
+        raise HTTPException(status_code=422, detail="That email address doesn't look right. Please check it.")
     sub = body.subdomain.strip().lower()
     if not SUBDOMAIN.match(sub):
         raise HTTPException(status_code=422, detail="Site address can use only letters, numbers and dashes (2–42 characters).")
@@ -133,6 +148,8 @@ def update_business(business_id: int, body: ProfileUpdate, settings: Annotated[S
     b.name = body.profile.name
     b.profile_json = body.profile.model_dump_json()
     b.subdomain = sub
+    if email is not None:
+        b.owner_email = email
     session.add(b)
     session.commit()
     session.refresh(b)
@@ -142,9 +159,8 @@ def update_business(business_id: int, body: ProfileUpdate, settings: Annotated[S
 
 
 @router.get("/businesses/{business_id}/orders")
-def list_orders(business_id: int, session: Annotated[Session, Depends(get_session)]) -> list[dict]:
-    get_business(session, business_id)
-    rows = session.exec(select(Order).where(Order.business_id == business_id).order_by(Order.id.desc())).all()
+def list_orders(b: Annotated[Business, Depends(owned_business)], session: Annotated[Session, Depends(get_session)]) -> list[dict]:
+    rows = session.exec(select(Order).where(Order.business_id == b.id).order_by(Order.id.desc())).all()
     return [{"id": o.id, "customer_name": o.customer_name, "customer_phone": o.customer_phone,
              "items": json.loads(o.items_json), "total_inr": o.total_inr, "note": o.note,
              "email_status": o.email_status, "created_at": o.created_at.replace(tzinfo=None).isoformat() + "Z"} for o in rows]

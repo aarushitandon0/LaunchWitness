@@ -29,7 +29,7 @@ export function LaunchChoice({ businessId }: { businessId: number }) {
   const makePlan = (mode: "sandbox" | "full", domain?: string) =>
     run(mode, async () => {
       const p = await api.createPlan(businessId, mode, domain);
-      goTo(`#/plan/${p.id}`);
+      goTo(`#/b/${businessId}/plan/${p.id}`);
     });
 
   if (!biz) return error ? <ErrorBox error={error} /> : <p>Loading…</p>;
@@ -97,24 +97,33 @@ const STATUS_ICON: Record<Step["status"], string> = {
 };
 
 /** Step 4–5: the approval card (draft) and then the live step log (polled). */
-export function PlanView({ planId }: { planId: number }) {
+export function PlanView({ businessId, planId }: { businessId: number; planId: number }) {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [name, setName] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const load = () => api.plan(planId).then(setPlan).catch(setError);
+  const load = () => api.plan(businessId, planId).then(setPlan).catch(setError);
   useEffect(() => {
     load();
   }, [planId]);
 
   const active = plan && (plan.status === "approved" || plan.status === "running");
+  const [watched, setWatched] = useState(false);
   useEffect(() => {
     if (!active) return;
+    setWatched(true);
     const t = window.setInterval(load, 1000);
     return () => window.clearInterval(t);
   }, [active]);
+  // When a launch we were watching finishes, go straight to the proof.
+  useEffect(() => {
+    if (watched && plan?.status === "done") {
+      const t = window.setTimeout(() => goTo(`#/b/${businessId}/report`), 1200);
+      return () => window.clearTimeout(t);
+    }
+  }, [watched, plan?.status]);
 
   if (!plan) return error ? <ErrorBox error={error} /> : <p>Loading…</p>;
 
@@ -153,6 +162,15 @@ export function PlanView({ planId }: { planId: number }) {
               <dt>Total cost</dt>
               <dd className="cost">{costLine}</dd>
             </div>
+            {plan.email_plan_estimate_usd !== null && (
+              <div>
+                <dt>Email plan, bought separately on GoDaddy</dt>
+                <dd>
+                  about {usd(plan.email_plan_estimate_usd)} a year{" "}
+                  <span className="muted">(estimate — not part of the total; you pay GoDaddy for it yourself)</span>
+                </dd>
+              </div>
+            )}
             <div>
               <dt>Orders are emailed to</dt>
               <dd>{plan.mailbox}</dd>
@@ -219,7 +237,7 @@ export function PlanView({ planId }: { planId: number }) {
             <button
               className="btn btn-primary"
               disabled={busy || !agreed || !name.trim()}
-              onClick={() => act(() => api.approve(plan.id, name.trim()))}
+              onClick={() => act(() => api.approve(businessId, plan.id, name.trim()))}
             >
               {busy ? "Starting…" : "Approve and launch"}
             </button>
@@ -233,6 +251,8 @@ export function PlanView({ planId }: { planId: number }) {
   }
 
   const stopped = plan.status === "failed" || plan.status === "blocked";
+  const waitingToBuy =
+    plan.practice && plan.status === "blocked" && plan.steps.some((s) => s.kind === "get_domain" && s.status === "blocked");
   return (
     <>
       <h1>
@@ -257,15 +277,35 @@ export function PlanView({ planId }: { planId: number }) {
           </li>
         ))}
       </ol>
+      {waitingToBuy && (
+        <p className="practice" role="note">
+          Practice mode: nothing is really bought. Tap “Pretend I bought it” to carry on as if you had bought{" "}
+          {plan.zone} on godaddy.com.
+        </p>
+      )}
       {error && <ErrorBox error={error} />}
       <div className="actions">
-        {stopped && (
-          <button className="btn btn-primary" disabled={busy} onClick={() => act(() => api.resume(plan.id))}>
+        {waitingToBuy && (
+          <button className="btn btn-primary" disabled={busy} onClick={() => act(() => api.practiceBuy(businessId, plan.id))}>
+            {busy ? "Continuing…" : "Pretend I bought it (practice)"}
+          </button>
+        )}
+        {stopped && !waitingToBuy && (
+          <button
+            className="btn btn-primary"
+            disabled={busy}
+            onClick={() => act(() => api.resume(businessId, plan.id))}
+          >
             {busy ? "Resuming…" : "Resume"}
           </button>
         )}
+        {plan.status === "done" && (
+          <a className="btn btn-primary" href={`#/b/${businessId}/report`}>
+            See your launch report →
+          </a>
+        )}
         {plan.status === "done" && plan.site_url && (
-          <a className="btn btn-primary" href={plan.site_url} target="_blank" rel="noreferrer">
+          <a className="btn btn-ghost" href={plan.site_url} target="_blank" rel="noreferrer">
             Open my website
           </a>
         )}

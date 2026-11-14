@@ -144,3 +144,30 @@ input:focus, textarea:focus, button:focus-visible, a:focus-visible { outline: 3p
 .steplog .st-running .icon { animation: spin 1.2s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (min-width: 640px) { .summary { grid-template-columns: 1fr 1fr; } }
+.report-name { margin: 0 0 0.25rem; }
+.headline { display: flex; align-items: center; gap: 0.75rem; border-radius: 12px; padding: 0.9rem 1rem; margin: 0 0 1rem; }
+.headline h1 { margin: 0; font-size: 1.45rem; line-height: 1.25; }
+.headline .big-icon { font-size: 1.8rem; flex: none; }
+.headline-ok { background: #e8f7ee; border: 1px solid #b6e3c6; }
+.headline-todo { background: #fff4f2; border: 1px solid #f3c2b8; }
+.headline-wait { background: var(--brand-soft); border: 1px solid var(--border); }
+.left { margin: 0 0 1rem; padding-left: 1.25rem; }
+.left li { margin: 0.3rem 0; }
+.checks, .repairs { list-style: none; padding: 0.5rem 1.25rem; }
+.checks li { display: flex; gap: 0.75rem; padding: 0.7rem 0; border-bottom: 1px solid var(--border); }
+.checks li:last-child, .repairs li:last-child { border-bottom: 0; }
+.checks .icon { width: 1.5rem; flex: none; text-align: center; }
+.checks .title, .repairs .title { font-weight: 600; }
+.checks .when { font-size: 0.85rem; }
+.repairs li { padding: 0.7rem 0; border-bottom: 1px solid var(--border); }
+.repairs p { margin: 0.35rem 0; }
+.doctor { font-style: italic; border-left: 3px solid var(--brand); padding-left: 0.6rem; }
+.badge { display: inline-block; margin-left: 0.5rem; font-size: 0.75rem; font-weight: 600; padding: 0.1rem 0.5rem;
+  border-radius: 999px; background: #e8f7ee; color: var(--ok-fg); vertical-align: middle; }
+.mono { font-family: ui-monospace, Menlo, monospace; font-size: 0.85rem; word-break: break-all; }
+.monitor p:first-child { margin-top: 0; }
+.admin { margin-top: 1.5rem; border-style: dashed; }
+.admin h2 { margin-top: 0; font-size: 1rem; }
+.audit { margin: 1.5rem 0; }
+.audit td { font-family: inherit; word-break: break-word; }
+.nowrap { white-space: nowrap; color: var(--muted); padding-right: 0.6rem !important; vertical-align: top; }

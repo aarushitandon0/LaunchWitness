@@ -21,12 +21,14 @@ def create(client, name="meera_cakes", **files) -> dict:
     s = sample(name)
     r = client.post("/api/businesses", data={"description": s["description"], "price_list": s["price_list"]}, files=files or None)
     assert r.status_code == 201, r.text
+    client.headers["X-Owner-Key"] = r.json()["owner_key"]
     return r.json()
 
 
 def save(client, biz: dict, subdomain="meera", **changes) -> dict:
     profile = {**biz["profile"], **changes}
-    r = client.put(f"/api/businesses/{biz['id']}", json={"profile": profile, "subdomain": subdomain})
+    r = client.put(f"/api/businesses/{biz['id']}", json={"profile": profile, "subdomain": subdomain},
+                   headers={"X-Owner-Key": biz["owner_key"]} if "owner_key" in biz else None)
     assert r.status_code == 200, r.text
     return r.json()
 

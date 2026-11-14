@@ -57,6 +57,7 @@ class Ctx:
     integ: Integrations
     plan: Plan
     business: Business
+    run_id: int | None = None  # the CheckRun that check results belong to
 
     @property
     def changes(self) -> list[dict]:

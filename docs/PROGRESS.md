@@ -4,14 +4,16 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
-**M3 — Launch engine: code done against fakes**; the only open M3 AC needs real infra. **M4: code-only parts done** (Checker, playbook, Doctor in fixture mode); report UI + monitoring not started. M0 done · M2 done · **M1 postponed** until GoDaddy credit is confirmed (decided 2026-11-14: M2 first, all local, then M1 once purchases are done).
+**M4 — done against fakes** (session 3): launch report, demo fault, "Run checks now", light monitoring, owner links, live-link guards. Open M4 items need real infra (AC5 evening launch; real DNS/HTTPS/email monitoring). M3 done except the real-infra AC. M0 done · M2 done · **M1 postponed** until GoDaddy credit is confirmed.
 
 ## Next up
 
 1. **M1** once credit is confirmed: user buys VPS, app domain, Titan mailbox on godaddy.com; deploy prod mode; wildcard `*.<APP_DOMAIN>` A record → VPS.
 2. **Fable session — plug in real integrations** (list below), then flip `USE_FAKES=false` on the VPS and do the M3 AC1 sandbox launch with real HTTPS.
 3. **Live Claude fixtures** (needs an API key; user approves each call): `scripts/capture_reader_fixtures.py` (3 Reader calls), then Namer and Doctor fixtures. All current Claude fixtures are **placeholders** (see below).
-4. **M4 rest**: launch-check endpoint + "Run checks now", launch report page, demo fault toggle, light monitoring (APScheduler).
+4. **Check `EMAIL_PLAN_ESTIMATE_USD`** (placeholder **$24/year**) against the real GoDaddy cart for Titan Pro Light, then set it in `.env`.
+5. **M4 AC5 (evening):** one full launch of Meera's purchased domain (if budget allows), recorded — needs M1 + the Fable session.
+6. Then M5 (polish, demo video, replay, submission). Stretch only after the user says core is done.
 
 ## ⚠️ Placeholder Claude fixtures (no live Claude call has been made yet)
 
@@ -36,6 +38,11 @@ Everything below is behind an interface with a working fake; tests cover the fak
 | 9 | Test-order arrival (demo mailbox) | `backend/app/mail/imap.py` → `ImapInboxReader.find` | Exists; verify against the real Titan inbox. For real sellers, add the "Yes, I got it" confirm link (SPEC §6) — not built. |
 | 10 | Server config | `.env` on VPS | `SERVER_IP=<VPS IP>`, `APP_DOMAIN`, `APP_BASE_URL=https://<APP_DOMAIN>`, `USE_FAKES=false`, SMTP/IMAP passwords. |
 | 11 | Live Claude | `backend/app/agents/claude_client.py` → `LiveClaudeClient` | Done (cap + max_tokens + usage table). Only needs `ANTHROPIC_API_KEY` + `CLAUDE_MODE=live`. |
+| 12 | Certificate end date | `backend/app/checks/http_probe.py` → `RealHttpProbe.cert_expires(host)` | Implemented with `ssl` + `getpeercert()["notAfter"]`; verify against a real Caddy-served host. Feeds "days left" + cert warnings (7/1 days). |
+| 13 | Domain end date | `backend/app/godaddy/client.py` → `GoDaddyClient.domain_expires(domain)` | Implemented as `GET /v1/domains/{d}` → `expires`; verify the field on prod. Feeds domain warnings (30/7/1 days). |
+| 14 | Monitoring on real infra | `backend/app/monitor/scheduler.py` (`Monitor`) | Runs in-process with APScheduler when `MONITOR_ENABLED=true`. On the VPS check: 15-min and daily jobs fire, re-check after 1 min, alert emails go out via SMTP to the owner's personal email (`Business.owner_email`). Test `test_monitoring_against_real_infra` is a skipped placeholder. |
+| 15 | Admin token | `.env` on VPS | Set `ADMIN_TOKEN` to 16+ random chars (admin is OFF while it's `change-me`). Admin-created businesses are the only REAL ones when `USE_FAKES=false`; everything public stays practice. |
+| 16 | DB schema | `data/launchwitness.db` | Session 3 added columns/tables (no migrations). Nothing is deployed yet; on any existing dev DB, delete the file and restart. |
 
 ## Done
 
@@ -56,7 +63,15 @@ Everything below is behind an interface with a working fake; tests cover the fak
   - AC3 ✅ executor refuses domains/labels not in the DB for this business (tests, incl. domain removed after approval).
   - AC4 ✅ `ALLOW_PURCHASE=false` → full mode stops at the purchase step with a clear message; nothing bought, no DNS touched (test). Owner buys manually → Resume adopts the domain and finishes (test).
 - 2026-11-14: **M4 code-only parts (fakes)**: Checker (8 checks), playbook (5 fixes), Doctor in fixture mode with max 3 attempts. AC3 ✅ Doctor fix outside the playbook is refused and logged, nothing changes (test). Missing-DMARC → explained → fixed → re-check green, all audited (test).
-- Tests: 183 passed, 1 skipped (the real-infra HTTPS AC).
+- 2026-11-14: **M4 rest (fakes), session 3** — ACs:
+  - AC1 ✅ full green run on a sandbox launch; the report shows every check with result + time (test + browser).
+  - AC2 ✅ demo fault (admin) removes DMARC (or MX) before the next check → check fails → Doctor sentence shown → `readd_email_auth` applied → re-check green; demo_fault, diagnose, dns_write, fail/pass checks and repair are all in the audit log (tests + browser at iPhone width).
+  - AC3 ✅ (session 2) Doctor fix outside the playbook refused.
+  - AC4 ✅ "Run checks now" works (button + endpoint, one run at a time); scheduler jobs registered (15 min + daily), re-check after 1 min, Doctor fix, alert to personal email once per problem, expiry warnings 30/7/1 (domain) and 7/1 (cert), off via `MONITOR_ENABLED` (tests).
+  - AC5 ⏳ **PENDING REAL INFRA** (evening launch of Meera's purchased domain).
+  - Also: secret owner link (hashed), practice-only public path, per-visitor limits for describe + launch, "Pretend I bought it (practice)", approval card email-plan line.
+  - Browser check (Playwright, iPhone 13): describe → owner link → review (+ personal email) → names → approve → paused before buying → Pretend I bought it → report green → team sign-in → arm DMARC fault → Run checks now → Doctor explains + fixed → green again.
+- Tests: 245 passed, 2 skipped (real-infra HTTPS AC; real-infra monitoring).
 
 ## Environment status
 
@@ -103,11 +118,21 @@ Everything below is behind an interface with a working fake; tests cover the fak
 
 - 2026-11-14 (session 2): Transcript scrubber (`scripts/transcript_scrub.py`, called by `save-transcript.sh`) redacts values instead of dropping the whole transcript: emails → `[redacted-email]`, key/secret values → `[REDACTED]`; skips base64 image data and code-annotation values (`SecretStr`, `settings.…`, `self.…`, env lookups, type names); an independent re-scan refuses to save if anything remains. It over-redacts code/test text that *talks about* secrets (safe direction). Session 2 transcript saved as `replay/sessions/2026-11-14-s2-m2-m3.jsonl`.
 
+- 2026-11-14 (session 3, user): Email plan price is shown on the approval card as its own line, "Email plan, bought separately on GoDaddy", with an estimate (`EMAIL_PLAN_ESTIMATE_USD`, placeholder **24/year — check against the real cart**). Not in the total; the spend guard covers only what the app buys (the domain).
+- 2026-11-14 (session 3, user): No accounts. Each business gets a secret owner link (`/#/b/<id>?key=<token>`, 24 random bytes, only sha256 stored). The key (header `X-Owner-Key`) is needed for every business/plan/report/checks/orders route; the public seller site stays public. The link is shown once after "describe" with a plain-English "save this link" page. The browser remembers the key in localStorage, so the owner isn't asked again on the same device. `GET /api/businesses` is admin-only.
+- 2026-11-14 (session 3, user): "Pretend I bought it (practice)" button on a launch paused before buying; practice mode only (409 otherwise). It marks the domain owned in the fake world and resumes; nothing bought, audited as `practice_buy`.
+- 2026-11-14 (session 3, user): Businesses created without the admin token are ALWAYS practice (`Business.practice`) and use the fake world for launches, checks, monitoring and alert emails, even when the server has `USE_FAKES=false`. Only admin-created businesses on a real server use real integrations. Per-visitor daily limits for describe (`VISITOR_DESCRIBES_PER_DAY=5`) and launch approvals (`VISITOR_LAUNCHES_PER_DAY=3`); admin exempt.
+- 2026-11-14 (session 3): Admin = `X-Admin-Token` == `ADMIN_TOKEN`, and admin is OFF while the token is `change-me` or shorter than 16 chars. Frontend: `#/admin` stores the token in this browser; the report then shows the demo switch.
+- 2026-11-14 (session 3): Visitor = sha256 of the client IP; behind Caddy, the LAST `X-Forwarded-For` entry (Caddy doesn't trust client-sent values by default).
+- 2026-11-14 (session 3): `Business.domain` is no longer DB-unique: unique among real businesses and among practice ones (checked in planner + approve), so a practice launch can never block a real seller's domain. On a real server, practice domains are never served by Host and never get a certificate (tls-ask). Practice full launches link to the practice subdomain site, never the pretend domain.
+- 2026-11-14 (session 3): Launch checks run automatically when a launch finishes; each round is a `CheckRun` (launch | manual | monitor_quick | monitor_daily | monitor_recheck). Checks run in order and a failure is repaired right away, so later checks see the fix. Report = latest launch/manual run; headline "Your business is ready for customers" only when every check passes.
+- 2026-11-14 (session 3): Demo fault = `Business.demo_fault` ("dmarc" | "mx"), one-shot, used by the next check run; deletes through the same guarded path (`assert_can_write`), audited as actor `admin`. Needs a full launch (409 for sandbox).
+- 2026-11-14 (session 3): Monitoring: quick = site points + HTTPS; daily = quick + email checks (full) + new `settings_match` (every value the launch wrote is unchanged) + days left. Failure → re-check after 60 s → Doctor fix (where the playbook has one) → alert if still failing. `settings_match` is alert-only (the change may be hers; "Was this you?" is stretch). One alert per problem until it passes (`Alert` table). Domain warnings 30/7/1 days; certificate warnings only at 7/1 days (Caddy renews by itself well before). No personal email → no alert, logged as skipped. Personal email is a new field on the review screen.
+
 ## Open questions
 
 - Should seller sites also answer on `www.<domain>` (needs tls-ask + DNS change)? Currently no.
-- Mailbox cost: should the approval card include the Titan plan price (and the purchase go through the spend guard), or stay "bought separately"?
-- Owner authentication: the review/launch API has no login yet — anyone with the app URL can edit any business. Needed before judges get a public "try it" link (M5).
+- Exact Titan Pro Light yearly price for the approval card estimate (placeholder $24).
 
 - Does the credit cover domain + Pro Light fully? Exact cart total?
 - Are hackathon accounts whitelisted for production Domains/DNS APIs, or use `gddy`?

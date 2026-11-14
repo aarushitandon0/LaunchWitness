@@ -112,7 +112,8 @@ def _full(session: Session, settings: Settings, integ: Integrations, business: B
         raise PlanError("That doesn't look like a website name we can use (for example: meerascakes.in).")
     if domain == settings.app_domain or domain.endswith("." + settings.app_domain):
         raise PlanError("That name belongs to LaunchWitness. Please pick your own.")
-    other = session.exec(select(Business).where(Business.domain == domain, Business.id != business.id)).first()
+    other = session.exec(select(Business).where(Business.domain == domain, Business.id != business.id,
+                                                Business.practice == business.practice)).first()
     if other is not None:
         raise PlanError("That name is already used by another business here.")
 
