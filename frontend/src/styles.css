@@ -291,6 +291,8 @@ input[type="checkbox"] { accent-color: var(--ink); width: 18px; height: 18px; }
 @media (min-width: 900px) {
   .hero-inner { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); grid-template-areas: "head shape" "copy shape"; align-content: center; column-gap: var(--s-6); }
   .hero-head { grid-area: head; align-self: end; }
+  /* two columns: the headline column is ~half the screen, so the type must not outgrow it */
+  .display { font-size: min(var(--fs-display), 6.9vw, 6rem); }
   .hero-copy { grid-area: copy; align-self: start; }
   .hero-shape { grid-area: shape; position: relative; right: auto; bottom: auto; top: auto; width: 100%; max-width: 520px; justify-self: end; align-self: center; }
   .scroll-cue { display: flex; }
