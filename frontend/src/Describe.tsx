@@ -34,6 +34,7 @@ export default function Describe() {
 
   return (
     <>
+      <p className="eyebrow">Step 1 of 5 · describe</p>
       <h1>Describe your business</h1>
       <p className="tagline">
         Tell us in your own words what you sell, where, and when you're open. Paste your price list or add a photo of
