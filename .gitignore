@@ -1,0 +1,27 @@
+# secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# data
+data/
+*.db
+*.sqlite
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# node
+node_modules/
+frontend/dist/
+
+# raw Claude Code transcripts (may contain secrets; only the redacted replay is published)
+replay/raw/
+
+# os
+.DS_Store
