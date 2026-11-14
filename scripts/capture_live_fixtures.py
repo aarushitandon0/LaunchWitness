@@ -13,6 +13,7 @@ through LiveClaudeClient (max_tokens, daily cap, ClaudeUsage rows).
 
 Usage (CLAUDE_MODE=live and ANTHROPIC_API_KEY in the environment):
     cd backend && ../.venv/bin/python ../scripts/capture_live_fixtures.py reader:meera_cakes namer:meera_cakes
+    (Windows venv: use ../.venv/Scripts/python.exe instead of ../.venv/bin/python)
     ... --dry-run <targets>   worst-case cost per target, no key needed, no call made
     ... --report              today's live spend from the ClaudeUsage table, per fixture
 """
