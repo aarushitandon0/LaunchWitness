@@ -62,6 +62,8 @@ class DnsBackup(SQLModel, table=True):
 class CheckResult(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     business_id: int = Field(foreign_key="business.id", index=True)
+    plan_id: int | None = Field(default=None, foreign_key="plan.id", index=True)
+    attempt: int = 0  # 0 = first check, 1..3 = re-check after a repair
     check: str  # e.g. "https", "dns_a", "mx", "test_order"
     passed: bool
     detail: str = ""
@@ -89,6 +91,7 @@ class Order(SQLModel, table=True):
     items_json: str = "[]"  # [{"name", "qty", "price_inr"}]
     total_inr: int = 0
     note: str = ""
+    is_test: bool = False  # placed by the launch check, not a customer
     email_status: str = "pending"  # pending | sent | failed
     email_message_id: str = ""
     created_at: datetime = Field(default_factory=utcnow)

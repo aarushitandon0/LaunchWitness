@@ -43,7 +43,8 @@ def parse_order_form(form: dict[str, str], profile: Profile) -> dict:
 def order_email(business: Business, profile: Profile, order: Order, items: list[dict]) -> tuple[str, str]:
     from app.sites.render import format_inr
 
-    subject = f"New order for {profile.name} from {order.customer_name} (#{order.id})"
+    test = "[TEST] " if order.is_test else ""
+    subject = f"{test}New order for {profile.name} from {order.customer_name} (#{order.id})"
     lines = [f"New order #{order.id} for {profile.name}", "", f"Customer: {order.customer_name}",
              f"Phone: {order.customer_phone}", ""]
     lines += [f"- {it['qty']} x {it['name']} @ {format_inr(it['price_inr'])} = {format_inr(it['qty'] * it['price_inr'])}"
@@ -56,14 +57,14 @@ def order_email(business: Business, profile: Profile, order: Order, items: list[
 
 
 def place_order(session: Session, mailer: Mailer, *, business: Business, profile: Profile, data: dict,
-                mail_to: str) -> Order:
+                mail_to: str, is_test: bool = False) -> Order:
     order = Order(business_id=business.id, customer_name=data["customer_name"], customer_phone=data["customer_phone"],
                   items_json=json.dumps(data["items"], ensure_ascii=False), total_inr=data["total_inr"],
-                  note=data["note"])
+                  note=data["note"], is_test=is_test)
     session.add(order)
     session.commit()
     session.refresh(order)
-    audit.record(session, actor="customer", action="order_placed", target=f"order:{order.id}", result="ok",
+    audit.record(session, actor="checker" if is_test else "customer", action="order_placed", target=f"order:{order.id}", result="ok",
                  business_id=business.id, detail=f"{len(data['items'])} item(s), total {data['total_inr']}")
 
     subject, body = order_email(business, profile, order, data["items"])
