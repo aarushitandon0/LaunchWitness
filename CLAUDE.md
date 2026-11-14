@@ -75,8 +75,10 @@ scripts/               # build-replay.sh and helpers
 - Live Reader fixtures (only with the user's OK, 1 call per seller): `cd backend && CLAUDE_MODE=live ../.venv/bin/python ../scripts/capture_reader_fixtures.py`
 - Team (admin) access in the browser: set `ADMIN_TOKEN` (16+ chars) in `.env`, open `/#/admin`, paste it. The report page then shows the demo fault switch. Owners use their private link (`/#/b/<id>?key=…`, shown once after "describe").
 - Monitoring: on by default (`MONITOR_ENABLED=true`, starts with the app); tests never start it.
-- Save session transcript: `bash scripts/save-transcript.sh <N> <milestone>` · build replay page: `bash scripts/build-replay.sh` (reads `~/.claude/projects` + `replay/sessions/`)
-- Prod on the VPS (HTTPS + on-demand TLS): set `APP_DOMAIN` and `CADDYFILE=Caddyfile.prod` in `.env`, then `docker compose --env-file .env -f deploy/docker-compose.yml up -d --build`
+- Save session transcript: `bash scripts/save-transcript.sh <N> <milestone>` · build replay page: `REDACT_EMAILS=<owner email> bash scripts/build-replay.sh` → `replay/build.html` (served at `/build`; redacts emails, secret-scans the page, deletes it on any hit). One Claude Code session = one file in `replay/sessions/` (the replay keeps one copy per session id: if a chat continues, replace its earlier partial file).
+- Prod on the VPS: follow `docs/RUNBOOK_M1.md`. Start/update: `docker compose --env-file .env -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build` (Caddyfile.prod, monitoring on, restart always, healthchecks) · M1 check: `bash scripts/check_m1.sh` · DB backup: `bash scripts/backup_db.sh` (restore: `--restore <file>`)
+- Demo rehearsal (practice, needs the app running): `python3 scripts/seed_demo.py [--url URL] [--launched]` · reset: `ADMIN_TOKEN` in env, `python3 scripts/seed_demo.py --reset`
+- App pages: `/` landing + contact form · `/#/try` describe · `/#/admin` team access · `/build` replay
 
 ## Style
 
