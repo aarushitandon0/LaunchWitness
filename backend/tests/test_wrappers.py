@@ -79,13 +79,13 @@ def test_claude_fixture_missing_raises(tmp_path):
         FixtureClaudeClient(fixture_dir=tmp_path).ask_json(fixture="nope", tier="cheap", system="", user="")
 
 
-def test_claude_live_requires_key(make_settings):
+def test_claude_live_requires_key(make_settings, engine):
     with pytest.raises(RuntimeError):
-        make_claude_client(make_settings(claude_mode="live"))
+        make_claude_client(make_settings(claude_mode="live"), engine)
 
 
-def test_claude_live_cannot_reach_network(make_settings):
-    c = LiveClaudeClient(make_settings(claude_mode="live", anthropic_api_key="sk-test-not-real"))
+def test_claude_live_cannot_reach_network(make_settings, engine):
+    c = LiveClaudeClient(make_settings(claude_mode="live", anthropic_api_key="sk-test-not-real"), engine)
     c._client = c._client.with_options(max_retries=0)
     with pytest.raises(Exception) as exc:
         c.ask_json(fixture="x", tier="cheap", system="s", user="u")

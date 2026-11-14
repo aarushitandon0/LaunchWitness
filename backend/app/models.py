@@ -71,3 +71,31 @@ class AuditEvent(SQLModel, table=True):
     result: str  # "ok" | "blocked" | "failed" | ...
     detail: str = ""
     created_at: datetime = Field(default_factory=utcnow)
+
+
+class Order(SQLModel, table=True):
+    """An order a customer placed through a seller's site form (no payment taken)."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    business_id: int = Field(foreign_key="business.id", index=True)
+    customer_name: str
+    customer_phone: str
+    items_json: str = "[]"  # [{"name", "qty", "price_inr"}]
+    total_inr: int = 0
+    note: str = ""
+    email_status: str = "pending"  # pending | sent | failed
+    email_message_id: str = ""
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class ClaudeUsage(SQLModel, table=True):
+    """One live Claude call: tokens and cost, used to enforce the daily spend cap."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    day: str = Field(index=True)  # UTC date, YYYY-MM-DD
+    purpose: str  # e.g. "reader_meera_cakes"
+    model: str
+    input_tokens: int
+    output_tokens: int
+    cost_usd: float
+    created_at: datetime = Field(default_factory=utcnow)
