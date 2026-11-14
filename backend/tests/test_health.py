@@ -33,3 +33,21 @@ def test_env_example_lists_every_setting():
     names = {line.split("=", 1)[0].strip() for line in text.splitlines() if "=" in line and not line.lstrip().startswith("#")}
     missing = {f.upper() for f in Settings.model_fields} - names
     assert not missing, f".env.example is missing: {sorted(missing)}"
+
+
+def test_serves_built_frontend(tmp_path, settings):
+    from fastapi.testclient import TestClient
+
+    from app.config import get_settings
+    from app.main import create_app
+
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "index.html").write_text("<html>LaunchWitness</html>")
+    (tmp_path / "assets" / "app.js").write_text("console.log(1)")
+    app = create_app(frontend_dist=tmp_path, run_lifespan=False)
+    app.dependency_overrides[get_settings] = lambda: settings
+    c = TestClient(app)
+    assert "LaunchWitness" in c.get("/").text
+    assert "LaunchWitness" in c.get("/some/page").text  # SPA fallback
+    assert c.get("/assets/app.js").status_code == 200
+    assert c.get("/api/health").json()["ok"] is True
