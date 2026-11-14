@@ -4,7 +4,7 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
-**M1 + M5: everything that doesn't need real infra is done** (session 4): landing page + contact form, `/build`, prod compose, backup/restore, `docs/RUNBOOK_M1.md`, `scripts/check_m1.sh`, demo seeder, README, project brief draft, public replay built and secret-scanned. **Next session runs on the real VPS: follow `docs/RUNBOOK_M1.md` step by step.** M4 done against fakes (AC5 needs real infra). M3 done except the real-infra AC. M0 · M2 done.
+**M1 + M5: everything that doesn't need real infra is done** (session 4): landing page + contact form, `/build`, prod compose, backup/restore, `docs/RUNBOOK_M1.md`, `scripts/check_m1.sh`, demo seeder, README, project brief draft, public replay built and secret-scanned. Session 5 (design + motion pass) done: new look and motion for the landing page and the whole demo flow. **Next session runs on the real VPS: follow `docs/RUNBOOK_M1.md` step by step.** M4 done against fakes (AC5 needs real infra). M3 done except the real-infra AC. M0 · M2 done.
 
 ## Next up
 
@@ -79,7 +79,16 @@ Everything below is behind an interface with a working fake; tests cover the fak
   - `scripts/check_m1.sh` (PASS/FAIL per M1 AC: DNS app + wildcard, HTTPS valid cert, `/internal` blocked, SMTP + IMAP login, optional external email by subject, contact form arrives via IMAP marker, password not tracked/in history; secrets never printed or put on a command line). Mechanics tested here; the secret check caught a planted leak.
   - `scripts/seed_demo.py` (practice Meera via the running app's API; `--launched` = full practice launch, report green; `--reset` via new admin-only `DELETE /api/admin/practice-businesses/{id}`, which refuses real businesses). Tested end to end.
   - `docs/RUNBOOK_M1.md`, `README.md` (full draft), `docs/PROJECT_BRIEF.md` (one-page draft).
-- Tests: 258 passed, 2 skipped (real-infra HTTPS AC; real-infra monitoring).
+- 2026-11-14: **Session 5, design + motion pass (M5 demo polish):**
+  - `frontend/src/tokens.css` = the one source for colour (cream, near-black ink, one soft-lime accent, success green, warning amber, danger red), type scale (Inter Tight, light display), spacing, radius, shadows, easing. `styles.css` uses only tokens.
+  - App shell: dark rounded frame + light "notch" nav tab; route changes fade/rise (Framer Motion `AnimatePresence`). Step eyebrows "Step N of 5".
+  - Launch log: lines appear one by one (420 ms apart) with a drawn tick per finished step, spinner for running, amber mark for "paused before buying", red for failed; a progress bar; auto-go to the report only after the log has played. A finished launch opened later shows instantly.
+  - Report: checks play one by one (spinner → tick). A repaired check shows red + plain message, then the Doctor's sentence types in, then it turns green with "Fixed by us". Plays once per check run (remembered in localStorage); headline says "Checking that everything works…" while playing.
+  - Landing: sticky cream hero (3-line light headline with an inline tick icon, dot link, paragraph) + a code-drawn shape (4 SVG slabs + ball, our own art) that drift apart on scroll; the hero scales back and dims as the dark "How it works" section slides over it; 4 /01–/04 cards, the hovered/tapped one grows and fills lime with its text fading in; "Built on GoDaddy" slow marquee (Domains, DNS, Email, VPS, HTTPS, Monitoring — plain text); promises; a closing cream sheet with Meera's story + contact form. Scrolling up reverses everything.
+  - Seller template: spacing, soft shadows, focus rings, button press feedback only. No motion.
+  - Reduced motion: no scroll transforms, marquee becomes a static grid, results show instantly, typing is instant.
+  - Checked in Chromium at iPhone 13 (390 px) and 1440×900: full practice flow incl. demo DMARC fault → Doctor → fixed. Scroll smoothness measured with rAF frame times at 4× CPU slowdown: iPhone 0 frames > 33 ms; laptop 3. Found + fixed the main cause of jank (an opacity fade on the whole hero content → replaced by one dark overlay; 115 → 17 slow frames in the hero range at normal speed).
+- Tests: 258 passed, 2 skipped (real-infra HTTPS AC; real-infra monitoring). `npm run build` clean.
 
 ## Environment status
 
@@ -144,6 +153,10 @@ Everything below is behind an interface with a working fake; tests cover the fak
 - 2026-11-14 (session 4): `replay/build.html` is committed (the image serves it). `build-replay.sh` redacts the owner's email, extracts the turn data back out of the page and secret-scans both (`transcript_scrub.py --check`); any hit deletes the page. The Session 1 copy was re-scrubbed with the current scrubber (it still contained the sandbox's public default Java truststore password "changeit" ×4; now `[REDACTED]`).
 - 2026-11-14 (session 4): Sessions 3 and 4 were ONE Claude Code chat (same session id), so they are saved as one file `2026-11-14-s3-s4-m4-m1-m5.jsonl`, replacing the partial `s3-m4` copy (the replay keeps one copy per session id).
 - 2026-11-14 (session 4): `gddy` sub-commands in the runbook are marked "confirm with `gddy tree`" (not verifiable here); each has a REST API or godaddy.com fallback.
+
+- 2026-11-14 (session 5): Framer Motion (`framer-motion@11.11.17`) is the only new dependency. Font = Inter Tight from Google Fonts (user OK); seller sites keep the system font (no external request on sellers' pages).
+- 2026-11-14 (session 5): The launch log and the report "play" real results with small fixed gaps (420 ms per log line; ~0.5–1 s per check, Doctor sentence typed at 16 ms/char) so a fast launch still reads as a story. Nothing is invented: only the pace of showing real results is set. Each check run plays once per browser.
+- 2026-11-14 (session 5): App screens stay one centred column (max 48rem) on laptops too; the landing page is full-width.
 
 ## Open questions
 
