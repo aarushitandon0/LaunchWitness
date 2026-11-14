@@ -1,0 +1,5 @@
+{
+  "_note": "Hand-written placeholder (no live Claude call made yet). Replace with a real saved Doctor response.",
+  "plain_explanation": "A missing protection setting means order emails could land in spam.",
+  "fix_id": "readd_email_auth"
+}

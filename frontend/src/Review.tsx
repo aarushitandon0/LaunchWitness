@@ -168,6 +168,11 @@ export default function Review({ id }: { id: number }) {
             View my website
           </a>
         )}
+        {!dirty && (
+          <a className="btn btn-primary" href={`#/b/${id}/launch`}>
+            Launch my website →
+          </a>
+        )}
         {savedAt && !dirty && <span className="saved">✅ Saved. Your website is up to date.</span>}
         {dirty && <span className="muted">You have unsaved changes.</span>}
       </div>

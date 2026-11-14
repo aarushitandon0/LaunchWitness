@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     app_domain: str = "localhost"
     app_base_url: str = "http://localhost"
     admin_token: SecretStr = SecretStr("change-me")
+    # Public IP of the VPS; seller sites' A records point here.
+    server_ip: str = "127.0.0.1"
+    # true = GoDaddy, availability, mailbox, DNS checks and HTTP probes are in-memory
+    # fakes (practice mode, nothing real changes). Set false on the VPS once the
+    # real integrations are filled in (see PROGRESS.md "Real integration TODO").
+    use_fakes: bool = True
 
     # --- Claude ---
     anthropic_api_key: SecretStr = SecretStr("")

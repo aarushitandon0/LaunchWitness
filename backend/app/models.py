@@ -25,9 +25,14 @@ class Business(SQLModel, table=True):
 class Plan(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     business_id: int = Field(foreign_key="business.id", index=True)
-    steps_json: str = "[]"
+    mode: str = "sandbox"  # sandbox | full
+    zone: str = ""  # the DNS zone this launch writes to (APP_DOMAIN or the seller's domain)
+    site_host: str = ""  # e.g. meera.<APP_DOMAIN> or meerascakes.in
+    mailbox: str = ""  # address orders are emailed to
+    steps_json: str = "[]"  # [{id, kind, title, detail, status, message, started_at, finished_at}]
+    dns_json: str = "[]"  # [{zone, type, name, before: [...], after: [...], say, deferred}]
     total_cost_usd: float = 0.0
-    status: str = "draft"  # draft | approved | running | done | failed
+    status: str = "draft"  # draft | approved | running | done | failed | blocked
     created_at: datetime = Field(default_factory=utcnow)
 
 
@@ -48,6 +53,7 @@ class Approval(SQLModel, table=True):
 class DnsBackup(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     business_id: int = Field(foreign_key="business.id", index=True)
+    plan_id: int | None = Field(default=None, foreign_key="plan.id", index=True)
     domain: str
     records_json: str
     created_at: datetime = Field(default_factory=utcnow)
@@ -56,6 +62,8 @@ class DnsBackup(SQLModel, table=True):
 class CheckResult(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     business_id: int = Field(foreign_key="business.id", index=True)
+    plan_id: int | None = Field(default=None, foreign_key="plan.id", index=True)
+    attempt: int = 0  # 0 = first check, 1..3 = re-check after a repair
     check: str  # e.g. "https", "dns_a", "mx", "test_order"
     passed: bool
     detail: str = ""
@@ -83,6 +91,7 @@ class Order(SQLModel, table=True):
     items_json: str = "[]"  # [{"name", "qty", "price_inr"}]
     total_inr: int = 0
     note: str = ""
+    is_test: bool = False  # placed by the launch check, not a customer
     email_status: str = "pending"  # pending | sent | failed
     email_message_id: str = ""
     created_at: datetime = Field(default_factory=utcnow)

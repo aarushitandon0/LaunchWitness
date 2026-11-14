@@ -36,6 +36,44 @@ export type Order = {
   created_at: string;
 };
 
+export type Step = {
+  id: string;
+  kind: string;
+  title: string;
+  detail: string;
+  status: "pending" | "running" | "done" | "skipped" | "failed" | "blocked";
+  message: string;
+  started_at: string | null;
+  finished_at: string | null;
+};
+
+export type DnsChange = {
+  zone: string;
+  type: string;
+  name: string;
+  say: string;
+  deferred: boolean;
+  before_text: string[];
+  after_text: string[];
+};
+
+export type Plan = {
+  id: number;
+  business_id: number;
+  mode: "sandbox" | "full";
+  zone: string;
+  site_host: string;
+  mailbox: string;
+  status: "draft" | "approved" | "running" | "done" | "failed" | "blocked";
+  total_cost_usd: number;
+  steps: Step[];
+  changes: DnsChange[];
+  site_url: string | null;
+  approvals: { action: string; target: string; amount_usd: number; approved_by: string; used: boolean }[];
+};
+
+export type NameIdea = { domain: string; price_usd: number };
+
 /** Error whose message is plain English from the server (safe to show). */
 export class ApiError extends Error {
   constructor(message: string, public status: number, public details: unknown = null) {
@@ -77,6 +115,22 @@ export const api = {
     if (photo) form.set("photo", photo);
     return request<Business>("/api/businesses", { method: "POST", body: form });
   },
+  practiceMode: () => request<{ practice: boolean }>("/api/practice-mode"),
+  names: (id: number) => request<NameIdea[]>(`/api/businesses/${id}/names`),
+  plan: (id: number) => request<Plan>(`/api/plans/${id}`),
+  createPlan: (businessId: number, mode: "sandbox" | "full", domain?: string) =>
+    request<Plan>(`/api/businesses/${businessId}/plans`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode, domain: domain ?? null }),
+    }),
+  approve: (planId: number, approvedBy: string) =>
+    request<{ ok: boolean }>(`/api/plans/${planId}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ approved_by: approvedBy || "owner" }),
+    }),
+  resume: (planId: number) => request<{ ok: boolean }>(`/api/plans/${planId}/resume`, { method: "POST" }),
   save: (id: number, profile: Profile, subdomain: string) =>
     request<Business>(`/api/businesses/${id}`, {
       method: "PUT",
@@ -86,3 +140,5 @@ export const api = {
 };
 
 export const inr = (n: number) => "₹" + new Intl.NumberFormat("en-IN").format(n);
+
+export const usd = (n: number) => "$" + n.toFixed(2);

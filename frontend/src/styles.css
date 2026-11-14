@@ -110,3 +110,37 @@ input:focus, textarea:focus, button:focus-visible, a:focus-visible { outline: 3p
   .products .product { grid-template-columns: 2fr 7rem 1fr; }
   .products .product .grow:first-child { grid-column: auto; }
 }
+
+/* ---- M3: launch choice, approval card, step log ---- */
+.practice { background: #fff7e6; border: 1px solid #f5d9a8; color: #7a4b00; padding: 0.6rem 0.9rem;
+  border-radius: 10px; font-size: 0.95rem; }
+.choice { margin-top: 1rem; }
+.choice h2 { margin-top: 0; }
+.names { list-style: none; padding: 0; margin: 0; }
+.names li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.6rem 0;
+  border-top: 1px solid var(--border); }
+.btn-sm { min-height: 36px; padding: 0.3rem 0.9rem; font-size: 0.9rem; }
+.summary { display: grid; gap: 0.75rem; margin: 0; }
+.summary dt { font-size: 0.85rem; color: var(--muted); }
+.summary dd { margin: 0; font-weight: 600; word-break: break-word; }
+.summary .cost { font-size: 1.25rem; }
+.todo, .settings { padding-left: 1.25rem; }
+.todo li, .settings li { margin: 0.35rem 0; }
+.diff { border-collapse: collapse; margin-top: 0.4rem; font-size: 0.85rem; width: 100%; }
+.diff th { text-align: left; color: var(--muted); font-weight: 500; padding: 0.2rem 0.6rem 0.2rem 0; vertical-align: top; width: 4.5rem; }
+.diff td { font-family: ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-all; padding: 0.2rem 0; }
+.diff .after { color: var(--ok-fg); }
+.tech { font-size: 0.85rem; color: var(--muted); padding-left: 1rem; }
+.agree { display: flex; gap: 0.5rem; align-items: flex-start; margin: 0.5rem 0 0; }
+.agree input { width: auto; margin-top: 0.3rem; }
+.steplog { list-style: none; padding: 0.5rem 1.25rem; }
+.steplog li { display: flex; gap: 0.75rem; padding: 0.7rem 0; border-bottom: 1px solid var(--border); }
+.steplog li:last-child { border-bottom: 0; }
+.steplog .icon { width: 1.5rem; flex: none; text-align: center; }
+.steplog .title { font-weight: 600; }
+.steplog .msg { margin-top: 0.2rem; }
+.steplog .st-pending .title { color: var(--muted); font-weight: 500; }
+.steplog .st-failed .msg, .steplog .st-blocked .msg { color: var(--err-fg); }
+.steplog .st-running .icon { animation: spin 1.2s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (min-width: 640px) { .summary { grid-template-columns: 1fr 1fr; } }

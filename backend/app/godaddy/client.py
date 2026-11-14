@@ -1,6 +1,9 @@
 """GoDaddy REST API wrapper (Domains + DNS). OTE sandbox by default.
 
-Purchases are NOT implemented here in M0; when added they must go through
+DNS writes are always scoped to ONE (type, name) pair (`set_records` /
+`delete_records`), never a whole-zone replace, so a launch can't wipe records
+it didn't plan. Purchases are not implemented in the real client: they are done
+by the owner on godaddy.com, and any future code path must go through
 `app.safety.spend_guard.authorize_purchase` first.
 """
 
@@ -15,15 +18,22 @@ BASE_URLS = {
     "prod": "https://api.godaddy.com",
 }
 
-DnsRecord = dict  # {"type": "A", "name": "@", "data": "1.2.3.4", "ttl": 600}
+DnsRecord = dict  # {"type": "A", "name": "@", "data": "1.2.3.4", "ttl": 600, "priority"?: 10}
+
+
+class PurchaseNotSupported(RuntimeError):
+    pass
 
 
 class GoDaddy(Protocol):
     env: str
 
     def check_availability(self, domain: str) -> dict: ...
+    def is_owned(self, domain: str) -> bool: ...
     def get_records(self, domain: str) -> list[DnsRecord]: ...
-    def replace_records(self, domain: str, records: list[DnsRecord]) -> None: ...
+    def set_records(self, domain: str, rtype: str, name: str, records: list[DnsRecord]) -> None: ...
+    def delete_records(self, domain: str, rtype: str, name: str) -> None: ...
+    def purchase_domain(self, domain: str, price_usd: float) -> dict: ...
 
 
 class GoDaddyClient:
@@ -51,35 +61,79 @@ class GoDaddyClient:
         r.raise_for_status()
         return r.json()
 
+    def is_owned(self, domain: str) -> bool:
+        """True if the domain is in this GoDaddy account. TODO(real): verify against prod account."""
+        r = self._http.get(f"/v1/domains/{domain}")
+        if r.status_code == 404:
+            return False
+        r.raise_for_status()
+        return r.json().get("status", "").upper() in ("ACTIVE", "PENDING_DNS_ACTIVE", "")
+
     def get_records(self, domain: str) -> list[DnsRecord]:
         r = self._http.get(f"/v1/domains/{domain}/records")
         r.raise_for_status()
         return r.json()
 
-    def replace_records(self, domain: str, records: list[DnsRecord]) -> None:
-        r = self._http.put(f"/v1/domains/{domain}/records", json=records)
+    def set_records(self, domain: str, rtype: str, name: str, records: list[DnsRecord]) -> None:
+        """Replace all records of one type+name (PUT /v1/domains/{d}/records/{type}/{name})."""
+        body = [{k: v for k, v in rec.items() if k not in ("type", "name")} for rec in records]
+        r = self._http.put(f"/v1/domains/{domain}/records/{rtype}/{name}", json=body)
         r.raise_for_status()
+
+    def delete_records(self, domain: str, rtype: str, name: str) -> None:
+        r = self._http.delete(f"/v1/domains/{domain}/records/{rtype}/{name}")
+        if r.status_code != 404:
+            r.raise_for_status()
+
+    def purchase_domain(self, domain: str, price_usd: float) -> dict:
+        raise PurchaseNotSupported("Domains are bought by the owner on godaddy.com; the app only adopts them.")
 
 
 class FakeGoDaddyClient:
-    """In-memory stand-in for tests and local dev."""
+    """In-memory stand-in for tests and practice mode."""
 
-    def __init__(self, available: dict[str, float] | None = None, env: str = "ote"):
+    def __init__(self, available: dict[str, float] | None = None, env: str = "ote", owned: set[str] | None = None):
         self.env = env
-        self.available = available or {}  # domain -> price in USD
+        self.available = dict(available or {})  # domain -> price in USD
+        self.owned: set[str] = set(owned or ())
         self.zones: dict[str, list[DnsRecord]] = {}
         self.calls: list[tuple] = []
+        self.fail_next: dict[str, int] = {}  # method name -> number of upcoming calls that raise
+
+    def _maybe_fail(self, method: str) -> None:
+        if self.fail_next.get(method, 0) > 0:
+            self.fail_next[method] -= 1
+            raise RuntimeError(f"fake {method} failure")
 
     def check_availability(self, domain: str) -> dict:
         self.calls.append(("check_availability", domain))
-        if domain in self.available:
+        if domain in self.available and domain not in self.owned:
             return {"domain": domain, "available": True, "price_usd": self.available[domain]}
         return {"domain": domain, "available": False}
 
+    def is_owned(self, domain: str) -> bool:
+        self.calls.append(("is_owned", domain))
+        return domain in self.owned
+
     def get_records(self, domain: str) -> list[DnsRecord]:
         self.calls.append(("get_records", domain))
+        self._maybe_fail("get_records")
         return [dict(r) for r in self.zones.get(domain, [])]
 
-    def replace_records(self, domain: str, records: list[DnsRecord]) -> None:
-        self.calls.append(("replace_records", domain))
-        self.zones[domain] = [dict(r) for r in records]
+    def set_records(self, domain: str, rtype: str, name: str, records: list[DnsRecord]) -> None:
+        self.calls.append(("set_records", domain, rtype, name))
+        self._maybe_fail("set_records")
+        keep = [r for r in self.zones.get(domain, []) if not (r["type"] == rtype and r["name"] == name)]
+        self.zones[domain] = keep + [{**dict(r), "type": rtype, "name": name} for r in records]
+
+    def delete_records(self, domain: str, rtype: str, name: str) -> None:
+        self.calls.append(("delete_records", domain, rtype, name))
+        self.zones[domain] = [r for r in self.zones.get(domain, []) if not (r["type"] == rtype and r["name"] == name)]
+
+    def purchase_domain(self, domain: str, price_usd: float) -> dict:
+        self.calls.append(("purchase_domain", domain, price_usd))
+        self.owned.add(domain)
+        return {"domain": domain, "price_usd": price_usd, "order_id": f"fake-{len(self.owned)}"}
+
+    def writes(self) -> list[tuple]:
+        return [c for c in self.calls if c[0] in ("set_records", "delete_records")]

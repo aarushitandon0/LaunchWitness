@@ -34,3 +34,38 @@ class FakeDnsResolver:
 
     def resolve(self, name: str, rtype: str) -> list[str]:
         return list(self.records.get((name.lower().rstrip("."), rtype.upper()), []))
+
+
+def record_text(rec: dict) -> str:
+    """GoDaddy record dict -> the text a DNS lookup would return."""
+    if rec["type"] == "MX":
+        return f"{rec.get('priority', 10)} {rec['data']}."
+    if rec["type"] == "TXT":
+        return f'"{rec["data"]}"'
+    if rec["type"] in ("CNAME", "NS"):
+        return rec["data"].rstrip(".") + "."
+    return rec["data"]
+
+
+class ZoneBackedResolver:
+    """Fake *authoritative* DNS that answers from a FakeGoDaddyClient's zones,
+    so practice-mode launches can be 'proven' end to end. `hide` lets tests and
+    the demo fault simulate a record that hasn't spread yet / went missing."""
+
+    def __init__(self, godaddy):
+        self.godaddy = godaddy
+        self.hide: set[tuple[str, str]] = set()
+
+    def resolve(self, name: str, rtype: str) -> list[str]:
+        fqdn, rtype = name.lower().rstrip("."), rtype.upper()
+        if (fqdn, rtype) in self.hide:
+            return []
+        for zone, records in self.godaddy.zones.items():
+            if fqdn == zone:
+                label = "@"
+            elif fqdn.endswith("." + zone):
+                label = fqdn[: -len(zone) - 1]
+            else:
+                continue
+            return [record_text(r) for r in records if r["type"] == rtype and r["name"] == label]
+        return []
