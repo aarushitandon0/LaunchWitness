@@ -10,17 +10,25 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from sqlmodel import Session
 
 from app.config import REPO_ROOT, Settings, get_settings
 from app.db import get_session, init_db
-from app.routers import businesses, health, internal, launch, report
+from app.routers import businesses, contact, health, internal, launch, report
 from app.sites import routes as seller_routes
 
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
+REPLAY_PAGE = REPO_ROOT / "replay" / "build.html"  # built by scripts/build-replay.sh, served at /build
+
+BUILD_COMING_SOON = """<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How LaunchWitness was built</title>
+<body style="font-family:system-ui;max-width:560px;margin:15vh auto;padding:0 16px;color:#1f2937;line-height:1.5">
+<h1>How this was built: coming soon</h1>
+<p>LaunchWitness was built in a series of sessions with Claude Code. The full replay of those sessions will appear
+on this page shortly.</p><p><a href="/">← Back to LaunchWitness</a></p></body>"""
 
 
 def start_monitor(settings: Settings):
@@ -48,13 +56,15 @@ async def lifespan(_app: FastAPI):
         monitor.shutdown()
 
 
-def create_app(*, frontend_dist: Path = FRONTEND_DIST, run_lifespan: bool = True) -> FastAPI:
+def create_app(*, frontend_dist: Path = FRONTEND_DIST, replay_page: Path = REPLAY_PAGE,
+               run_lifespan: bool = True) -> FastAPI:
     app = FastAPI(title="LaunchWitness", lifespan=lifespan if run_lifespan else None)
     app.include_router(health.router)
     app.include_router(internal.router)
     app.include_router(businesses.router)
     app.include_router(launch.router)
     app.include_router(report.router)
+    app.include_router(contact.router)
     app.include_router(seller_routes.router)
 
     assets = frontend_dist / "assets"
@@ -73,6 +83,10 @@ def create_app(*, frontend_dist: Path = FRONTEND_DIST, run_lifespan: bool = True
         page = seller_routes.seller_page(path, request, settings, session)
         if page is not None:
             return page
+        if path.rstrip("/") == "build":
+            if replay_page.is_file():
+                return FileResponse(replay_page, media_type="text/html")
+            return HTMLResponse(BUILD_COMING_SOON)
         index = frontend_dist / "index.html"
         if not index.is_file():
             return PlainTextResponse("Frontend not built. Run: cd frontend && npm run build")

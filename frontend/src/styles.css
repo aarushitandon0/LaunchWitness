@@ -171,3 +171,13 @@ input:focus, textarea:focus, button:focus-visible, a:focus-visible { outline: 3p
 .audit { margin: 1.5rem 0; }
 .audit td { font-family: inherit; word-break: break-word; }
 .nowrap { white-space: nowrap; color: var(--muted); padding-right: 0.6rem !important; vertical-align: top; }
+.hero h1 { font-size: 1.75rem; line-height: 1.2; }
+.small { font-size: 0.85rem; }
+.how, .promises { list-style: none; padding: 0.5rem 1.25rem; }
+.how li, .promises li { display: flex; flex-direction: column; gap: 0.2rem; padding: 0.7rem 0; border-bottom: 1px solid var(--border); }
+.how li { flex-direction: row; gap: 0.75rem; }
+.how li:last-child, .promises li:last-child { border-bottom: 0; }
+.how .title, .promises .title { font-weight: 600; }
+.how .num { flex: none; width: 1.8rem; height: 1.8rem; border-radius: 999px; background: var(--brand); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-weight: 700; }
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }

@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     # Live-link guards (per visitor = per client IP, per UTC day; admin is exempt).
     visitor_describes_per_day: int = 5
     visitor_launches_per_day: int = 3
+    visitor_contacts_per_day: int = 5
     # Light monitoring (APScheduler). Off in tests; the scheduler only starts with the app.
     monitor_enabled: bool = True
 

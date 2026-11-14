@@ -8,4 +8,5 @@ data
 **/node_modules
 frontend/dist
 *.tsbuildinfo
-replay
+replay/sessions
+replay/raw

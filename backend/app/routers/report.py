@@ -149,3 +149,26 @@ def set_demo_fault(business_id: int, body: DemoFault, session: Annotated[Session
     audit.record(session, actor="admin", action="demo_fault_switch", target=body.fault or "off", result="ok",
                  business_id=b.id, detail="armed: removed before the next check" if body.fault else "disarmed")
     return {"ok": True, "demo_fault": b.demo_fault}
+
+
+@router.delete("/admin/practice-businesses/{business_id}", dependencies=[Depends(require_admin)])
+def delete_practice_business(business_id: int, session: Annotated[Session, Depends(get_session)]) -> dict:
+    """Demo reset (scripts/seed_demo.py --reset): remove a PRACTICE business and all its rows.
+    Real businesses are never deleted this way."""
+    from sqlmodel import delete
+
+    from app.models import Alert, Approval, DnsBackup, Order
+
+    b = session.get(Business, business_id)
+    if b is None:
+        raise HTTPException(status_code=404, detail="We couldn't find that business.")
+    if not b.practice:
+        raise HTTPException(status_code=409, detail="Only practice businesses can be deleted here.")
+    for table in (Alert, CheckResult, CheckRun, Order, Approval, DnsBackup, AuditEvent):
+        session.exec(delete(table).where(table.business_id == business_id))
+    session.exec(delete(Plan).where(Plan.business_id == business_id))
+    session.delete(b)
+    session.commit()
+    audit.record(session, actor="admin", action="delete_practice_business", target=f"business:{business_id}",
+                 result="ok", detail=b.name)
+    return {"ok": True}

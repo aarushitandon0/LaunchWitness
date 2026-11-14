@@ -4,16 +4,16 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
-**M4 — done against fakes** (session 3): launch report, demo fault, "Run checks now", light monitoring, owner links, live-link guards. Open M4 items need real infra (AC5 evening launch; real DNS/HTTPS/email monitoring). M3 done except the real-infra AC. M0 done · M2 done · **M1 postponed** until GoDaddy credit is confirmed.
+**M1 + M5: everything that doesn't need real infra is done** (session 4): landing page + contact form, `/build`, prod compose, backup/restore, `docs/RUNBOOK_M1.md`, `scripts/check_m1.sh`, demo seeder, README, project brief draft, public replay built and secret-scanned. **Next session runs on the real VPS: follow `docs/RUNBOOK_M1.md` step by step.** M4 done against fakes (AC5 needs real infra). M3 done except the real-infra AC. M0 · M2 done.
 
 ## Next up
 
-1. **M1** once credit is confirmed: user buys VPS, app domain, Titan mailbox on godaddy.com; deploy prod mode; wildcard `*.<APP_DOMAIN>` A record → VPS.
-2. **Fable session — plug in real integrations** (list below), then flip `USE_FAKES=false` on the VPS and do the M3 AC1 sandbox launch with real HTTPS.
+1. **M1 on the VPS** once credit is confirmed: follow `docs/RUNBOOK_M1.md` (buy → SSH → Docker → clone → `.env` → DNS A + wildcard → prod compose → backup cron → mailbox → `check_m1.sh` all PASS). Confirm the `gddy` sub-commands with `gddy tree` (marked in the runbook).
+2. **Fable session — plug in real integrations** in the order of the runbook's step 11 table, then `USE_FAKES=false` (admin-created businesses only) and the M3 AC1 sandbox launch with real HTTPS.
 3. **Live Claude fixtures** (needs an API key; user approves each call): `scripts/capture_reader_fixtures.py` (3 Reader calls), then Namer and Doctor fixtures. All current Claude fixtures are **placeholders** (see below).
 4. **Check `EMAIL_PLAN_ESTIMATE_USD`** (placeholder **$24/year**) against the real GoDaddy cart for Titan Pro Light, then set it in `.env`.
 5. **M4 AC5 (evening):** one full launch of Meera's purchased domain (if budget allows), recorded — needs M1 + the Fable session.
-6. Then M5 (polish, demo video, replay, submission). Stretch only after the user says core is done.
+6. **M5 on the live app:** fill the live link + video in `README.md`; turn `docs/PROJECT_BRIEF.md` into the PDF (find a 2025–26 India stat); record the demo video (SPEC §12; rehearse with `scripts/seed_demo.py --launched` + the demo switch); rebuild `/build` (`scripts/build-replay.sh`) at the very end so it has every session; final secret scan; submit. Stretch only after the user says core is done.
 
 ## ⚠️ Placeholder Claude fixtures (no live Claude call has been made yet)
 
@@ -71,7 +71,15 @@ Everything below is behind an interface with a working fake; tests cover the fak
   - AC5 ⏳ **PENDING REAL INFRA** (evening launch of Meera's purchased domain).
   - Also: secret owner link (hashed), practice-only public path, per-visitor limits for describe + launch, "Pretend I bought it (practice)", approval card email-plan line.
   - Browser check (Playwright, iPhone 13): describe → owner link → review (+ personal email) → names → approve → paused before buying → Pretend I bought it → report green → team sign-in → arm DMARC fault → Run checks now → Doctor explains + fixed → green again.
-- Tests: 245 passed, 2 skipped (real-infra HTTPS AC; real-infra monitoring).
+- 2026-11-14: **M1 + M5 prep (no real infra), session 4:**
+  - Landing page at `/` (pitch, Meera story, 4 steps, 3 promises, "Try it (practice mode)" → `/#/try`, "How this was built" → `/build`) + **contact form** → `POST /api/contact` → Mailer → app mailbox (`SMTP_USER`; SMTP_SSL to smtpout.secureserver.net:465, full address as username, password from env; test). Plain-English success/errors, honeypot, `VISITOR_CONTACTS_PER_DAY=5`, audited. Browser-checked at iPhone width (locally the send shows the plain error: no real mailbox yet).
+  - `/build` serves `replay/build.html`, else a "coming soon" page; not on seller hosts. `replay/build.html` built here (claude-replay via npx), owner email redacted, secret scan clean, committed; copied into the image.
+  - Deploy: repo `deploy/Dockerfile` unchanged except copying `replay/`. Plain `docker build` here fails **only** on the sandbox proxy's certificate (pip → pypi); a scratch copy differing only in a CA build-secret on the 2 install lines built fine, ran healthy, served `/`, `/api/health`, `/build`. **Needs a plain build on the VPS to fully confirm.** `deploy/docker-compose.prod.yml` (override): Caddyfile.prod, `MONITOR_ENABLED=true`, `restart: always`, healthchecks on app + caddy, log caps, `app-data` volume. Verified locally (APP_DOMAIN=localhost): both healthy, HTTPS answers, `/internal/*` 404, monitoring on.
+  - `scripts/backup_db.sh` (online SQLite backup, integrity check, keep 14, `--restore` that fixes file ownership). Backup, prune and restore all tested against the running stack (first restore attempt found the ownership bug, fixed).
+  - `scripts/check_m1.sh` (PASS/FAIL per M1 AC: DNS app + wildcard, HTTPS valid cert, `/internal` blocked, SMTP + IMAP login, optional external email by subject, contact form arrives via IMAP marker, password not tracked/in history; secrets never printed or put on a command line). Mechanics tested here; the secret check caught a planted leak.
+  - `scripts/seed_demo.py` (practice Meera via the running app's API; `--launched` = full practice launch, report green; `--reset` via new admin-only `DELETE /api/admin/practice-businesses/{id}`, which refuses real businesses). Tested end to end.
+  - `docs/RUNBOOK_M1.md`, `README.md` (full draft), `docs/PROJECT_BRIEF.md` (one-page draft).
+- Tests: 258 passed, 2 skipped (real-infra HTTPS AC; real-infra monitoring).
 
 ## Environment status
 
@@ -129,10 +137,20 @@ Everything below is behind an interface with a working fake; tests cover the fak
 - 2026-11-14 (session 3): Demo fault = `Business.demo_fault` ("dmarc" | "mx"), one-shot, used by the next check run; deletes through the same guarded path (`assert_can_write`), audited as actor `admin`. Needs a full launch (409 for sandbox).
 - 2026-11-14 (session 3): Monitoring: quick = site points + HTTPS; daily = quick + email checks (full) + new `settings_match` (every value the launch wrote is unchanged) + days left. Failure → re-check after 60 s → Doctor fix (where the playbook has one) → alert if still failing. `settings_match` is alert-only (the change may be hers; "Was this you?" is stretch). One alert per problem until it passes (`Alert` table). Domain warnings 30/7/1 days; certificate warnings only at 7/1 days (Caddy renews by itself well before). No personal email → no alert, logged as skipped. Personal email is a new field on the review screen.
 
+- 2026-11-14 (session 4): Landing page = the SPA's `#/` route; the describe screen moved to `#/try`. The practice banner is hidden on the landing (the page says it itself).
+- 2026-11-14 (session 4): Contact messages go only to the app mailbox (`SMTP_USER`) and are not stored in the DB (only an audit row with the visitor hash and message length — no name/email/message). Per-visitor limit `VISITOR_CONTACTS_PER_DAY=5`.
+- 2026-11-14 (session 4): Production = `docker-compose.yml` + override `docker-compose.prod.yml` (not a separate full file), so local and prod share one definition.
+- 2026-11-14 (session 4): Demo seeding goes through the running app's HTTP API (the practice fake world lives in the app's memory). Reset deletes practice businesses only, via an admin-only endpoint; ids + owner links kept in `~/.launchwitness-demo.json` (outside the repo).
+- 2026-11-14 (session 4): `replay/build.html` is committed (the image serves it). `build-replay.sh` redacts the owner's email, extracts the turn data back out of the page and secret-scans both (`transcript_scrub.py --check`); any hit deletes the page. The Session 1 copy was re-scrubbed with the current scrubber (it still contained the sandbox's public default Java truststore password "changeit" ×4; now `[REDACTED]`).
+- 2026-11-14 (session 4): Sessions 3 and 4 were ONE Claude Code chat (same session id), so they are saved as one file `2026-11-14-s3-s4-m4-m1-m5.jsonl`, replacing the partial `s3-m4` copy (the replay keeps one copy per session id).
+- 2026-11-14 (session 4): `gddy` sub-commands in the runbook are marked "confirm with `gddy tree`" (not verifiable here); each has a REST API or godaddy.com fallback.
+
 ## Open questions
 
 - Should seller sites also answer on `www.<domain>` (needs tls-ask + DNS change)? Currently no.
 - Exact Titan Pro Light yearly price for the approval card estimate (placeholder $24).
+- Exact `gddy` sub-commands for DNS records and Titan mailboxes on your CLI version (`gddy tree`).
+- Repo public or private on the VPS? (Private → deploy key, see runbook step 3.)
 
 - Does the credit cover domain + Pro Light fully? Exact cart total?
 - Are hackathon accounts whitelisted for production Domains/DNS APIs, or use `gddy`?

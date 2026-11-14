@@ -102,3 +102,27 @@ def test_clean_transcript_is_saved_unchanged_in_content(tmp_path):
     src.write_text(line("hello", "just code: smtp_password: SecretStr"))
     assert ts.scrub_file(str(src), str(dest), [])[0] == 0
     assert json.loads(dest.read_text()) == json.loads(src.read_text())
+
+
+def test_check_mode_scans_without_changing(tmp_path, capsys):
+    html = tmp_path / "build.html"
+    html.write_text("<html><script>var d = {\"t\": \"key " + ANT + "\"};</script>\n<p>mail meera@gmail.com</p></html>\n")
+    before = html.read_text()
+    assert ts.main(["x", "--check", str(html)]) == 1
+    err = capsys.readouterr().err
+    assert "anthropic_key" in err and "email" in err and ANT not in err
+    assert html.read_text() == before  # never modified
+
+
+def test_check_mode_clean_and_skips_base64_blobs(tmp_path):
+    page = tmp_path / "build.html"
+    blob = ("A" * 10 + "KIA" + "ABCDEFGHIJKLMNOP") * 30  # key-shaped bytes inside a long base64 run
+    page.write_text(f"<html><img src=\"data:image/png;base64,{blob}\"><p>password: SecretStr</p></html>\n")
+    assert ts.main(["x", "--check", str(page)]) == 0
+
+
+def test_check_mode_custom_email(tmp_path):
+    f = tmp_path / "t.jsonl"
+    f.write_text(json.dumps({"message": {"content": "write to owner@company.example"}}) + "\n")
+    assert ts.main(["x", "--check", str(f)]) == 0
+    assert ts.main(["x", "--check", str(f), "owner@company.example"]) == 1

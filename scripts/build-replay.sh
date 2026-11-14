@@ -8,11 +8,16 @@
 # The same session (by sessionId) found in both is used once; the committed
 # replay/sessions copy wins because it is already redacted.
 #
-# Usage:   bash scripts/build-replay.sh            -> replay/build.html
-#          INCLUDE_SUBAGENTS=1 bash scripts/build-replay.sh
+# Usage:   REDACT_EMAILS=<owner email> bash scripts/build-replay.sh   -> replay/build.html
+#          INCLUDE_SUBAGENTS=1 ...
 #
 # Needs: node/npx (for claude-replay), python3.
-# Redaction of secrets is ON (claude-replay default). Still review before publishing.
+# The page is PUBLIC (served at /build), so:
+#   - claude-replay's own secret redaction stays on, and every address in REDACT_EMAILS
+#     (default: git user.email) is replaced with [redacted-email];
+#   - afterwards the turn data is extracted back out of the HTML and scanned, and the HTML
+#     text itself is scanned too (scripts/transcript_scrub.py --check). If anything
+#     real-looking is found, build.html is DELETED and the script exits 1.
 
 set -euo pipefail
 
@@ -96,12 +101,25 @@ else
   INPUTS=("$COMBINED")
 fi
 
-# 3) Render one page (secret redaction is on by default).
-npx --yes claude-replay "${INPUTS[@]}" -o "$OUT"
+# 3) Render one page (claude-replay's secret redaction is on by default) + redact owner emails.
+EMAILS="${REDACT_EMAILS:-$(git -C "$REPO" config user.email 2>/dev/null || true)}"
+REDACT_ARGS=()
+IFS=',' read -ra _emails <<< "$EMAILS"
+for e in "${_emails[@]}"; do
+  e="$(echo "$e" | xargs)"
+  [ -n "$e" ] && REDACT_ARGS+=(--redact "$e=[redacted-email]")
+done
+npx --yes claude-replay "${INPUTS[@]}" -o "$OUT" "${REDACT_ARGS[@]}" \
+  --title "How LaunchWitness was built with Claude Code" \
+  --description "Every Claude Code session that built LaunchWitness, from the first prompt to the latest."
 
-# 4) Quick secret scan of the output as a second safety net.
-if [ -f "$OUT" ] && grep -Eiq '(sk-ant-[a-z0-9_-]{10,}|api[_-]?secret["'"'"' :=]+[a-z0-9]{12,}|password["'"'"' :=]+[^ "'"'"']{6,})' "$OUT"; then
-  echo "WARNING: possible secret found in $OUT — review before publishing." >&2
+# 4) Secret scan of what will be published: the turn data extracted from the page, and the page text.
+npx --yes claude-replay extract "$OUT" -o "$RAW/extracted.jsonl" >/dev/null
+if ! python3 "$REPO/scripts/transcript_scrub.py" --check "$RAW/extracted.jsonl" "$EMAILS" \
+   || ! python3 "$REPO/scripts/transcript_scrub.py" --check "$OUT" "$EMAILS"; then
+  rm -f "$OUT"
+  echo "FAIL: secret scan found something in the replay; $OUT was deleted. Do not publish." >&2
+  exit 1
 fi
 
-echo "Wrote $OUT"
+echo "Wrote $OUT ($(du -h "$OUT" | cut -f1), secret scan clean)"

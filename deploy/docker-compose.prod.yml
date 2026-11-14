@@ -1,0 +1,41 @@
+# Production overrides, used ON TOP of docker-compose.yml (see docs/RUNBOOK_M1.md):
+#
+#   docker compose --env-file .env -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build
+#
+# - Caddy always uses Caddyfile.prod (HTTPS for APP_DOMAIN + on-demand TLS for seller sites).
+# - Light monitoring is on (MONITOR_ENABLED=true), whatever .env says.
+# - SQLite lives on the named volume `app-data` (survives rebuilds; back it up with scripts/backup_db.sh).
+# - Both containers restart on failure and after a reboot, and have healthchecks.
+# - Logs are capped so the disk can't fill up.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  app:
+    environment:
+      MONITOR_ENABLED: "true"
+    restart: always
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3).status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    logging: *logging
+
+  caddy:
+    volumes:
+      - ./Caddyfile.prod:/etc/caddy/Caddyfile:ro
+    restart: always
+    healthcheck:
+      # Caddy's admin API listens on localhost:2019 inside the container.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    logging: *logging
