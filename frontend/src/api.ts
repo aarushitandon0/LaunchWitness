@@ -240,6 +240,8 @@ export const api = {
       { ...json({ profile, subdomain, owner_email: ownerEmail }, id), method: "PUT" },
       id,
     ),
+  contact: (name: string, email: string, message: string, website: string) =>
+    request<{ ok: boolean; message: string }>("/api/contact", json({ name, email, message, website })),
   report: (id: number) => request<Report>(`/api/businesses/${id}/report`, undefined, id),
   runChecks: (id: number) => request<{ ok: boolean; run_id: number }>(`/api/businesses/${id}/checks`, { method: "POST" }, id),
   adminCheck: (token: string) =>

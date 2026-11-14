@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { api, keys } from "./api";
 import Describe from "./Describe";
+import Landing from "./Landing";
 import Review from "./Review";
 import { LaunchChoice, PlanView } from "./Launch";
 import { AdminPage, OwnerLinkPage, ReportPage } from "./Report";
 
 type Route =
+  | { page: "home" }
   | { page: "describe" }
   | { page: "admin" }
   | { page: "saved"; businessId: number }
@@ -14,7 +16,7 @@ type Route =
   | { page: "report"; businessId: number }
   | { page: "plan"; businessId: number; planId: number };
 
-/** Tiny hash router: #/ · #/admin · #/b/<id>[?key=…] · #/b/<id>/saved · #/b/<id>/launch · #/b/<id>/plan/<pid> · #/b/<id>/report */
+/** Tiny hash router: #/ (landing) · #/try (describe) · #/admin · #/b/<id>[?key=…] · #/b/<id>/saved · #/b/<id>/launch · #/b/<id>/plan/<pid> · #/b/<id>/report */
 function useRoute(): Route {
   const parse = (): Route => {
     let h = window.location.hash;
@@ -26,13 +28,14 @@ function useRoute(): Route {
       window.history.replaceState(null, "", h);
     }
     if (h.startsWith("#/admin")) return { page: "admin" };
+    if (h.startsWith("#/try")) return { page: "describe" };
     let m = h.match(/^#\/b\/(\d+)\/plan\/(\d+)/);
     if (m) return { page: "plan", businessId: Number(m[1]), planId: Number(m[2]) };
     m = h.match(/^#\/b\/(\d+)\/(launch|report|saved)/);
     if (m) return { page: m[2] as "launch" | "report" | "saved", businessId: Number(m[1]) };
     m = h.match(/^#\/b\/(\d+)/);
     if (m) return { page: "review", businessId: Number(m[1]) };
-    return { page: "describe" };
+    return { page: "home" };
   };
   const [route, setRoute] = useState(parse);
   useEffect(() => {
@@ -43,7 +46,7 @@ function useRoute(): Route {
   return route;
 }
 
-export const go = (businessId: number | null) => goTo(businessId === null ? "#/" : `#/b/${businessId}`);
+export const go = (businessId: number | null) => goTo(businessId === null ? "#/try" : `#/b/${businessId}`);
 
 export const goTo = (hash: string) => {
   window.location.hash = hash;
@@ -63,11 +66,12 @@ export default function App() {
           LaunchWitness
         </a>
       </header>
-      {practice && (
+      {practice && route.page !== "home" && (
         <p className="practice" role="note">
           Practice mode: launches run against a pretend GoDaddy. Nothing is bought and no real settings change.
         </p>
       )}
+      {route.page === "home" && <Landing />}
       {route.page === "describe" && <Describe />}
       {route.page === "review" && <Review key={route.businessId} id={route.businessId} />}
       {route.page === "launch" && <LaunchChoice key={route.businessId} businessId={route.businessId} />}
