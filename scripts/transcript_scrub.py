@@ -1,6 +1,7 @@
 """Redact a Claude Code transcript (.jsonl) before it is committed.
 
     python3 scripts/transcript_scrub.py SRC DEST [email,email,...]
+    python3 scripts/transcript_scrub.py --check FILE [email,...]   # scan only (.jsonl or any text, e.g. build.html)
 
 - Personal emails: every address passed in, plus any webmail address -> [redacted-email].
 - Secrets: every match of the strict patterns below -> [REDACTED] (only the value;
@@ -127,7 +128,37 @@ def scrub_file(src: str, dest: str, emails: list[str]) -> tuple[int, str]:
     return 0, f"Redacted secrets: {summary}" + (f" (lines {lines})" if redacted_lines else "")
 
 
+# Long base64 runs (embedded images, compressed data) are skipped in text mode: their random
+# bytes produce false hits, and they are not readable text anyway.
+BLOB = re.compile(r"[A-Za-z0-9+/=]{400,}")
+
+
+def check_file(path: str, emails: list[str]) -> list[tuple[int, str]]:
+    """Scan WITHOUT changing anything: (line number, kind) of every real-looking secret/email.
+    JSON lines are checked string by string (image data skipped); other lines as text with
+    long base64 runs masked."""
+    found: list[tuple[int, str]] = []
+    with open(path, encoding="utf-8", errors="replace") as f:
+        for n, line in enumerate(f, 1):
+            try:
+                kinds = leftovers(json.dumps(json.loads(line)), emails) if line.strip() else []
+            except json.JSONDecodeError:
+                hits: Counter = Counter()
+                scrub_string(BLOB.sub(" ", line), emails, hits)
+                kinds = [k for k, v in hits.items() if v]
+            found += [(n, k) for k in kinds]
+    return found
+
+
 def main(argv: list[str]) -> int:
+    if len(argv) >= 3 and argv[1] == "--check":
+        emails = [e.strip() for e in (argv[3] if len(argv) > 3 else "").split(",") if e.strip()]
+        found = check_file(argv[2], emails)
+        if found:
+            print("SECRET SCAN: found " + "; ".join(f"line {n}: {k}" for n, k in found[:20]), file=sys.stderr)
+            return 1
+        print(f"SECRET SCAN: clean ({argv[2]})")
+        return 0
     if len(argv) < 3:
         print(__doc__)
         return 2
