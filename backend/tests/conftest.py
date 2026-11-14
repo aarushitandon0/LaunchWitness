@@ -31,13 +31,20 @@ def _host_of(address) -> str | None:
 
 
 @pytest.fixture(autouse=True)
-def no_network(monkeypatch):
+def no_network(monkeypatch) -> list[str]:
+    """Block (and record) every non-local connection. Returns the list of blocked hosts."""
+    blocked: list[str] = []
+
+    # A local proxy would turn a "localhost" connection into a real outbound one.
+    for var in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
+        monkeypatch.delenv(var, raising=False)
     real_connect = socket.socket.connect
     real_connect_ex = socket.socket.connect_ex
     real_getaddrinfo = socket.getaddrinfo
 
     def guard(host):
         if host is not None and host not in _LOCAL_HOSTS:
+            blocked.append(host)
             raise NetworkBlocked(f"Real network call attempted in a test: {host}")
 
     def connect(self, address):
@@ -52,9 +59,17 @@ def no_network(monkeypatch):
         guard(host if isinstance(host, str) else None)
         return real_getaddrinfo(host, *args, **kwargs)
 
+    real_sendto = socket.socket.sendto
+
+    def sendto(self, data, *args):
+        guard(_host_of(args[-1]) if args else None)  # UDP (e.g. DNS queries)
+        return real_sendto(self, data, *args)
+
     monkeypatch.setattr(socket.socket, "connect", connect)
+    monkeypatch.setattr(socket.socket, "sendto", sendto)
     monkeypatch.setattr(socket.socket, "connect_ex", connect_ex)
     monkeypatch.setattr(socket, "getaddrinfo", getaddrinfo)
+    return blocked
 
 
 @pytest.fixture
