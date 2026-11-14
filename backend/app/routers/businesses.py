@@ -147,4 +147,4 @@ def list_orders(business_id: int, session: Annotated[Session, Depends(get_sessio
     rows = session.exec(select(Order).where(Order.business_id == business_id).order_by(Order.id.desc())).all()
     return [{"id": o.id, "customer_name": o.customer_name, "customer_phone": o.customer_phone,
              "items": json.loads(o.items_json), "total_inr": o.total_inr, "note": o.note,
-             "email_status": o.email_status, "created_at": o.created_at.isoformat()} for o in rows]
+             "email_status": o.email_status, "created_at": o.created_at.replace(tzinfo=None).isoformat() + "Z"} for o in rows]
