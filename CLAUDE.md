@@ -18,6 +18,7 @@ Full product spec: `docs/SPEC.md`. Milestones and acceptance criteria: `docs/BUI
 2. **Before coding:** state in 3–6 bullets what you will do this session and which acceptance criteria from `docs/BUILD_PLAN.md` it targets. Wait for the user's OK if the plan changes anything in `docs/SPEC.md`.
 3. **While coding:** small commits, each one working. Run tests before every commit.
 4. **End:** update `docs/PROGRESS.md` (move items to Done, set Next, add decisions/open questions) and append one entry to `docs/BUILD_LOG.md` (template inside). Then commit.
+5. **Save the transcript:** run `bash scripts/save-transcript.sh <N> <milestone>` (e.g. `2 m2`; set `REDACT_EMAILS=<owner's email>` in the shell, never in a file). It copies this session's transcript to `replay/sessions/<date>-s<N>-<milestone>.jsonl`, redacts the owner's personal email (and any webmail address), and secret-scans the copy. If the scan matches, the script deletes the copy and exits 1 — **never commit that transcript**; tell the user which lines matched. Commit the saved file only when the script reports a clean scan. `replay/raw/` stays git-ignored.
 
 ## Hard rules
 
@@ -69,6 +70,7 @@ scripts/               # build-replay.sh and helpers
 - Backend only (dev): `cd backend && ../.venv/bin/uvicorn app.main:app --reload --port 8000`
 - Frontend dev: `cd frontend && npm run dev` (proxies `/api` to :8000) · build: `npm run build` (FastAPI serves `frontend/dist`)
 - Run locally (full stack): `docker compose -f deploy/docker-compose.yml up --build` → http://localhost · stop: `docker compose -f deploy/docker-compose.yml down`
+- Save session transcript: `bash scripts/save-transcript.sh <N> <milestone>` · build replay page: `bash scripts/build-replay.sh` (reads `~/.claude/projects` + `replay/sessions/`)
 - Prod on the VPS (HTTPS + on-demand TLS): set `APP_DOMAIN` and `CADDYFILE=Caddyfile.prod` in `.env`, then `docker compose --env-file .env -f deploy/docker-compose.yml up -d --build`
 
 ## Style

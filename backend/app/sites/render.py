@@ -1,0 +1,88 @@
+"""Render a seller's site from the ONE fixed template + their Profile."""
+
+import re
+from dataclasses import dataclass, field
+from pathlib import Path
+from urllib.parse import quote, urlencode
+
+import segno
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+from markupsafe import Markup
+
+from app.agents.reader import Product, Profile
+
+TEMPLATES = Path(__file__).parent / "templates"
+_env = Environment(loader=FileSystemLoader(TEMPLATES), autoescape=select_autoescape(["html"]))
+
+
+def format_inr(amount: int) -> str:
+    """Indian digit grouping: 1200 -> '₹1,200', 150000 -> '₹1,50,000'."""
+    s = str(abs(int(amount)))
+    if len(s) > 3:
+        head, tail = s[:-3], s[-3:]
+        head = re.sub(r"(\d)(?=(\d\d)+$)", r"\1,", head)
+        s = f"{head},{tail}"
+    return ("-" if amount < 0 else "") + "₹" + s
+
+
+_env.filters["inr"] = format_inr
+
+
+def whatsapp_digits(number: str) -> str:
+    digits = re.sub(r"\D", "", number)
+    if len(digits) == 10:  # Indian mobile without country code
+        digits = "91" + digits
+    elif len(digits) == 11 and digits.startswith("0"):
+        digits = "91" + digits[1:]
+    return digits
+
+
+def whatsapp_link(profile: Profile) -> str | None:
+    number = whatsapp_digits(profile.whatsapp or profile.phone)
+    if len(number) < 11:
+        return None
+    text = f"Hi {profile.name}, I'd like to place an order."
+    return f"https://wa.me/{number}?{urlencode({'text': text}, quote_via=quote)}"
+
+
+def upi_uri(profile: Profile) -> str | None:
+    if not profile.upi_id:
+        return None
+    return "upi://pay?" + urlencode({"pa": profile.upi_id, "pn": profile.name, "cu": "INR"}, quote_via=quote, safe="@")
+
+
+def upi_qr_svg(uri: str) -> Markup:
+    svg = segno.make(uri, error="m").svg_inline(scale=1, border=2, omitsize=True, dark="#1f2937")
+    return Markup(svg.replace("<svg ", '<svg role="img" aria-label="UPI payment QR code" ', 1))
+
+
+@dataclass
+class Category:
+    name: str
+    items: list[tuple[int, Product]] = field(default_factory=list)  # (index in profile.products, product)
+
+
+def group_products(products: list[Product]) -> list[Category]:
+    """Categories in first-seen order; items keep their order inside each."""
+    groups: dict[str, Category] = {}
+    for i, p in enumerate(products):
+        key = p.category.strip() or "Menu"
+        groups.setdefault(key.lower(), Category(name=key)).items.append((i, p))
+    return list(groups.values())
+
+
+def render_site(profile: Profile, *, page: str = "home", order: dict | None = None, form_error: str = "",
+                form_values: dict | None = None) -> str:
+    """page: 'home' | 'privacy' | 'thanks'."""
+    uri = upi_uri(profile)
+    return _env.get_template("seller.html").render(
+        p=profile,
+        page=page,
+        categories=group_products(profile.products),
+        whatsapp_url=whatsapp_link(profile),
+        upi=uri,
+        upi_qr=upi_qr_svg(uri) if uri else None,
+        order=order,
+        form_error=form_error,
+        form=form_values or {},
+    )

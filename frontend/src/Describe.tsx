@@ -1,0 +1,124 @@
+import { FormEvent, useEffect, useState } from "react";
+import { api, ApiError, BusinessSummary, Sample } from "./api";
+import { go } from "./App";
+
+export default function Describe() {
+  const [description, setDescription] = useState("");
+  const [priceList, setPriceList] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<ApiError | null>(null);
+  const [samples, setSamples] = useState<Sample[]>([]);
+  const [existing, setExisting] = useState<BusinessSummary[]>([]);
+
+  useEffect(() => {
+    api.samples().then(setSamples).catch(() => setSamples([]));
+    api.list().then(setExisting).catch(() => setExisting([]));
+  }, []);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const b = await api.create(description, priceList, photo);
+      go(b.id);
+    } catch (err) {
+      setError(err instanceof ApiError ? err : new ApiError(String(err), 0));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <h1>Describe your business</h1>
+      <p className="tagline">
+        Tell us in your own words what you sell, where, and when you're open. Paste your price list or add a photo of
+        it. We'll turn it into your website — you can check and change everything next.
+      </p>
+
+      {samples.length > 0 && (
+        <p className="samples">
+          Try an example:{" "}
+          {samples.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              className="chip"
+              onClick={() => {
+                setDescription(s.description);
+                setPriceList(s.price_list);
+              }}
+            >
+              {s.owner_name}, {s.city}
+            </button>
+          ))}
+        </p>
+      )}
+
+      <form className="card" onSubmit={submit}>
+        <label className="field">
+          <span>About your business</span>
+          <textarea
+            rows={6}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Hi, I'm Meera. I bake eggless cakes at home in Baner, Pune…"
+            maxLength={4000}
+          />
+        </label>
+        <label className="field">
+          <span>Price list</span>
+          <textarea
+            rows={6}
+            value={priceList}
+            onChange={(e) => setPriceList(e.target.value)}
+            placeholder={"Chocolate cake 1/2 kg - ₹650\nCupcakes box of 6 - ₹420"}
+            maxLength={4000}
+          />
+        </label>
+        <label className="field">
+          <span>Or a photo of your menu / price list (optional)</span>
+          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
+        </label>
+        {error && <ErrorBox error={error} />}
+        <button className="btn btn-primary" type="submit" disabled={busy || (!description.trim() && !priceList.trim() && !photo)}>
+          {busy ? "Reading your business…" : "Make my website"}
+        </button>
+      </form>
+
+      {existing.length > 0 && (
+        <section className="existing">
+          <h2>Your businesses</h2>
+          <ul>
+            {existing.map((b) => (
+              <li key={b.id}>
+                <a href={`#/b/${b.id}`}>{b.name}</a>
+                {b.site_url && (
+                  <a className="muted" href={b.site_url} target="_blank" rel="noreferrer">
+                    view site
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
+  );
+}
+
+export function ErrorBox({ error }: { error: ApiError }) {
+  return (
+    <div className="status status-error" role="alert">
+      <p>{error.message}</p>
+      {error.details !== null && typeof error.details !== "string" && (
+        <details>
+          <summary>Details</summary>
+          <pre>{JSON.stringify(error.details, null, 2)}</pre>
+        </details>
+      )}
+    </div>
+  );
+}

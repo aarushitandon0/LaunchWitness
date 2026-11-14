@@ -1,0 +1,74 @@
+{
+  "_note": "Hand-written placeholder in Profile format. Replaced by a real saved Reader response in M2.",
+  "name": "Sheikh Ladies & Gents Tailors",
+  "tagline": "Stitching and alterations in Aminabad, Lucknow",
+  "about": "Our family shop has been tailoring in Aminabad for 22 years. We stitch blouses, suits, kurtas, lehengas and sherwanis, and do all alterations. Wedding orders get a fitting trial before final stitching.",
+  "area": "Aminabad, Lucknow",
+  "hours": "11am to 9pm, Friday half day",
+  "phone": "",
+  "whatsapp": "",
+  "upi_id": "",
+  "tone": "traditional",
+  "products": [
+    {
+      "name": "Simple blouse stitching",
+      "price_inr": 450,
+      "description": "",
+      "category": "Ladies"
+    },
+    {
+      "name": "Designer / padded blouse",
+      "price_inr": 850,
+      "description": "From ₹850",
+      "category": "Ladies"
+    },
+    {
+      "name": "Salwar suit stitching",
+      "price_inr": 600,
+      "description": "",
+      "category": "Ladies"
+    },
+    {
+      "name": "Anarkali suit",
+      "price_inr": 1100,
+      "description": "",
+      "category": "Ladies"
+    },
+    {
+      "name": "Gents kurta pajama",
+      "price_inr": 700,
+      "description": "",
+      "category": "Gents"
+    },
+    {
+      "name": "Sherwani stitching",
+      "price_inr": 3500,
+      "description": "From ₹3500",
+      "category": "Gents"
+    },
+    {
+      "name": "Pant alteration / length",
+      "price_inr": 120,
+      "description": "",
+      "category": "Alterations & extras"
+    },
+    {
+      "name": "Fall pico for saree",
+      "price_inr": 100,
+      "description": "",
+      "category": "Alterations & extras"
+    },
+    {
+      "name": "Urgent (2 days)",
+      "price_inr": 300,
+      "description": "Extra charge",
+      "category": "Alterations & extras"
+    },
+    {
+      "name": "Home measurement visit",
+      "price_inr": 150,
+      "description": "Ladies, within Lucknow",
+      "category": "Alterations & extras"
+    }
+  ]
+}

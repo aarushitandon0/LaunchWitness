@@ -7,3 +7,5 @@ dnspython==2.9.2
 APScheduler==3.11.3
 anthropic==2.8.0
 Jinja2==3.1.6
+segno==1.6.6
+python-multipart==0.0.33
