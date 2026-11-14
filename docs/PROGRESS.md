@@ -4,7 +4,7 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
-**M1 — Required basics live** · M0 done 2026-11-14
+**M2 — Business reader + seller site** (in progress) · M0 done 2026-11-14 · **M1 postponed** until GoDaddy credit is confirmed (2026-11-14 decision: do M2 first, all local, then M1 once purchases are done)
 
 ## Next up
 
