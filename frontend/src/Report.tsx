@@ -256,7 +256,7 @@ export function ReportPage({ businessId }: { businessId: number }) {
   const cur = run && seq.runId === run.id ? seq : { index: 0, phase: "checking" as Phase };
   const waiting = checking || playing;
   const headClass = waiting ? "headline-wait" : rep.ready ? "headline-ok" : "headline-todo";
-  const headText = playing ? "Checking that everything works…" : rep.headline;
+  const headText = playing || run?.status === "running" ? "Checking that everything works…" : rep.headline;
 
   return (
     <>
