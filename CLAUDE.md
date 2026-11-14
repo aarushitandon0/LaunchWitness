@@ -46,23 +46,30 @@ backend/
     main.py            # FastAPI app, routers, host-based seller site routing
     config.py          # settings from env (pydantic-settings)
     db.py, models.py   # SQLite tables: Business, Plan, DnsBackup, CheckResult, AuditEvent, Approval
-    agents/            # reader.py, namer.py, doctor.py (Claude); planner.py, executor.py, checker.py (code)
+    audit.py           # one helper to write AuditEvent rows
+    routers/           # health.py (/api/health), internal.py (/internal/tls-ask)
+    safety/            # spend_guard.py (ALLOW_PURCHASE + MAX_SPEND_USD + Approval)
+    checks/            # dns_resolver.py (public DNS lookups, real + fake)
+    agents/            # claude_client.py (fixture|live); reader.py, namer.py, doctor.py (Claude); planner.py, executor.py, checker.py (code)
     godaddy/           # client.py (ote|prod), dns.py, domains.py, email.py
     sites/             # templates/seller.html, render.py
     monitor/           # scheduler.py (light monitoring)
     mail/              # smtp.py, imap.py
   tests/               # pytest; fixtures/ holds saved Claude responses + sample seller inputs
 frontend/              # Vite React app
-deploy/                # Caddyfile, docker-compose.yml
+deploy/                # Dockerfile, docker-compose.yml, Caddyfile (local), Caddyfile.prod
 docs/                  # SPEC.md, BUILD_PLAN.md, PROGRESS.md, BUILD_LOG.md
 scripts/               # build-replay.sh and helpers
 ```
 
 ## Commands (keep this section updated as they become real)
 
-- Backend tests: `cd backend && pytest -q`
-- Run locally: `docker compose -f deploy/docker-compose.yml up --build`
-- Frontend dev: `cd frontend && npm run dev`
+- One-time setup: `cp .env.example .env` · `python3.12 -m venv .venv && .venv/bin/pip install -r backend/requirements-dev.txt` · `cd frontend && npm install`
+- Backend tests: `cd backend && ../.venv/bin/pytest -q` (or `pytest -q` with `.venv` activated). Tests block all non-local network calls.
+- Backend only (dev): `cd backend && ../.venv/bin/uvicorn app.main:app --reload --port 8000`
+- Frontend dev: `cd frontend && npm run dev` (proxies `/api` to :8000) · build: `npm run build` (FastAPI serves `frontend/dist`)
+- Run locally (full stack): `docker compose -f deploy/docker-compose.yml up --build` → http://localhost · stop: `docker compose -f deploy/docker-compose.yml down`
+- Prod on the VPS (HTTPS + on-demand TLS): set `APP_DOMAIN` and `CADDYFILE=Caddyfile.prod` in `.env`, then `docker compose --env-file .env -f deploy/docker-compose.yml up -d --build`
 
 ## Style
 

@@ -1,0 +1,25 @@
+{
+  "_note": "Hand-written placeholder for M0 so fixture mode has something to read. Replace with a real saved Reader response in M2.",
+  "business_name": "Meera's Home Cakes",
+  "tagline": "Fresh eggless cakes, baked to order in Baner, Pune",
+  "category": "home_bakery",
+  "city": "Pune",
+  "about": "Eggless cakes and cupcakes made fresh in Meera's home kitchen with real butter and Belgian chocolate. No preservatives. Custom birthday and anniversary cakes on request.",
+  "hours": "10am to 8pm, closed Tuesdays",
+  "order_notes": "Please order at least 2 days ahead. Pickup from Baner or delivery within 10 km.",
+  "products": [
+    {"name": "Chocolate truffle cake (1/2 kg)", "price_inr": 650},
+    {"name": "Chocolate truffle cake (1 kg)", "price_inr": 1200},
+    {"name": "Pineapple cake (1/2 kg)", "price_inr": 550},
+    {"name": "Red velvet with cream cheese (1/2 kg)", "price_inr": 750},
+    {"name": "Rasmalai cake (1 kg, festive special)", "price_inr": 1400},
+    {"name": "Cupcakes, box of 6", "price_inr": 420},
+    {"name": "Brownies, box of 9", "price_inr": 480}
+  ],
+  "extras": [
+    {"name": "Photo print on cake", "price_inr": 250},
+    {"name": "Theme topper", "price_inr": 300, "from": true},
+    {"name": "Delivery within 10 km", "price_inr": 80}
+  ],
+  "name_ideas": ["meerascakes", "meerahomecakes", "meerabakes"]
+}

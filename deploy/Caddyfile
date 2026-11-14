@@ -1,0 +1,10 @@
+# LOCAL mode: plain HTTP on port 80, any host name (localhost, 127.0.0.1, ...).
+# Prod mode is deploy/Caddyfile.prod (select with CADDYFILE=Caddyfile.prod).
+
+:80 {
+	# Internal endpoints are for Caddy <-> app only, never public.
+	@internal path /internal/*
+	respond @internal 404
+
+	reverse_proxy app:8000
+}

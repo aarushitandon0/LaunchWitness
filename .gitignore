@@ -19,6 +19,7 @@ __pycache__/
 # node
 node_modules/
 frontend/dist/
+*.tsbuildinfo
 
 # raw Claude Code transcripts (may contain secrets; only the redacted replay is published)
 replay/raw/
