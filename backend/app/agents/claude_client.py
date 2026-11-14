@@ -38,9 +38,10 @@ PRICES_PER_MTOK: dict[str, tuple[float, float]] = {
     "claude-haiku-5-5": (0.10, 0.50),
     "claude-opus-5-5": (4.00, 20.00),
 }
-# Models where thinking can be switched off with {"type": "between_tools"}; the
-# Reader is plain extraction, so we don't pay for thinking tokens.
-THINKING_OFF = {"claude-sonnet-5-5": {"type": "between_tools"}}
+# Thinking off: every agent here is plain extraction/choice, so we don't pay for
+# thinking tokens, and a short max_tokens can't be eaten by thinking. Sonnet 5.5 turns
+# it off with "between_tools"; Haiku 5.5 accepts "disabled" at its default effort.
+THINKING_OFF = {"claude-sonnet-5-5": {"type": "between_tools"}, "claude-haiku-5-5": {"type": "disabled"}}
 
 IMAGE_TOKEN_ESTIMATE = 1600  # generous upper bound for one resized photo
 CHARS_PER_TOKEN = 3  # conservative (overestimates tokens)
@@ -56,6 +57,10 @@ class ClaudeBadJson(ClaudeError):
 
 class ClaudeBudgetExceeded(ClaudeError):
     pass
+
+
+class ClaudeUnavailable(ClaudeError):
+    """The API could not be reached or returned an error (network, 5xx, 429, auth)."""
 
 
 class Claude(Protocol):
@@ -118,7 +123,7 @@ class LiveClaudeClient:
         if sdk is None:
             import anthropic  # imported lazily so fixture mode never needs it
 
-            sdk = anthropic.Anthropic(api_key=key)
+            sdk = anthropic.Anthropic(api_key=key, timeout=60.0, max_retries=1)
         if engine is None:
             from app.db import get_engine
 
@@ -128,6 +133,7 @@ class LiveClaudeClient:
         self._models = {"strong": settings.claude_model_strong, "cheap": settings.claude_model_cheap}
         self._max_tokens = settings.claude_max_tokens
         self._cap = settings.claude_daily_spend_cap_usd
+        self.last_raw: dict | None = None  # last reply (text, stop_reason, tokens), for debugging without a re-call
 
     def ask_json(
         self,
@@ -164,7 +170,13 @@ class LiveClaudeClient:
             kwargs["thinking"] = THINKING_OFF[model]
         if schema is not None:
             kwargs["output_config"] = {"format": {"type": "json_schema", "schema": schema}}
-        msg = self._client.messages.create(**kwargs)
+        try:
+            msg = self._client.messages.create(**kwargs)
+        except Exception as e:  # SDK/network errors: never spend a retry loop on them
+            with Session(self._engine) as session:
+                audit.record(session, actor="claude", action="claude_call", target=fixture, result="failed",
+                             detail=f"{model} {type(e).__name__}")
+            raise ClaudeUnavailable(type(e).__name__) from e
 
         usage = msg.usage
         in_tok = (usage.input_tokens or 0) + (getattr(usage, "cache_creation_input_tokens", 0) or 0) + (
@@ -179,9 +191,11 @@ class LiveClaudeClient:
             audit.record(session, actor="claude", action="claude_call", target=fixture, result="ok",
                          detail=f"{model} in={in_tok} out={out_tok} ${cost:.4f} stop={msg.stop_reason}")
 
+        text = "".join(b.text for b in msg.content if b.type == "text").strip()
+        self.last_raw = {"model": model, "stop_reason": msg.stop_reason, "input_tokens": in_tok,
+                         "output_tokens": out_tok, "cost_usd": cost, "text": text}
         if msg.stop_reason in ("refusal", "max_tokens"):
             raise ClaudeBadJson(f"Reply stopped early ({msg.stop_reason})")
-        text = "".join(b.text for b in msg.content if b.type == "text").strip()
         if text.startswith("```"):
             text = text.strip("`").removeprefix("json").strip()
         try:
@@ -193,7 +207,34 @@ class LiveClaudeClient:
         return data
 
 
+class FallbackClaudeClient:
+    """Live mode for the public app: try live Claude; if today's cap is reached or the API is
+    unavailable, answer from the saved fixtures instead so the demo never breaks.
+    `fell_back` tells the route to show a friendly note. Bad JSON is NOT a fallback reason
+    (the agents retry once and then show their own message)."""
+
+    def __init__(self, live: Claude, fixtures: Claude | None = None):
+        self.live = live
+        self.fixtures = fixtures or FixtureClaudeClient()
+        self.fell_back = False
+
+    def ask_json(self, *, fixture: str, tier: Tier, system: str, user: Content, schema=None, max_tokens=None) -> dict:
+        try:
+            return self.live.ask_json(fixture=fixture, tier=tier, system=system, user=user, schema=schema,
+                                      max_tokens=max_tokens)
+        except (ClaudeBudgetExceeded, ClaudeUnavailable):
+            self.fell_back = True
+            return self.fixtures.ask_json(fixture=fixture, tier=tier, system=system, user=user, schema=schema,
+                                          max_tokens=max_tokens)
+
+
+FALLBACK_NOTE = ("Our assistant is resting for today, so we've filled this in with a sample shop. "
+                 "You can still try every step.")
+FALLBACK_NAMES_NOTE = ("Our assistant is resting for today, so these are sample name ideas. "
+                       "Their availability and prices are still checked.")
+
+
 def make_claude_client(settings: Settings, engine: Engine | None = None) -> Claude:
     if settings.claude_mode == "live":
-        return LiveClaudeClient(settings, engine)
+        return FallbackClaudeClient(LiveClaudeClient(settings, engine))
     return FixtureClaudeClient()

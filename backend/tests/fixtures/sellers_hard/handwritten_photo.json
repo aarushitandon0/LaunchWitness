@@ -1,0 +1,16 @@
+{
+  "id": "handwritten_photo",
+  "owner_name": "Lakshmi",
+  "city": "Chennai",
+  "description": "Lakshmi's Kitchen, Mylapore Chennai. Fresh idli dosa batter and podi made at home every morning. Order by evening for next day. Price list is in the photo.",
+  "price_list": "",
+  "photo": "handwritten_price_list.jpg",
+  "expected_prices": {
+    "Idli batter 1 kg": 90,
+    "Dosa batter 1 kg": 90,
+    "Ragi dosa batter 1 kg": 120,
+    "Idli podi 200 g": 110,
+    "Coconut chutney 250 g": 60,
+    "Sambar 500 ml": 80
+  }
+}

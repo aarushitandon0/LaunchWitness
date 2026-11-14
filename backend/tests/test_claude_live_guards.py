@@ -135,6 +135,12 @@ def test_schema_and_thinking_off_are_sent(make_settings, engine):
     assert call["model"] == "claude-sonnet-5-5"
 
 
+def test_cheap_model_thinking_is_off_too(make_settings, engine):
+    c, fake = make_client(make_settings, engine, [ok()])
+    c.ask_json(fixture="t", tier="cheap", system="s", user="u", max_tokens=200)
+    assert fake.calls[0]["model"] == "claude-haiku-5-5" and fake.calls[0]["thinking"] == {"type": "disabled"}
+
+
 def test_invalid_json_raises_but_cost_is_still_recorded(make_settings, engine):
     c, _ = make_client(make_settings, engine, [("not json {", "end_turn", 100, 50)])
     with pytest.raises(ClaudeBadJson):

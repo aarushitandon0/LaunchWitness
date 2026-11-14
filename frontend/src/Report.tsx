@@ -28,8 +28,29 @@ function takeNewLink(id: number): string | null {
   }
 }
 
+const NOTE = (id: number) => `lw-note-${id}`;
+
+export function rememberNote(id: number, note: string) {
+  try {
+    window.sessionStorage.setItem(NOTE(id), note);
+  } catch {
+    /* ignore */
+  }
+}
+
+function takeNote(id: number): string | null {
+  try {
+    const n = window.sessionStorage.getItem(NOTE(id));
+    window.sessionStorage.removeItem(NOTE(id));
+    return n;
+  } catch {
+    return null;
+  }
+}
+
 export function OwnerLinkPage({ businessId }: { businessId: number }) {
   const [link] = useState(() => takeNewLink(businessId));
+  const [note] = useState(() => takeNote(businessId));
   const [copied, setCopied] = useState(false);
 
   const done = () => {
@@ -56,6 +77,11 @@ export function OwnerLinkPage({ businessId }: { businessId: number }) {
     <>
       <p className="eyebrow">Before you go on</p>
       <h1>Save your private link</h1>
+      {note && (
+        <p className="card assistant-note" role="status">
+          {note}
+        </p>
+      )}
       <p className="tagline">
         This link is the key to your shop. Anyone who has it can change your website, so keep it to yourself. We can't
         send it again, so save it now: copy it into a note, or send it to yourself on WhatsApp or email.

@@ -398,3 +398,6 @@ input[type="checkbox"] { accent-color: var(--ink); width: 18px; height: 18px; }
 /* launch progress bar */
 .progress { height: 3px; border-radius: 3px; background: var(--line); overflow: hidden; margin: var(--s-4) 0 var(--s-5); }
 .progress span { display: block; height: 100%; background: var(--ink); transform-origin: left; transform: scaleX(0); }
+
+/* Shown when live Claude is resting and a saved sample was used (session 6). */
+.assistant-note { background: var(--warning-soft); color: #6d4a06; border-radius: var(--r-sm); padding: 0.7rem 0.95rem; }

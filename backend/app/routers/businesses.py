@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from app import audit
-from app.agents.claude_client import Claude, ClaudeBudgetExceeded, make_claude_client
+from app.agents.claude_client import FALLBACK_NOTE, Claude, ClaudeBudgetExceeded, make_claude_client
 from app.agents.reader import MAX_IMAGE_BYTES, Profile, ReaderError, read_business
 from app.config import Settings, get_settings
 from app.db import get_engine, get_session
@@ -106,8 +106,13 @@ async def create_business(
     audit.record(session, actor="reader", action="read_business", target=f"business:{b.id}", result="ok",
                  business_id=b.id, detail=f"{len(profile.products)} products" + (", with photo" if image else "")
                  + (", practice" if practice else ", real"))
+    fell_back = getattr(claude, "fell_back", False)
+    if fell_back:
+        audit.record(session, actor="reader", action="claude_fallback", target=f"business:{b.id}", result="ok",
+                     business_id=b.id, detail="live Claude unavailable or daily cap reached; used a saved sample")
     # The owner key is returned ONCE, here. Only its hash is stored.
-    return {**business_out(b, settings), "owner_key": key, "owner_link": owner_link(settings, b.id, key)}
+    return {**business_out(b, settings), "owner_key": key, "owner_link": owner_link(settings, b.id, key),
+            "assistant_note": FALLBACK_NOTE if fell_back else None}
 
 
 @router.get("/businesses", dependencies=[Depends(require_admin)])

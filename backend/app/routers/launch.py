@@ -8,13 +8,13 @@ import json
 from collections.abc import Callable
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, select
 
 from app import audit
-from app.agents.claude_client import Claude, ClaudeBudgetExceeded
+from app.agents.claude_client import FALLBACK_NAMES_NOTE, Claude, ClaudeBudgetExceeded
 from app.agents.executor import reset_for_resume, run_plan
 from app.agents.namer import NamerError, find_names, namer_fixture
 from app.agents.planner import PlanError, active_plan, build_plan, plan_out
@@ -46,7 +46,8 @@ def practice_mode(integ: Annotated[Integrations, Depends(get_integrations)],
 
 
 @router.get("/businesses/{business_id}/names")
-def name_ideas(b: Annotated[Business, Depends(owned_business)], session: Annotated[Session, Depends(get_session)],
+def name_ideas(response: Response, b: Annotated[Business, Depends(owned_business)],
+               session: Annotated[Session, Depends(get_session)],
                claude: Annotated[Claude, Depends(get_claude)],
                integ_for: Annotated[IntegFor, Depends(integrations_for)]) -> list[dict]:
     integ = integ_for(b)
@@ -62,6 +63,10 @@ def name_ideas(b: Annotated[Business, Depends(owned_business)], session: Annotat
                             "You can launch on the free address for now.") from e
     audit.record(session, actor="namer", action="name_ideas", target=f"business:{b.id}", result="ok",
                  business_id=b.id, detail=", ".join(q.domain for q in quotes))
+    if getattr(claude, "fell_back", False):
+        response.headers["X-Assistant-Note"] = FALLBACK_NAMES_NOTE
+        audit.record(session, actor="namer", action="claude_fallback", target=f"business:{b.id}", result="ok",
+                     business_id=b.id, detail="live Claude unavailable or daily cap reached; used saved sample names")
     return [{"domain": q.domain, "price_usd": q.price_usd} for q in quotes]
 
 

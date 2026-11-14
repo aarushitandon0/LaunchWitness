@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { api, ApiError, keys, Sample } from "./api";
 import { goTo } from "./App";
-import { rememberNewLink } from "./Report";
+import { rememberNewLink, rememberNote } from "./Report";
 
 export default function Describe() {
   const [description, setDescription] = useState("");
@@ -24,6 +24,7 @@ export default function Describe() {
       const b = await api.create(description, priceList, photo);
       if (b.owner_key) keys.setOwner(b.id, b.owner_key, b.profile.name);
       if (b.owner_link) rememberNewLink(b.id, b.owner_link);
+      if (b.assistant_note) rememberNote(b.id, b.assistant_note);
       goTo(`#/b/${b.id}/saved`);
     } catch (err) {
       setError(err instanceof ApiError ? err : new ApiError(String(err), 0));

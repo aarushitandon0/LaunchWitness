@@ -69,6 +69,14 @@ def test_rank_prefers_cheap_then_short():
     assert [q.domain for q in rank(qs)] == ["cheap.shop", "short.in", "longername.in"]
 
 
+def test_rank_always_offers_in_and_com_when_available():
+    qs = [Quote("a.shop", True, 1.0), Quote("b.store", True, 2.0), Quote("c.store", True, 3.0),
+          Quote("meera.in", True, 8.0), Quote("meera.com", True, 12.0), Quote("taken.com", False)]
+    assert [q.domain for q in rank(qs)] == ["a.shop", "meera.in", "meera.com"]
+    only_in = [Quote("a.in", True, 1.0), Quote("b.in", True, 2.0), Quote("c.in", True, 3.0), Quote("d.com", False)]
+    assert [q.domain for q in rank(only_in)] == ["a.in", "b.in", "c.in"]
+
+
 # ---------- Planner ----------
 
 def test_sandbox_plan_has_steps_diff_and_zero_cost(client, integ, settings):

@@ -14,10 +14,12 @@ NAMES_SCHEMA = {
     "required": ["names"],
     "properties": {"names": {"type": "array", "items": {"type": "string"}}},
 }
-SYSTEM = """Suggest 10 website names (domain names) for a small Indian business.
-Rules: short, easy to say and spell over the phone, lowercase letters and digits only (hyphen only if needed),
-based on the business name, owner name, area or what they sell. Prefer .in, then .com, .co.in, .shop, .store.
-Return ONLY JSON: {"names": ["example.in", ...]}"""
+SYSTEM = """Suggest website names (domain names) for a small Indian business.
+Give 5 different names, each one twice: once ending in .in and once in .com (10 in total, best first).
+Each name: 4-15 letters before the ending, easy to say and spell over the phone, lowercase letters only
+(no hyphens, no digits, no doubled letters across a word join), clearly about this business: its name,
+the owner's name, the area or what they sell. No made-up spellings.
+Return ONLY JSON: {"names": ["example.in", "example.com", ...]}"""
 
 
 class NamerError(RuntimeError):
@@ -39,8 +41,12 @@ def clean_names(raw: list) -> list[str]:
     return out[:10]
 
 
+def namer_user(profile: Profile) -> str:
+    return f"Business: {profile.name}\nWhat they sell: {profile.tagline}\nArea: {profile.area}"
+
+
 def suggest_names(claude: Claude, profile: Profile, *, fixture: str) -> list[str]:
-    user = f"Business: {profile.name}\nWhat they sell: {profile.tagline}\nArea: {profile.area}"
+    user = namer_user(profile)
     for _ in range(2):  # one retry on bad JSON
         try:
             data = claude.ask_json(fixture=fixture, tier="cheap", system=SYSTEM, user=user, schema=NAMES_SCHEMA,
@@ -54,8 +60,18 @@ def suggest_names(claude: Claude, profile: Profile, *, fixture: str) -> list[str
 
 
 def rank(quotes: list[Quote], top: int = 3) -> list[Quote]:
-    ok = [q for q in quotes if q.available and q.price_usd is not None]
-    return sorted(ok, key=lambda q: (q.price_usd, len(q.domain), q.domain))[:top]
+    """Cheapest, then shortest. The shortlist always shows a .in and a .com when one of each is available."""
+    ok = sorted((q for q in quotes if q.available and q.price_usd is not None),
+                key=lambda q: (q.price_usd, len(q.domain), q.domain))
+    picked = ok[:top]
+    for ending in (".in", ".com"):
+        if top >= 2 and not any(q.domain.endswith(ending) for q in picked):
+            best = next((q for q in ok if q.domain.endswith(ending)), None)
+            if best is not None:
+                keep = [q for q in picked if not q.domain.endswith(".in" if ending == ".com" else ".com")]
+                drop = (keep or picked)[-1]
+                picked = [q for q in picked if q is not drop] + [best]
+    return sorted(picked, key=lambda q: (q.price_usd, len(q.domain), q.domain))
 
 
 def find_names(claude: Claude, availability: AvailabilityChecker, profile: Profile, *, fixture: str) -> list[Quote]:
