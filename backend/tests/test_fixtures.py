@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from app.agents.claude_client import FixtureClaudeClient
+from app.agents.reader import Profile
 
 SELLERS = Path(__file__).parent / "fixtures" / "sellers"
 
@@ -18,7 +19,9 @@ def test_seller_fixture_shape(name):
     assert sum("₹" in line for line in lines) >= 5
 
 
-def test_reader_fixture_loads_by_default():
-    out = FixtureClaudeClient().ask_json(fixture="reader_meera_cakes", tier="strong", system="", user="")
-    assert out["business_name"] == "Meera's Home Cakes"
-    assert all(p["price_inr"] > 0 for p in out["products"])
+@pytest.mark.parametrize("name", ["meera_cakes", "tiffin_service", "tailor"])
+def test_reader_fixture_is_a_valid_profile(name):
+    out = FixtureClaudeClient().ask_json(fixture=f"reader_{name}", tier="strong", system="", user="")
+    profile = Profile.model_validate(out)
+    assert all(p.price_inr > 0 for p in profile.products)
+    assert len({p.category for p in profile.products}) >= 2
