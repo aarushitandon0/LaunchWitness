@@ -1,0 +1,104 @@
+{
+  "_note": "Session 8 site gallery: a full seller profile for rendering tests + screenshots. Phone/UPI/FSSAI values are demo samples, not real.",
+  "name": "Sheikh Ladies & Gents Tailors",
+  "tagline": "Ladies and gents tailoring for every occasion in Aminabad, Lucknow",
+  "about": "We have been stitching for 22 years, and my father started this shop. We stitch blouses, salwar suits, kurtas, lehenga and sherwani, and we do all kinds of alterations. Chikankari work kurtas are also available on order. For wedding orders we give a fitting trial before the final stitching.",
+  "area": "Aminabad, Lucknow",
+  "hours": "Open 11am to 9pm. Friday is a half day.",
+  "phone": "98765 43210",
+  "whatsapp": "98765 43210",
+  "upi_id": "sheikhtailors.demo@example",
+  "tone": "traditional",
+  "products": [
+    {
+      "name": "Simple blouse stitching",
+      "price_inr": 450,
+      "description": "",
+      "category": "Ladies stitching",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Designer / padded blouse",
+      "price_inr": 850,
+      "description": "",
+      "category": "Ladies stitching",
+      "addon": false,
+      "price_from": true
+    },
+    {
+      "name": "Salwar suit stitching",
+      "price_inr": 600,
+      "description": "",
+      "category": "Ladies stitching",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Anarkali suit",
+      "price_inr": 1100,
+      "description": "",
+      "category": "Ladies stitching",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Gents kurta pajama",
+      "price_inr": 700,
+      "description": "",
+      "category": "Gents stitching",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Sherwani stitching",
+      "price_inr": 3500,
+      "description": "",
+      "category": "Gents stitching",
+      "addon": false,
+      "price_from": true
+    },
+    {
+      "name": "Pant alteration / length",
+      "price_inr": 120,
+      "description": "",
+      "category": "Alterations",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Fall pico for saree",
+      "price_inr": 100,
+      "description": "",
+      "category": "Alterations",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Urgent (2 days)",
+      "price_inr": 300,
+      "description": "Extra charge for 2-day delivery",
+      "category": "Extra services",
+      "addon": true,
+      "price_from": false
+    },
+    {
+      "name": "Home measurement visit",
+      "price_inr": 150,
+      "description": "For ladies within Lucknow, on appointment",
+      "category": "Extra services",
+      "addon": true,
+      "price_from": false
+    }
+  ],
+  "selling_point": "Ladies & gents",
+  "min_notice_days": 0,
+  "pickup_available": false,
+  "delivery_available": false,
+  "delivery_fee_inr": 0,
+  "allow_item_message": false,
+  "upi_display_name": "SHEIKH TAILORS DEMO",
+  "fssai_number": "",
+  "kind": "orders",
+  "not_supported_reason": ""
+}

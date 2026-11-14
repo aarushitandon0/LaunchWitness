@@ -1,0 +1,80 @@
+{
+  "_note": "Session 8 site gallery: a full seller profile for rendering tests + screenshots. Phone/UPI/FSSAI values are demo samples, not real.",
+  "name": "Annapurna Ghar Ka Khana",
+  "tagline": "Fresh home-style veg tiffin in HSR Layout and Koramangala",
+  "about": "We are two sisters cooking fresh Maharashtrian and North Indian veg food every morning for students and office people. Our food is made with less oil and less spice, and we can do a no onion-garlic option on request. We deliver in a steel tiffin and collect the empty one the next day. You can pause your monthly plan for travel with 1 day notice.",
+  "area": "HSR Layout and Koramangala, Bengaluru",
+  "hours": "Monday to Saturday. Lunch delivered between 12:30 and 1:30 pm, dinner between 7:30 and 8:30 pm. Sunday off.",
+  "phone": "98765 43210",
+  "whatsapp": "98765 43210",
+  "upi_id": "tiffin.demo@example",
+  "tone": "homely",
+  "products": [
+    {
+      "name": "Mini thali",
+      "price_inr": 110,
+      "description": "3 roti, sabzi, dal, rice",
+      "category": "Daily thalis",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Full thali",
+      "price_inr": 150,
+      "description": "4 roti, 2 sabzi, dal, rice, salad, sweet",
+      "category": "Daily thalis",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Trial meal (one time)",
+      "price_inr": 99,
+      "description": "Try us once before you subscribe",
+      "category": "Daily thalis",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Only lunch monthly",
+      "price_inr": 3400,
+      "description": "26 days, full thali",
+      "category": "Monthly plans",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Lunch + dinner monthly",
+      "price_inr": 6200,
+      "description": "Lunch and dinner, cheapest way to eat with us",
+      "category": "Monthly plans",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Extra roti",
+      "price_inr": 10,
+      "description": "Per roti",
+      "category": "Add-ons",
+      "addon": true,
+      "price_from": false
+    },
+    {
+      "name": "Sunday special puran poli",
+      "price_inr": 60,
+      "description": "Per piece, pre-order only",
+      "category": "Add-ons",
+      "addon": true,
+      "price_from": false
+    }
+  ],
+  "selling_point": "Home-style veg",
+  "min_notice_days": 1,
+  "pickup_available": false,
+  "delivery_available": true,
+  "delivery_fee_inr": 0,
+  "allow_item_message": false,
+  "upi_display_name": "ANNAPURNA DEMO",
+  "fssai_number": "12345678901234",
+  "kind": "orders",
+  "not_supported_reason": ""
+}

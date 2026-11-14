@@ -1,0 +1,376 @@
+{
+  "_note": "Session 8 site gallery: a full seller profile for rendering tests + screenshots. Phone/UPI/FSSAI values are demo samples, not real.",
+  "name": "Lakshmi Homemade Foods",
+  "tagline": "Pickles, masalas, papad and sweets made at home",
+  "about": "Everything is made in small batches in our home kitchen, the way my mother taught me.",
+  "area": "Dombivli, Thane",
+  "hours": "Every day, 9am to 7pm",
+  "phone": "98765 43210",
+  "whatsapp": "98765 43210",
+  "upi_id": "",
+  "tone": "friendly",
+  "products": [
+    {
+      "name": "Mango pickle",
+      "price_inr": 120,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Lemon pickle",
+      "price_inr": 157,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Mixed vegetable pickle",
+      "price_inr": 194,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Garlic pickle",
+      "price_inr": 231,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Green chilli pickle",
+      "price_inr": 268,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Red chilli stuffed pickle",
+      "price_inr": 305,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Amla pickle",
+      "price_inr": 342,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Ginger pickle",
+      "price_inr": 379,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Carrot pickle",
+      "price_inr": 136,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Gongura pickle",
+      "price_inr": 173,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Tomato thokku",
+      "price_inr": 210,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Lime sweet pickle",
+      "price_inr": 247,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Gooseberry murabba",
+      "price_inr": 284,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Sambar powder",
+      "price_inr": 321,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Rasam powder",
+      "price_inr": 358,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Garam masala",
+      "price_inr": 395,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Chole masala",
+      "price_inr": 152,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Pav bhaji masala",
+      "price_inr": 189,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Biryani masala",
+      "price_inr": 226,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Kitchen king masala",
+      "price_inr": 263,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Chaat masala",
+      "price_inr": 300,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Goda masala",
+      "price_inr": 337,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Malvani masala",
+      "price_inr": 374,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Kanda lasun masala",
+      "price_inr": 131,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Curry leaf podi",
+      "price_inr": 168,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Idli podi (gunpowder)",
+      "price_inr": 205,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Peanut chutney powder",
+      "price_inr": 242,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Flaxseed chutney powder",
+      "price_inr": 279,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Coconut chutney powder",
+      "price_inr": 316,
+      "description": "250 g",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Moong dal papad",
+      "price_inr": 353,
+      "description": "Pack of 10",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Urad dal papad",
+      "price_inr": 390,
+      "description": "Pack of 10",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Rice papad",
+      "price_inr": 147,
+      "description": "Pack of 10",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Sabudana papad",
+      "price_inr": 184,
+      "description": "Pack of 10",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Masala khakhra",
+      "price_inr": 221,
+      "description": "Pack of 10",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Methi khakhra",
+      "price_inr": 258,
+      "description": "Pack of 10",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Jeera khakhra",
+      "price_inr": 295,
+      "description": "Pack of 10",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Besan ladoo",
+      "price_inr": 332,
+      "description": "250 g box",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Rava ladoo",
+      "price_inr": 369,
+      "description": "250 g box",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Dry fruit ladoo",
+      "price_inr": 126,
+      "description": "250 g box",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Til chikki",
+      "price_inr": 163,
+      "description": "250 g box",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Peanut chikki",
+      "price_inr": 200,
+      "description": "250 g box",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Shakarpara",
+      "price_inr": 237,
+      "description": "250 g box",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Namak para",
+      "price_inr": 274,
+      "description": "250 g box",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Chakli",
+      "price_inr": 311,
+      "description": "250 g box",
+      "category": "Menu",
+      "addon": false,
+      "price_from": false
+    }
+  ],
+  "selling_point": "",
+  "min_notice_days": 0,
+  "pickup_available": false,
+  "delivery_available": false,
+  "delivery_fee_inr": 0,
+  "allow_item_message": false,
+  "upi_display_name": "",
+  "fssai_number": "12345678901234",
+  "kind": "orders",
+  "not_supported_reason": ""
+}

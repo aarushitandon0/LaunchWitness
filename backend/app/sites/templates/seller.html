@@ -7,164 +7,358 @@
 <meta name="description" content="{{ p.tagline or p.about[:150] }}">
 <meta property="og:title" content="{{ p.name }}">
 <meta property="og:description" content="{{ p.tagline }}">
-<meta name="theme-color" content="#7c2d12">
+<meta name="theme-color" content="#fbf8f3">
+{#
+  ONE template for every seller. Nothing here may be specific to one business or one trade:
+  every word on the page comes from the seller's profile, or is generic shop wording.
+  Category colours come from the fixed palette below, picked by position (c0..c5), never per business.
+#}
 <style>
   :root {
-    --bg: #fffaf5; --card: #ffffff; --ink: #1f2937; --muted: #6b7280; --line: #eadfd3;
-    --brand: #9a3412; --brand-ink: #ffffff; --brand-soft: #fdecdf; --wa: #128c4a; --radius: 16px;
-    --shadow: 0 1px 2px rgba(60,30,10,.05), 0 8px 24px -16px rgba(60,30,10,.18);
+    --bg: #fbf8f3; --paper: #ffffff; --ink: #1d1a16; --ink-2: #57514a; --muted: #7a736b;
+    --line: #ebe4da; --line-2: #ddd4c8; --primary: #1d1a16; --primary-ink: #ffffff;
+    --wa: #128c4a; --focus: #2563eb; --radius: 18px; --radius-sm: 12px;
+    --shadow: 0 1px 2px rgba(40,30,20,.05), 0 10px 30px -18px rgba(40,30,20,.25);
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Noto Serif", serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", sans-serif;
+    /* Fixed category palette (soft background, strong ink), assigned by position. */
+    --c0-bg: #fde8d7; --c0-ink: #9a3412;
+    --c1-bg: #dff3e4; --c1-ink: #166534;
+    --c2-bg: #e3ecfb; --c2-ink: #1e40af;
+    --c3-bg: #f6e3f0; --c3-ink: #9d174d;
+    --c4-bg: #fbf1c7; --c4-ink: #854d0e;
+    --c5-bg: #e5f4f4; --c5-ink: #115e59;
   }
   * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-  body { margin: 0; background: var(--bg); color: var(--ink);
-    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
-    -webkit-font-smoothing: antialiased; }
-  a { color: var(--brand); }
-  .wrap { max-width: 760px; margin: 0 auto; padding: 0 16px; }
-  header.bar { position: sticky; top: 0; z-index: 5; background: rgba(255,250,245,.94);
-    backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
-  header.bar .wrap { display: flex; align-items: center; justify-content: space-between; height: 56px; gap: 12px; }
-  .brand { font-weight: 700; color: var(--ink); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px;
-    padding: 10px 18px; border-radius: 999px; border: 0; font: inherit; font-weight: 600;
-    text-decoration: none; cursor: pointer; transition: transform .15s ease, filter .15s ease; -webkit-tap-highlight-color: transparent; }
-  .btn:hover { filter: brightness(1.06); }
-  .btn:active { transform: scale(.98); }
-  .btn-primary { background: var(--brand); color: var(--brand-ink); }
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 var(--sans);
+    -webkit-font-smoothing: antialiased; overflow-wrap: anywhere; }
+  a { color: inherit; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+  @media (min-width: 720px) { .wrap { padding: 0 28px; } }
+
+  /* Top bar */
+  header.bar { position: sticky; top: 0; z-index: 10; background: rgba(251,248,243,.92);
+    backdrop-filter: saturate(1.4) blur(8px); -webkit-backdrop-filter: saturate(1.4) blur(8px);
+    border-bottom: 1px solid var(--line); }
+  header.bar .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; gap: 12px; }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; font-weight: 650; text-decoration: none; }
+  .brand span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mono { flex: none; display: grid; place-items: center; border-radius: 10px; font-family: var(--serif);
+    font-weight: 700; background: var(--c0-bg); color: var(--c0-ink); letter-spacing: .02em; }
+  .brand .mono { width: 34px; height: 34px; font-size: 14px; }
+  nav.links { display: none; gap: 22px; font-size: 15px; color: var(--ink-2); }
+  nav.links a { text-decoration: none; }
+  nav.links a:hover { color: var(--ink); }
+  @media (min-width: 900px) { nav.links { display: flex; } }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px;
+    padding: 10px 20px; border-radius: 999px; border: 1px solid transparent; font: inherit; font-weight: 600;
+    text-decoration: none; cursor: pointer; transition: transform .12s ease, background-color .15s ease, box-shadow .15s ease;
+    -webkit-tap-highlight-color: transparent; white-space: nowrap; }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: var(--primary); color: var(--primary-ink); }
+  .btn-primary:hover { background: #3a342d; }
   .btn-wa { background: var(--wa); color: #fff; }
-  .btn-ghost { background: var(--brand-soft); color: var(--brand); }
-  .btn-sm { min-height: 36px; padding: 6px 14px; font-size: 14px; }
-  .hero { padding: 44px 0 32px; }
-  .hero h1 { font-size: clamp(28px, 7vw, 42px); line-height: 1.1; margin: 0 0 12px; letter-spacing: -.025em; }
-  .hero .tagline { font-size: 18px; color: var(--muted); margin: 0 0 6px; }
-  .hero .area { font-size: 15px; color: var(--muted); margin: 0 0 20px; }
+  .btn-wa:hover { background: #0f7a40; }
+  .btn-line { background: var(--paper); color: var(--ink); border-color: var(--line-2); }
+  .btn-line:hover { border-color: var(--ink); }
+  .btn-sm { min-height: 38px; padding: 6px 16px; font-size: 15px; }
+  .btn-block { width: 100%; }
+  .btn svg { width: 18px; height: 18px; flex: none; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+  /* Hero */
+  .hero { padding: 36px 0 28px; display: grid; gap: 22px; }
+  .hero .mono { display: none; }
+  .hero h1 { font-family: var(--serif); font-weight: 700; font-size: clamp(34px, 8.5vw, 60px); line-height: 1.04;
+    letter-spacing: -.02em; margin: 0; }
+  .hero .tagline { font-size: clamp(18px, 2.4vw, 21px); color: var(--ink-2); margin: 10px 0 0; max-width: 36em; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 12px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: 15px; }
+  .meta li { display: inline-flex; align-items: flex-start; gap: 6px; }
+  .meta svg { width: 16px; height: 16px; flex: none; margin-top: 3px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .badges li { padding: 6px 12px; border-radius: 999px; background: var(--paper); border: 1px solid var(--line-2);
+    font-size: 14px; font-weight: 600; color: var(--ink-2); }
   .cta { display: flex; flex-wrap: wrap; gap: 10px; }
-  section { padding: 28px 0; border-top: 1px solid var(--line); }
-  h2 { font-size: 22px; margin: 0 0 14px; letter-spacing: -.015em; }
-  h3.cat { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--brand);
-    margin: 22px 0 8px; }
-  h3.cat:first-of-type { margin-top: 4px; }
-  .menu { list-style: none; margin: 0; padding: 0; background: var(--card); border: 1px solid var(--line);
+  @media (min-width: 720px) {
+    .hero { grid-template-columns: auto 1fr; align-items: start; column-gap: 28px; padding: 64px 0 44px; }
+    .hero .mono { display: grid; width: 96px; height: 96px; font-size: 36px; border-radius: 26px; }
+    .hero > :not(.mono) { grid-column: 2; }
+  }
+
+  /* Page grid: menu left, order panel right on wide screens */
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; padding-bottom: 40px; }
+  @media (min-width: 960px) {
+    .layout { grid-template-columns: minmax(0, 1fr) 380px; gap: 40px; align-items: start; }
+    .panel { position: sticky; top: 84px; }
+  }
+  .section-h { font-family: var(--serif); font-size: 28px; line-height: 1.15; margin: 0 0 6px; letter-spacing: -.01em; }
+  .section-sub { color: var(--muted); margin: 0 0 18px; font-size: 15px; }
+
+  /* Category quick links */
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 14px; margin: 0; list-style: none; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chips a { display: inline-block; padding: 7px 14px; border-radius: 999px; font-size: 14px; font-weight: 600;
+    text-decoration: none; white-space: nowrap; }
+
+  /* Menu */
+  .cat { margin: 0 0 22px; scroll-margin-top: 80px; }
+  .cat-h { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font-size: 15px; font-weight: 700; }
+  .cat-h .dot { width: 10px; height: 10px; border-radius: 3px; }
+  .cat-h .count { color: var(--muted); font-weight: 500; font-size: 14px; }
+  .items { list-style: none; margin: 0; padding: 0; background: var(--paper); border: 1px solid var(--line);
     border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
-  .menu li { display: flex; justify-content: space-between; gap: 16px; padding: 14px 16px; }
-  .menu li + li { border-top: 1px solid var(--line); }
-  .menu .name { font-weight: 600; }
-  .menu .desc { font-size: 14px; color: var(--muted); }
-  .menu .price { font-weight: 700; white-space: nowrap; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); }
-  .facts { display: grid; gap: 12px; }
-  .facts dt { font-size: 13px; color: var(--muted); }
-  .facts dd { margin: 0; font-weight: 600; }
-  .pay { display: grid; gap: 16px; align-items: center; }
-  .pay svg { width: 180px; height: 180px; background: #fff; border-radius: 10px; }
-  .upi-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--brand-soft);
-    padding: 2px 8px; border-radius: 6px; word-break: break-all; }
-  form .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; }
-  form .row + .row { border-top: 1px solid var(--line); }
-  form .row label { flex: 1; }
-  form .row small { display: block; color: var(--muted); }
-  input[type=number] { width: 72px; }
-  input, textarea { font: inherit; padding: 10px 12px; border: 1px solid #d6c8b9; border-radius: 10px;
-    background: #fff; color: var(--ink); transition: border-color .15s ease, box-shadow .15s ease; }
-  input:focus, textarea:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
-  .btn:focus-visible, a:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+  .item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; align-items: center; padding: 14px 16px; }
+  .item + .item { border-top: 1px solid var(--line); }
+  .item .name { font-weight: 600; line-height: 1.35; }
+  .item .desc { font-size: 14px; color: var(--muted); margin-top: 2px; }
+  .item .price { font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .item .price small { font-weight: 500; color: var(--muted); font-size: 13px; }
+  .item.chosen { background: #fffdf8; }
+  /* Long lists: two columns on wide screens (1px gaps draw the dividers). */
+  .items.dense { display: grid; gap: 1px; background: var(--line); }
+  .items.dense .item { background: var(--paper); border-top: 0; }
+  .items.dense .item.chosen { background: #fffdf8; }
+  @media (min-width: 720px) { .items.dense { grid-template-columns: 1fr 1fr; } }
+  .find { margin: 0 0 14px; }
+  .find label { display: block; margin-bottom: 4px; }
+  .find input { max-width: 360px; }
+  .find-none { color: var(--muted); }
+  .item[hidden], .cat[hidden] { display: none; }
+  .qty { display: flex; align-items: center; gap: 8px; }
+  .qty input { width: 64px; text-align: center; }
+  .qty label { font-size: 13px; color: var(--muted); }
+  .step { display: none; align-items: center; border: 1px solid var(--line-2); border-radius: 999px; background: var(--paper); }
+  .step button { width: 38px; height: 38px; border: 0; background: none; font: inherit; font-size: 20px; line-height: 1;
+    cursor: pointer; color: var(--ink); border-radius: 999px; }
+  .step output { min-width: 22px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .add { display: none; }
+  .js .qty input, .js .qty label { display: none; }
+  .js .add { display: inline-flex; }
+  .js .chosen .add { display: none; }
+  .js .chosen .step { display: inline-flex; }
+  .extras-note { font-size: 14px; color: var(--muted); margin: -4px 0 10px; }
+  {% for n in range(6) %}
+  .c{{ n }} .dot { background: var(--c{{ n }}-ink); }
+  .c{{ n }}.chip { background: var(--c{{ n }}-bg); color: var(--c{{ n }}-ink); }
+  .c{{ n }} .cat-h { color: var(--c{{ n }}-ink); }
+  {% endfor %}
+
+  /* Order panel */
+  .panel { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; scroll-margin-top: 76px; }
+  .panel h2 { font-family: var(--serif); font-size: 24px; margin: 0 0 4px; }
+  .basket { list-style: none; margin: 12px 0; padding: 0; font-size: 15px; }
+  .basket li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; }
+  .basket .empty { color: var(--muted); }
+  .basket li > span:last-child { flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .total { display: flex; justify-content: space-between; border-top: 1px dashed var(--line-2); padding-top: 10px; font-weight: 700; font-size: 17px; }
+  .facts-sm { list-style: none; padding: 0; margin: 12px 0 0; font-size: 14px; color: var(--ink-2); display: grid; gap: 6px; }
+  .facts-sm li { display: flex; gap: 8px; }
+  .facts-sm svg { width: 16px; height: 16px; flex: none; margin-top: 3px; color: var(--muted); }
   .field { display: grid; gap: 6px; margin-top: 14px; }
   .field label { font-weight: 600; font-size: 15px; }
-  .field input, .field textarea { width: 100%; }
-  .hint { font-size: 14px; color: var(--muted); }
-  .error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; padding: 10px 12px; border-radius: 10px; }
-  .ok { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .field small { color: var(--muted); font-size: 13px; }
+  input, textarea { font: inherit; padding: 11px 12px; border: 1px solid var(--line-2); border-radius: var(--radius-sm);
+    background: #fff; color: var(--ink); width: 100%; }
+  input:focus, textarea:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgba(29,26,22,.12); }
+  .qty input { width: 64px; }
+  .hint { font-size: 13px; color: var(--muted); }
+  .error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; padding: 10px 12px; border-radius: var(--radius-sm); margin: 10px 0 0; }
   .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
-  footer { padding: 28px 0 40px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); }
-  footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+
+  /* Sticky basket bar (phones, with JS) */
+  .bar-order { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 20; display: none; }
+  .bar-order a { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 18px;
+    border-radius: 16px; background: var(--primary); color: #fff; text-decoration: none; font-weight: 600;
+    box-shadow: 0 12px 30px -10px rgba(0,0,0,.45); }
+  .bar-order.show { display: block; }
+  @media (min-width: 960px) { .bar-order.show { display: none; } }
+  body.has-bar { padding-bottom: 84px; }
+  @media (min-width: 960px) { body.has-bar { padding-bottom: 0; } }
+
+  /* Info blocks */
+  .info { display: grid; gap: 14px; margin-top: 8px; }
+  @media (min-width: 640px) { .info { grid-template-columns: 1fr 1fr; } }
+  .tile { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  .tile h3 { margin: 0 0 6px; font-size: 13px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+  .tile p { margin: 0; }
+  .tile .links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .tile.wide { grid-column: 1 / -1; }
+  .pay { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; align-items: center; }
+  .pay svg { width: 120px; height: 120px; background: #fff; border-radius: 10px; border: 1px solid var(--line); }
+  .upi-id { overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; background: var(--bg); padding: 2px 8px; border-radius: 6px; }
+  .upi-name { font-size: 14px; color: var(--ink-2); margin-top: 6px !important; }
+  .about { margin-top: 36px; }
+  .prose { max-width: 40em; color: var(--ink-2); font-size: 17px; }
   .prose p { margin: 0 0 12px; }
-  @media (min-width: 640px) {
-    .facts { grid-template-columns: 1fr 1fr; }
-    .pay { grid-template-columns: 180px 1fr; }
-  }
+
+  footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; padding: 24px 0 32px; }
+  footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 20px; }
+  footer a { color: var(--ink-2); }
+
+  /* Thanks / privacy */
+  .narrow { max-width: 680px; }
+  .done-mark { width: 56px; height: 56px; border-radius: 18px; display: grid; place-items: center; background: var(--c1-bg); color: var(--c1-ink); }
+  .done-mark svg { width: 28px; height: 28px; }
 </style>
 </head>
 <body>
+{%- macro icon(name) -%}
+{%- if name == "pin" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.1-7-11.5a7 7 0 0 1 14 0C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+{%- elif name == "clock" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+{%- elif name == "wa" -%}<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z"/></svg>
+{%- elif name == "phone" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>
+{%- elif name == "bag" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 7h12l1 13H5L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>
+{%- elif name == "truck" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h11v10H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/></svg>
+{%- elif name == "cal" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+{%- elif name == "check" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+{%- endif -%}
+{%- endmacro -%}
+{%- macro price(item) -%}{% if item.price_from %}<small>from </small>{% endif %}{{ item.price_inr | inr }}{%- endmacro -%}
+{%- macro item_row(i, item) -%}
+<li class="item" data-i="{{ i }}">
+  <div>
+    <div class="name" id="n{{ i }}">{{ item.name }}</div>
+    {% if item.description %}<div class="desc">{{ item.description }}</div>{% endif %}
+    <div class="price">{{ price(item) }}</div>
+  </div>
+  <div class="qty">
+    <label for="qty_{{ i }}">Qty</label>
+    <input id="qty_{{ i }}" name="qty_{{ i }}" type="number" inputmode="numeric" min="0" max="50" step="1"
+      value="{{ form.get('qty_' ~ i, 0) }}" data-price="{{ item.price_inr }}" data-name="{{ item.name }}">
+    <button type="button" class="btn btn-line btn-sm add" aria-describedby="n{{ i }}">Add</button>
+    <span class="step"><button type="button" class="minus" aria-label="One less {{ item.name }}">−</button><output aria-live="polite">0</output><button type="button" class="plus" aria-label="One more {{ item.name }}">+</button></span>
+  </div>
+</li>
+{%- endmacro -%}
+
 <header class="bar">
   <div class="wrap">
-    <a class="brand" href="/">{{ p.name }}</a>
-    {% if page == "home" %}<a class="btn btn-primary btn-sm" href="#order">Order now</a>{% else %}<a class="btn btn-ghost btn-sm" href="/">Back to menu</a>{% endif %}
+    <a class="brand" href="/"><span class="mono" aria-hidden="true">{{ monogram }}</span><span>{{ p.name }}</span></a>
+    {% if page == "home" %}
+    <nav class="links" aria-label="Sections"><a href="#menu">Menu</a>{% if p.about %}<a href="#about">About</a>{% endif %}<a href="#info">Contact</a></nav>
+    <a class="btn btn-primary btn-sm" href="#order">Order</a>
+    {% else %}<a class="btn btn-line btn-sm" href="/">Back to the shop</a>{% endif %}
   </div>
 </header>
 
-<main class="wrap">
 {% if page == "home" %}
+<main class="wrap">
   <div class="hero">
-    <h1>{{ p.name }}</h1>
-    {% if p.tagline %}<p class="tagline">{{ p.tagline }}</p>{% endif %}
-    {% if p.area %}<p class="area">📍 {{ p.area }}</p>{% endif %}
+    <span class="mono" aria-hidden="true">{{ monogram }}</span>
+    <div>
+      <h1>{{ p.name }}</h1>
+      {% if p.tagline %}<p class="tagline">{{ p.tagline }}</p>{% endif %}
+      {% if show_area or p.hours %}<ul class="meta">
+        {% if show_area %}<li>{{ icon("pin") }}{{ p.area }}</li>{% endif %}
+        {% if p.hours %}<li>{{ icon("clock") }}{{ p.hours }}</li>{% endif %}
+      </ul>{% endif %}
+    </div>
+    {% if badges %}<ul class="badges" aria-label="About ordering">{% for b in badges %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
     <div class="cta">
-      <a class="btn btn-primary" href="#order">Place an order</a>
-      {% if whatsapp_url %}<a class="btn btn-wa" href="{{ whatsapp_url }}" target="_blank" rel="noopener">Order on WhatsApp</a>{% endif %}
+      <a class="btn btn-primary" href="#menu">See menu &amp; order</a>
+      {% if whatsapp_url %}<a class="btn btn-wa" href="{{ whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}WhatsApp</a>{% endif %}
+      {% if p.phone %}<a class="btn btn-line" href="tel:{{ p.phone | replace(' ', '') }}">{{ icon("phone") }}Call</a>{% endif %}
     </div>
   </div>
 
-  <section id="menu" aria-labelledby="menu-h">
-    <h2 id="menu-h">Menu &amp; prices</h2>
-    {% for cat in categories %}
-      <h3 class="cat">{{ cat.name }}</h3>
-      <ul class="menu">
-        {% for _i, item in cat.items %}
-        <li>
-          <div><div class="name">{{ item.name }}</div>{% if item.description %}<div class="desc">{{ item.description }}</div>{% endif %}</div>
-          <div class="price">{{ item.price_inr | inr }}</div>
-        </li>
+  <form class="layout" method="post" action="/order" id="order-form">
+    <div>
+      <section id="menu" aria-labelledby="menu-h">
+        <h2 class="section-h" id="menu-h">Menu</h2>
+        <p class="section-sub">Prices in rupees. Tap Add to build your order.</p>
+        {% if categories | length > 1 %}
+        <ul class="chips" aria-label="Jump to">{% for cat in categories %}<li><a class="chip c{{ loop.index0 % 6 }}" href="#cat-{{ loop.index0 }}">{{ cat.name }}</a></li>{% endfor %}</ul>
+        {% endif %}
+        {% if p.products | length >= 20 %}
+        <div class="find" hidden id="find"><label class="hint" for="find-input">Find an item</label>
+          <input id="find-input" type="search" placeholder="Type to search…" autocomplete="off">
+          <p class="find-none" id="find-none" hidden>Nothing matches. Try another word.</p></div>
+        {% endif %}
+        {% for cat in categories %}
+        <div class="cat c{{ loop.index0 % 6 }}" id="cat-{{ loop.index0 }}">
+          {% if categories | length > 1 or cat.name | lower != "menu" %}<h3 class="cat-h"><span class="dot" aria-hidden="true"></span>{{ cat.name }} <span class="count">{{ cat.items | length }}</span></h3>{% endif %}
+          <ul class="items{% if cat.items | length >= 12 %} dense{% endif %}">{% for i, item in cat.items %}{{ item_row(i, item) }}{% endfor %}</ul>
+        </div>
         {% endfor %}
-      </ul>
-    {% endfor %}
-  </section>
+        {% if extras %}
+        <div class="cat c{{ categories | length % 6 }}" id="extras">
+          <h3 class="cat-h"><span class="dot" aria-hidden="true"></span>Extras <span class="count">{{ extras | length }}</span></h3>
+          <p class="extras-note">Add these on top of an item.</p>
+          <ul class="items">{% for i, item in extras %}{{ item_row(i, item) }}{% endfor %}</ul>
+        </div>
+        {% endif %}
+      </section>
 
-  {% if p.about %}
-  <section id="about" aria-labelledby="about-h">
-    <h2 id="about-h">About us</h2>
-    <div class="prose">{% for para in p.about.split("\n") if para.strip() %}<p>{{ para }}</p>{% endfor %}</div>
-  </section>
-  {% endif %}
+      {% if p.about %}
+      <section class="about" id="about" aria-labelledby="about-h">
+        <h2 class="section-h" id="about-h">About us</h2>
+        <div class="prose">{% for para in p.about.split("\n") if para.strip() %}<p>{{ para }}</p>{% endfor %}</div>
+      </section>
+      {% endif %}
 
-  <section id="visit" aria-labelledby="visit-h">
-    <h2 id="visit-h">Hours &amp; contact</h2>
-    <dl class="card facts">
-      {% if p.hours %}<div><dt>Open</dt><dd>{{ p.hours }}</dd></div>{% endif %}
-      {% if p.area %}<div><dt>Where</dt><dd>{{ p.area }}</dd></div>{% endif %}
-      {% if p.phone %}<div><dt>Call</dt><dd><a href="tel:{{ p.phone | replace(' ', '') }}">{{ p.phone }}</a></dd></div>{% endif %}
-      {% if whatsapp_url %}<div><dt>WhatsApp</dt><dd><a href="{{ whatsapp_url }}" target="_blank" rel="noopener">Message us</a></dd></div>{% endif %}
-    </dl>
-  </section>
-
-  {% if upi %}
-  <section id="pay" aria-labelledby="pay-h">
-    <h2 id="pay-h">Pay with UPI</h2>
-    <div class="card pay">
-      {{ upi_qr }}
-      <div>
-        <p style="margin-top:0">Scan with any UPI app (GPay, PhonePe, Paytm, BHIM) to pay {{ p.name }}.</p>
-        <p>UPI ID: <span class="upi-id">{{ p.upi_id }}</span></p>
-        <a class="btn btn-ghost btn-sm" href="{{ upi }}">Open UPI app</a>
-        <p class="hint">Please confirm the amount with us before paying.</p>
-      </div>
+      <section class="about" id="info" aria-labelledby="info-h">
+        <h2 class="section-h" id="info-h">Visit, contact &amp; pay</h2>
+        <div class="info">
+          {% if p.hours or p.area %}<div class="tile">
+            <h3>{% if p.hours %}Open{% else %}Where{% endif %}</h3>
+            {% if p.hours %}<p>{{ p.hours }}</p>{% endif %}
+            {% if p.area %}<p{% if p.hours %} class="hint" style="margin-top:6px"{% endif %}>{{ p.area }}</p>{% endif %}
+          </div>{% endif %}
+          {% if p.pickup_available or p.delivery_available %}<div class="tile">
+            <h3>Getting your order</h3>
+            {% if p.pickup_available %}<p>Pickup{% if p.area %} from {{ p.area }}{% endif %}</p>{% endif %}
+            {% if p.delivery_available %}<p>Delivery{% if p.delivery_fee_inr %}: {{ p.delivery_fee_inr | inr }}{% else %}: free{% endif %}</p>{% endif %}
+          </div>{% endif %}
+          {% if p.phone or whatsapp_url %}<div class="tile">
+            <h3>Contact</h3>
+            {% if p.phone %}<p>{{ p.phone }}</p>{% endif %}
+            <div class="links">
+              {% if p.phone %}<a class="btn btn-line btn-sm" href="tel:{{ p.phone | replace(' ', '') }}">{{ icon("phone") }}Call</a>{% endif %}
+              {% if whatsapp_url %}<a class="btn btn-wa btn-sm" href="{{ whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}WhatsApp</a>{% endif %}
+            </div>
+          </div>{% endif %}
+          {% if upi %}<div class="tile wide" id="pay">
+            <h3>Pay by UPI</h3>
+            <div class="pay">
+              {{ upi_qr }}
+              <div>
+                <p>Scan with any UPI app, or <a href="{{ upi }}">open your UPI app</a>.</p>
+                <p class="upi-name">UPI ID: <span class="upi-id">{{ p.upi_id }}</span></p>
+                {% if p.upi_display_name %}<p class="upi-name">Your UPI app should show: <strong>{{ p.upi_display_name }}</strong></p>{% endif %}
+                <p class="hint" style="margin-top:6px">Please confirm the amount with us before paying.</p>
+              </div>
+            </div>
+          </div>{% endif %}
+        </div>
+      </section>
     </div>
-  </section>
-  {% endif %}
 
-  <section id="order" aria-labelledby="order-h">
-    <h2 id="order-h">Place an order</h2>
-    <p class="hint">Choose what you'd like. We'll contact you to confirm the order, timing and payment. Nothing is charged here.</p>
-    {% if form_error %}<p class="error" role="alert">{{ form_error }}</p>{% endif %}
-    <form class="card" method="post" action="/order">
-      {% for cat in categories %}{% for i, item in cat.items %}
-      <div class="row">
-        <label for="qty_{{ i }}">{{ item.name }}<small>{{ item.price_inr | inr }}</small></label>
-        <input id="qty_{{ i }}" name="qty_{{ i }}" type="number" inputmode="numeric" min="0" max="50" step="1" value="{{ form.get('qty_' ~ i, 0) }}">
-      </div>
-      {% endfor %}{% endfor %}
+    <aside class="panel" id="order" aria-labelledby="order-h">
+      <h2 id="order-h">Your order</h2>
+      <p class="hint" style="margin:0">Nothing is charged here. We'll contact you to confirm the order and payment.</p>
+      {% if form_error %}<p class="error" role="alert">{{ form_error }}</p>{% endif %}
+      <ul class="basket" id="basket" aria-live="polite"><li class="empty">Add items from the menu{% if not categories %} below{% endif %}.</li></ul>
+      <div class="total" id="total-row" hidden><span>Estimated total</span><span id="total"></span></div>
+      {% if p.min_notice_days or p.pickup_available or p.delivery_available %}
+      <ul class="facts-sm">
+        {% if p.min_notice_days %}<li>{{ icon("cal") }}<span>Please order at least {{ p.min_notice_days }} day{% if p.min_notice_days != 1 %}s{% endif %} ahead.</span></li>{% endif %}
+        {% if p.pickup_available %}<li>{{ icon("bag") }}<span>Pickup{% if p.area %} from {{ p.area }}{% endif %}.</span></li>{% endif %}
+        {% if p.delivery_available %}<li>{{ icon("truck") }}<span>Delivery {% if p.delivery_fee_inr %}{{ p.delivery_fee_inr | inr }}, added by the shop{% else %}is free{% endif %}.</span></li>{% endif %}
+      </ul>
+      {% endif %}
+      {% if p.allow_item_message %}
       <div class="field">
-        <label for="note">Anything else? (date needed, message on cake, size…)</label>
-        <textarea id="note" name="note" rows="3" maxlength="1000">{{ form.get('note', '') }}</textarea>
+        <label for="item_message">Message on the item <span class="hint">(optional)</span></label>
+        <input id="item_message" name="item_message" maxlength="200" placeholder="e.g. Happy Birthday Riya" value="{{ form.get('item_message', '') }}">
+      </div>
+      {% endif %}
+      <div class="field">
+        <label for="note">Anything else? <span class="hint">(optional)</span></label>
+        <textarea id="note" name="note" rows="2" maxlength="1000" placeholder="Date you need it, size, colour…">{{ form.get('note', '') }}</textarea>
       </div>
       <div class="field">
         <label for="customer_name">Your name</label>
@@ -175,32 +369,41 @@
         <input id="customer_phone" name="customer_phone" required inputmode="tel" maxlength="20" autocomplete="tel" placeholder="98765 43210" value="{{ form.get('customer_phone', '') }}">
       </div>
       <div class="hp" aria-hidden="true"><label for="website">Leave empty</label><input id="website" name="website" tabindex="-1" autocomplete="off"></div>
-      <p class="hint">By ordering you agree we use these details only to handle your order. <a href="/privacy">Privacy</a></p>
-      <button class="btn btn-primary" type="submit" style="width:100%">Send order</button>
-    </form>
-  </section>
+      <p class="hint">We use these details only to handle your order. <a href="/privacy">Privacy</a></p>
+      <button class="btn btn-primary btn-block" type="submit">Send order</button>
+    </aside>
+  </form>
+</main>
+<div class="bar-order" id="bar-order"><a href="#order"><span id="bar-count">0 items</span><span><span id="bar-total"></span> · Review →</span></a></div>
 
 {% elif page == "thanks" %}
-  <div class="hero">
-    <h1>Thank you{% if order %}, {{ order.customer_name }}{% endif %}!</h1>
-    <p class="tagline">{{ p.name }} has received your order and will contact you soon to confirm it.</p>
+<main class="wrap narrow">
+  <div class="hero" style="grid-template-columns:1fr">
+    <span class="done-mark" style="grid-column:1">{{ icon("check") }}</span>
+    <div style="grid-column:1">
+      <h1>Thank you{% if order %}, {{ order.customer_name }}{% endif %}!</h1>
+      <p class="tagline">{{ p.name }} has your order and will contact you soon to confirm it.</p>
+    </div>
   </div>
   {% if order %}
-  <section>
+  <section class="panel" style="position:static">
     <h2>Your order</h2>
-    <ul class="menu">
-      {% for it in order["items"] %}<li><div class="name">{{ it.qty }} × {{ it.name }}</div><div class="price">{{ (it.qty * it.price_inr) | inr }}</div></li>{% endfor %}
-      {% if order["items"] %}<li><div class="name">Estimated total</div><div class="price">{{ order.total_inr | inr }}</div></li>{% endif %}
+    <ul class="basket">
+      {% for it in order["items"] %}<li><span>{{ it.qty }} × {{ it.name }}</span><span>{{ (it.qty * it.price_inr) | inr }}</span></li>{% endfor %}
     </ul>
+    {% if order["items"] %}<div class="total"><span>Estimated total</span><span>{{ order.total_inr | inr }}</span></div>{% endif %}
     {% if order.note %}<p class="hint">Your note: {{ order.note }}</p>{% endif %}
-    <p class="hint">The final amount (for example delivery) is confirmed by the shop.</p>
-    <div class="cta">{% if whatsapp_url %}<a class="btn btn-wa" href="{{ whatsapp_url }}" target="_blank" rel="noopener">Message on WhatsApp</a>{% endif %}<a class="btn btn-ghost" href="/">Back to menu</a></div>
+    <p class="hint">The final amount{% if p.delivery_available %} (for example delivery){% endif %} is confirmed by the shop.</p>
+    <div class="cta">{% if whatsapp_url %}<a class="btn btn-wa" href="{{ whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}Message on WhatsApp</a>{% endif %}<a class="btn btn-line" href="/">Back to the shop</a></div>
   </section>
   {% endif %}
+  <div style="height:40px"></div>
+</main>
 
 {% elif page == "privacy" %}
-  <div class="hero"><h1>Privacy</h1><p class="tagline">How {{ p.name }} uses your details.</p></div>
-  <section class="prose">
+<main class="wrap narrow">
+  <div class="hero" style="grid-template-columns:1fr"><div style="grid-column:1"><h1>Privacy</h1><p class="tagline">How {{ p.name }} uses your details.</p></div></div>
+  <section class="prose" style="padding-bottom:40px">
     <p><strong>What we collect.</strong> When you place an order on this site we collect your name, your phone number, what you ordered and any note you add. We don't use cookies for tracking and we don't run ads.</p>
     <p><strong>Why.</strong> Only to prepare your order and contact you about it (to confirm timing, delivery and payment).</p>
     <p><strong>Who sees it.</strong> Your order is sent by email to {{ p.name }}. It is stored securely by the service that runs this website, LaunchWitness, so the order isn't lost. We never sell or share your details for marketing.</p>
@@ -208,14 +411,82 @@
     <p><strong>How long.</strong> Only as long as needed to handle your order and keep the shop's records.</p>
     <p><strong>Your choice.</strong> To see, correct or delete your details, contact us{% if p.phone %} on {{ p.phone }}{% endif %}{% if whatsapp_url %} or <a href="{{ whatsapp_url }}" target="_blank" rel="noopener">on WhatsApp</a>{% endif %}.</p>
   </section>
-{% endif %}
 </main>
+{% endif %}
 
 <footer>
   <div class="wrap">
-    <span>© {{ p.name }}{% if p.area %} · {{ p.area }}{% endif %}</span>
+    <span>© {{ p.name }}{% if p.area %} · {{ p.area }}{% endif %}{% if p.fssai_number %} · FSSAI licence no. {{ p.fssai_number }}{% endif %}</span>
     <span><a href="/privacy">Privacy</a> · Site by LaunchWitness</span>
   </div>
 </footer>
+{% if page == "home" %}
+<script>
+/* Basket: enhances the plain quantity boxes (the form works without this). Totals here are for display;
+   the server works out the real total from the menu. */
+(function () {
+  document.documentElement.classList.add("js");
+  var form = document.getElementById("order-form");
+  if (!form) return;
+  var inr = function (n) {
+    var s = String(Math.round(n)), head = s.slice(0, -3), tail = s.slice(-3);
+    return "₹" + (head ? head.replace(/\B(?=(\d\d)+(?!\d))/g, ",") + "," + tail : tail);
+  };
+  var rows = Array.prototype.slice.call(form.querySelectorAll(".item"));
+  var basket = document.getElementById("basket"), totalRow = document.getElementById("total-row");
+  var bar = document.getElementById("bar-order");
+  function val(input) { var n = parseInt(input.value, 10); return isNaN(n) || n < 0 ? 0 : Math.min(n, 50); }
+  function refresh() {
+    var count = 0, total = 0, lines = [];
+    rows.forEach(function (row) {
+      var input = row.querySelector("input"), n = val(input);
+      row.classList.toggle("chosen", n > 0);
+      row.querySelector("output").textContent = n;
+      if (n > 0) {
+        count += n; total += n * Number(input.dataset.price);
+        var li = document.createElement("li"), a = document.createElement("span"), b = document.createElement("span");
+        a.textContent = n + " × " + input.dataset.name; b.textContent = inr(n * Number(input.dataset.price));
+        li.appendChild(a); li.appendChild(b); lines.push(li);
+      }
+    });
+    basket.innerHTML = "";
+    if (lines.length) { lines.forEach(function (li) { basket.appendChild(li); }); }
+    else { var e = document.createElement("li"); e.className = "empty"; e.textContent = "Add items from the menu."; basket.appendChild(e); }
+    totalRow.hidden = !count;
+    document.getElementById("total").textContent = inr(total);
+    document.getElementById("bar-count").textContent = count + (count === 1 ? " item" : " items");
+    document.getElementById("bar-total").textContent = inr(total);
+    bar.classList.toggle("show", count > 0);
+    document.body.classList.toggle("has-bar", count > 0);
+  }
+  rows.forEach(function (row) {
+    var input = row.querySelector("input");
+    var set = function (n) { input.value = Math.max(0, Math.min(50, n)); refresh(); };
+    row.querySelector(".add").addEventListener("click", function () { set(1); row.querySelector(".plus").focus(); });
+    row.querySelector(".plus").addEventListener("click", function () { set(val(input) + 1); });
+    row.querySelector(".minus").addEventListener("click", function () {
+      set(val(input) - 1); if (!val(input)) row.querySelector(".add").focus();
+    });
+  });
+  refresh();
+  var find = document.getElementById("find");
+  if (find) {
+    find.hidden = false;
+    var box = document.getElementById("find-input"), none = document.getElementById("find-none");
+    box.addEventListener("input", function () {
+      var q = box.value.trim().toLowerCase(), shown = 0;
+      rows.forEach(function (row) {
+        var hit = !q || row.textContent.toLowerCase().indexOf(q) !== -1;
+        row.hidden = !hit; if (hit) shown++;
+      });
+      Array.prototype.forEach.call(form.querySelectorAll(".cat"), function (cat) {
+        cat.hidden = !cat.querySelector(".item:not([hidden])");
+      });
+      none.hidden = shown > 0;
+    });
+  }
+})();
+</script>
+{% endif %}
 </body>
 </html>

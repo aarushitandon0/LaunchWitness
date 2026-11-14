@@ -1,0 +1,40 @@
+{
+  "_note": "Session 8 site gallery: a full seller profile for rendering tests + screenshots. Phone/UPI/FSSAI values are demo samples, not real.",
+  "name": "Wick & Wax by Kavya",
+  "tagline": "Hand-poured soy candles, made in small batches",
+  "about": "I make every candle by hand in my studio flat. Soy wax, cotton wicks and gentle scents.",
+  "area": "Indiranagar, Bengaluru",
+  "hours": "",
+  "phone": "98765 43210",
+  "whatsapp": "98765 43210",
+  "upi_id": "kavya.demo@example",
+  "tone": "friendly",
+  "products": [
+    {
+      "name": "Lavender jar candle 200 g",
+      "price_inr": 450,
+      "description": "About 40 hours of burning",
+      "category": "Candles",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Gift box of 3 tea lights",
+      "price_inr": 300,
+      "description": "Mixed scents",
+      "category": "Candles",
+      "addon": false,
+      "price_from": false
+    }
+  ],
+  "selling_point": "Hand-poured soy wax",
+  "min_notice_days": 0,
+  "pickup_available": false,
+  "delivery_available": true,
+  "delivery_fee_inr": 60,
+  "allow_item_message": false,
+  "upi_display_name": "KAVYA DEMO",
+  "fssai_number": "",
+  "kind": "orders",
+  "not_supported_reason": ""
+}

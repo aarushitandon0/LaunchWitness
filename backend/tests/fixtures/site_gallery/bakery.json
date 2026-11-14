@@ -1,0 +1,96 @@
+{
+  "_note": "Session 8 site gallery: a full seller profile for rendering tests + screenshots. Phone/UPI/FSSAI values are demo samples, not real.",
+  "name": "Meera's Eggless Bakes",
+  "tagline": "Fresh eggless cakes and cupcakes from Baner, Pune",
+  "about": "I'm Meera, and I bake eggless cakes and cupcakes in my home kitchen in Baner, Pune. I started 3 years back for friends and family, and now we take orders from all over Pune. Everything is made fresh to order with no preservatives, using real butter and Belgian chocolate. Custom birthday and anniversary cakes with photo print or theme toppers are also possible.",
+  "area": "Baner, Pune",
+  "hours": "Open 10am to 8pm, closed on Tuesdays.",
+  "phone": "98765 43210",
+  "whatsapp": "98765 43210",
+  "upi_id": "meera.demo@example",
+  "tone": "homely",
+  "products": [
+    {
+      "name": "Chocolate truffle cake 1/2 kg",
+      "price_inr": 650,
+      "description": "Eggless, made fresh to order",
+      "category": "Cakes",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Chocolate truffle cake 1 kg",
+      "price_inr": 1200,
+      "description": "Eggless, made fresh to order",
+      "category": "Cakes",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Pineapple cake 1/2 kg",
+      "price_inr": 550,
+      "description": "Eggless, made fresh to order",
+      "category": "Cakes",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Red velvet cake with cream cheese 1/2 kg",
+      "price_inr": 750,
+      "description": "Eggless, with cream cheese frosting",
+      "category": "Cakes",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Rasmalai cake 1 kg",
+      "price_inr": 1400,
+      "description": "Festive special",
+      "category": "Cakes",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Cupcakes box of 6",
+      "price_inr": 420,
+      "description": "Assorted flavours",
+      "category": "Cupcakes & brownies",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Brownies box of 9",
+      "price_inr": 480,
+      "description": "Box of 9 brownies",
+      "category": "Cupcakes & brownies",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Photo print on cake",
+      "price_inr": 250,
+      "description": "Extra charge on top of the cake price",
+      "category": "Add-ons",
+      "addon": true,
+      "price_from": false
+    },
+    {
+      "name": "Theme topper",
+      "price_inr": 300,
+      "description": "",
+      "category": "Add-ons",
+      "addon": true,
+      "price_from": true
+    }
+  ],
+  "selling_point": "100% eggless",
+  "min_notice_days": 2,
+  "pickup_available": true,
+  "delivery_available": true,
+  "delivery_fee_inr": 80,
+  "allow_item_message": true,
+  "upi_display_name": "MEERA DEMO",
+  "fssai_number": "12345678901234",
+  "kind": "orders",
+  "not_supported_reason": ""
+}
