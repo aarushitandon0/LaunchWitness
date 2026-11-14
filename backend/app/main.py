@@ -17,7 +17,7 @@ from sqlmodel import Session
 
 from app.config import REPO_ROOT, Settings, get_settings
 from app.db import get_session, init_db
-from app.routers import businesses, health, internal
+from app.routers import businesses, health, internal, launch
 from app.sites import routes as seller_routes
 
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
@@ -34,6 +34,7 @@ def create_app(*, frontend_dist: Path = FRONTEND_DIST, run_lifespan: bool = True
     app.include_router(health.router)
     app.include_router(internal.router)
     app.include_router(businesses.router)
+    app.include_router(launch.router)
     app.include_router(seller_routes.router)
 
     assets = frontend_dist / "assets"

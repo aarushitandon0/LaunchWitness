@@ -15,6 +15,7 @@ from sqlmodel import Session
 
 from app.agents.claude_client import FixtureClaudeClient
 from app.config import Settings, get_settings
+from app.integrations import Integrations, fake_integrations, get_integrations
 from app.mail.smtp import FakeMailer, get_mailer
 from app.routers.businesses import get_claude
 from app.db import get_session, init_db, make_engine
@@ -120,7 +121,13 @@ def claude() -> FixtureClaudeClient:
 
 
 @pytest.fixture
-def client(settings, engine, mailer, claude) -> Iterator[TestClient]:
+def integ(settings) -> Integrations:
+    """A fresh fake world (GoDaddy, availability, mailbox, DNS, HTTP) with no real sleeping."""
+    return fake_integrations(settings)
+
+
+@pytest.fixture
+def client(settings, engine, mailer, claude, integ) -> Iterator[TestClient]:
     app = create_app(run_lifespan=False)
 
     def _session():
@@ -131,5 +138,6 @@ def client(settings, engine, mailer, claude) -> Iterator[TestClient]:
     app.dependency_overrides[get_session] = _session
     app.dependency_overrides[get_mailer] = lambda: mailer
     app.dependency_overrides[get_claude] = lambda: claude
+    app.dependency_overrides[get_integrations] = lambda: integ
     with TestClient(app) as c:
         yield c

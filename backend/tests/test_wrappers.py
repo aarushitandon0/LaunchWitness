@@ -51,8 +51,34 @@ def test_fake_godaddy_roundtrip():
     gd = FakeGoDaddyClient(available={"meerascakes.in": 9.99})
     assert gd.check_availability("meerascakes.in") == {"domain": "meerascakes.in", "available": True, "price_usd": 9.99}
     assert gd.check_availability("taken.in")["available"] is False
-    gd.replace_records("meerascakes.in", [{"type": "A", "name": "@", "data": "203.0.113.10", "ttl": 600}])
-    assert gd.get_records("meerascakes.in")[0]["data"] == "203.0.113.10"
+    gd.set_records("meerascakes.in", "A", "@", [{"data": "203.0.113.10", "ttl": 600}])
+    gd.set_records("meerascakes.in", "TXT", "@", [{"data": "hello"}])
+    gd.set_records("meerascakes.in", "A", "@", [{"data": "203.0.113.11", "ttl": 600}])  # replaces only A @
+    recs = gd.get_records("meerascakes.in")
+    assert {(r["type"], r["data"]) for r in recs} == {("A", "203.0.113.11"), ("TXT", "hello")}
+    gd.delete_records("meerascakes.in", "TXT", "@")
+    assert [r["type"] for r in gd.get_records("meerascakes.in")] == ["A"]
+
+
+def test_real_godaddy_writes_are_scoped_to_type_and_name(settings):
+    seen = []
+    client = GoDaddyClient(settings, transport=_capture_transport(seen))
+    client.set_records("meerascakes.in", "TXT", "_dmarc", [{"type": "TXT", "name": "_dmarc", "data": "v=DMARC1", "ttl": 600}])
+    client.delete_records("meerascakes.in", "A", "www")
+    assert [(r.method, r.url.path) for r in seen] == [
+        ("PUT", "/v1/domains/meerascakes.in/records/TXT/_dmarc"),
+        ("DELETE", "/v1/domains/meerascakes.in/records/A/www"),
+    ]
+    assert json.loads(seen[0].content) == [{"data": "v=DMARC1", "ttl": 600}]
+
+
+def test_real_godaddy_never_purchases(settings):
+    from app.godaddy.client import PurchaseNotSupported
+
+    seen = []
+    with pytest.raises(PurchaseNotSupported):
+        GoDaddyClient(settings, transport=_capture_transport(seen)).purchase_domain("meerascakes.in", 9.99)
+    assert seen == []
 
 
 def test_real_godaddy_cannot_reach_network(settings):
