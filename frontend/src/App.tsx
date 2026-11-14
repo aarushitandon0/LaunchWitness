@@ -2,12 +2,25 @@ import { useEffect, useState } from "react";
 import { api } from "./api";
 import Describe from "./Describe";
 import Review from "./Review";
+import { LaunchChoice, PlanView } from "./Launch";
 
-/** Tiny hash router: "#/" = describe, "#/b/<id>" = review that business. */
-function useRoute(): { businessId: number | null } {
-  const parse = () => {
-    const m = window.location.hash.match(/^#\/b\/(\d+)/);
-    return { businessId: m ? Number(m[1]) : null };
+type Route =
+  | { page: "describe" }
+  | { page: "review"; businessId: number }
+  | { page: "launch"; businessId: number }
+  | { page: "plan"; planId: number };
+
+/** Tiny hash router: #/ · #/b/<id> · #/b/<id>/launch · #/plan/<id> */
+function useRoute(): Route {
+  const parse = (): Route => {
+    const h = window.location.hash;
+    let m = h.match(/^#\/b\/(\d+)\/launch/);
+    if (m) return { page: "launch", businessId: Number(m[1]) };
+    m = h.match(/^#\/b\/(\d+)/);
+    if (m) return { page: "review", businessId: Number(m[1]) };
+    m = h.match(/^#\/plan\/(\d+)/);
+    if (m) return { page: "plan", planId: Number(m[1]) };
+    return { page: "describe" };
   };
   const [route, setRoute] = useState(parse);
   useEffect(() => {
@@ -18,13 +31,19 @@ function useRoute(): { businessId: number | null } {
   return route;
 }
 
-export const go = (businessId: number | null) => {
-  window.location.hash = businessId === null ? "#/" : `#/b/${businessId}`;
+export const go = (businessId: number | null) => goTo(businessId === null ? "#/" : `#/b/${businessId}`);
+
+export const goTo = (hash: string) => {
+  window.location.hash = hash;
   window.scrollTo(0, 0);
 };
 
 export default function App() {
-  const { businessId } = useRoute();
+  const route = useRoute();
+  const [practice, setPractice] = useState(false);
+  useEffect(() => {
+    api.practiceMode().then((p) => setPractice(p.practice)).catch(() => setPractice(false));
+  }, []);
   return (
     <main className="page">
       <header className="top">
@@ -32,7 +51,15 @@ export default function App() {
           LaunchWitness
         </a>
       </header>
-      {businessId === null ? <Describe /> : <Review key={businessId} id={businessId} />}
+      {practice && (
+        <p className="practice" role="note">
+          Practice mode: launches run against a pretend GoDaddy. Nothing is bought and no real settings change.
+        </p>
+      )}
+      {route.page === "describe" && <Describe />}
+      {route.page === "review" && <Review key={route.businessId} id={route.businessId} />}
+      {route.page === "launch" && <LaunchChoice key={route.businessId} businessId={route.businessId} />}
+      {route.page === "plan" && <PlanView key={route.planId} planId={route.planId} />}
       <Health />
     </main>
   );
