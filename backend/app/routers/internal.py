@@ -1,35 +1,25 @@
 """Internal endpoints (called by Caddy on the private network, not exposed publicly)."""
 
-import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from app.config import Settings, get_settings
 from app.db import get_session
-from app.models import Business
+from app.sites.hosts import HOSTNAME, business_for_host
 
 router = APIRouter(prefix="/internal", tags=["internal"])
-
-_HOSTNAME = re.compile(r"^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$")
 
 
 def is_allowed_tls_domain(domain: str, settings: Settings, session: Session) -> bool:
     """True only for the app domain, a seller subdomain in the DB, or a seller domain in the DB."""
     d = domain.strip().lower().rstrip(".")
-    if not _HOSTNAME.match(d):
+    if not HOSTNAME.match(d):
         return False
-    app_domain = settings.app_domain.lower().rstrip(".")
-    if d == app_domain:
+    if d == settings.app_domain.lower().rstrip("."):
         return True
-    suffix = "." + app_domain
-    if d.endswith(suffix):
-        label = d[: -len(suffix)]
-        if "." in label:
-            return False
-        return session.exec(select(Business.id).where(Business.subdomain == label)).first() is not None
-    return session.exec(select(Business.id).where(Business.domain == d)).first() is not None
+    return business_for_host(d, settings, session) is not None
 
 
 @router.get("/tls-ask")

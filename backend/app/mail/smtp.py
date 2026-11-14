@@ -41,3 +41,10 @@ class FakeMailer:
         message_id = f"<fake-{len(self.sent) + 1}@launchwitness.test>"
         self.sent.append({"to": to, "subject": subject, "body": body, "message_id": message_id})
         return message_id
+
+
+def get_mailer() -> Mailer:
+    """FastAPI dependency. Tests override this with a FakeMailer."""
+    from app.config import get_settings
+
+    return SmtpMailer(get_settings())

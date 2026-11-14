@@ -13,7 +13,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy.engine import Engine
 from sqlmodel import Session
 
+from app.agents.claude_client import FixtureClaudeClient
 from app.config import Settings, get_settings
+from app.mail.smtp import FakeMailer, get_mailer
+from app.routers.businesses import get_claude
 from app.db import get_session, init_db, make_engine
 from app.main import create_app
 
@@ -107,7 +110,17 @@ def session(engine) -> Iterator[Session]:
 
 
 @pytest.fixture
-def client(settings, engine) -> Iterator[TestClient]:
+def mailer() -> FakeMailer:
+    return FakeMailer()
+
+
+@pytest.fixture
+def claude() -> FixtureClaudeClient:
+    return FixtureClaudeClient()
+
+
+@pytest.fixture
+def client(settings, engine, mailer, claude) -> Iterator[TestClient]:
     app = create_app(run_lifespan=False)
 
     def _session():
@@ -116,5 +129,7 @@ def client(settings, engine) -> Iterator[TestClient]:
 
     app.dependency_overrides[get_settings] = lambda: settings
     app.dependency_overrides[get_session] = _session
+    app.dependency_overrides[get_mailer] = lambda: mailer
+    app.dependency_overrides[get_claude] = lambda: claude
     with TestClient(app) as c:
         yield c

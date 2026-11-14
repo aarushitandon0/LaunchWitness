@@ -35,10 +35,12 @@ def test_env_example_lists_every_setting():
     assert not missing, f".env.example is missing: {sorted(missing)}"
 
 
-def test_serves_built_frontend(tmp_path, settings):
+def test_serves_built_frontend(tmp_path, settings, engine):
     from fastapi.testclient import TestClient
+    from sqlmodel import Session
 
     from app.config import get_settings
+    from app.db import get_session
     from app.main import create_app
 
     (tmp_path / "assets").mkdir()
@@ -46,6 +48,12 @@ def test_serves_built_frontend(tmp_path, settings):
     (tmp_path / "assets" / "app.js").write_text("console.log(1)")
     app = create_app(frontend_dist=tmp_path, run_lifespan=False)
     app.dependency_overrides[get_settings] = lambda: settings
+
+    def _session():
+        with Session(engine) as s:
+            yield s
+
+    app.dependency_overrides[get_session] = _session
     c = TestClient(app)
     assert "LaunchWitness" in c.get("/").text
     assert "LaunchWitness" in c.get("/some/page").text  # SPA fallback
