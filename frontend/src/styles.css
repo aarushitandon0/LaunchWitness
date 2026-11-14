@@ -139,6 +139,9 @@ input, textarea {
 input:focus, textarea:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px var(--accent); }
 input[type="file"] { border: 1px dashed var(--line-strong); padding: 0.7rem; background: transparent; }
 input[type="checkbox"] { accent-color: var(--ink); width: 18px; height: 18px; }
+.check { display: flex; align-items: flex-start; gap: 0.6rem; margin-top: var(--s-3); cursor: pointer; }
+.check input { flex: none; margin-top: 0.2rem; width: 18px; }
+.products .product .check { grid-column: 1 / -1; margin-top: var(--s-2, 0.5rem); font-size: var(--fs-sm); }
 .samples { color: var(--muted); }
 .existing ul, .orders { list-style: none; padding: 0; margin: 0; }
 .existing li { display: flex; gap: var(--s-3); padding: 0.4rem 0; }

@@ -83,7 +83,7 @@ def check_email_dmarc(ctx: Ctx) -> Outcome:
 def check_test_order(ctx: Ctx) -> Outcome:
     """Place a real order through the seller's order code, then look for it in the demo inbox."""
     profile = Profile.model_validate_json(ctx.business.profile_json)
-    first = profile.products[0]
+    first = next((x for x in profile.products if not x.addon), profile.products[0])
     data = {"customer_name": "LaunchWitness test", "customer_phone": "0000000000",
             "note": "Automatic test order from your launch check. No action needed.",
             "items": [{"name": first.name, "qty": 1, "price_inr": first.price_inr}], "total_inr": first.price_inr}

@@ -63,12 +63,45 @@ class Category:
 
 
 def group_products(products: list[Product]) -> list[Category]:
-    """Categories in first-seen order; items keep their order inside each."""
+    """Main items by category, in first-seen order; items keep their order inside each. Extras are left out."""
     groups: dict[str, Category] = {}
     for i, p in enumerate(products):
+        if p.addon:
+            continue
         key = p.category.strip() or "Menu"
         groups.setdefault(key.lower(), Category(name=key)).items.append((i, p))
     return list(groups.values())
+
+
+def extras(products: list[Product]) -> list[tuple[int, Product]]:
+    return [(i, p) for i, p in enumerate(products) if p.addon]
+
+
+def badges(profile: Profile) -> list[str]:
+    """Short facts for the top of the page, only from profile data. A missing field = no badge."""
+    out = []
+    if profile.selling_point.strip():
+        out.append(profile.selling_point.strip())
+    if profile.min_notice_days == 1:
+        out.append("Order 1 day ahead")
+    elif profile.min_notice_days > 1:
+        out.append(f"Order {profile.min_notice_days} days ahead")
+    if profile.pickup_available and profile.delivery_available:
+        out.append("Pickup or delivery")
+    elif profile.pickup_available:
+        out.append("Pickup available")
+    elif profile.delivery_available:
+        out.append("Delivery available")
+    return out
+
+
+def monogram(name: str) -> str:
+    words = [w for w in re.findall(r"[A-Za-z0-9\u0900-\u097F]+", name) if w.lower() not in {"the", "and", "s"}]
+    return "".join(w[0] for w in words[:2]).upper() or "•"
+
+
+def area_is_repeated(profile: Profile) -> bool:
+    return bool(profile.area.strip()) and profile.area.strip().lower() in profile.tagline.lower()
 
 
 def render_site(profile: Profile, *, page: str = "home", order: dict | None = None, form_error: str = "",
@@ -79,6 +112,10 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
         p=profile,
         page=page,
         categories=group_products(profile.products),
+        extras=extras(profile.products),
+        badges=badges(profile),
+        monogram=monogram(profile.name),
+        show_area=bool(profile.area.strip()) and not area_is_repeated(profile),
         whatsapp_url=whatsapp_link(profile),
         upi=uri,
         upi_qr=upi_qr_svg(uri) if uri else None,

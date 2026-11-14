@@ -1,0 +1,64 @@
+{
+  "_note": "Session 8 site gallery: a full seller profile for rendering tests + screenshots. Phone/UPI/FSSAI values are demo samples, not real.",
+  "name": "Bhabhiji Ki Rasoi — Ghar Ka Khana Tiffin aur Special Thali Wale",
+  "tagline": "Ghar jaisa khana, roz taaza",
+  "about": "Hum ghar se roz taaza khana banate hain. Order ek din pehle dein.",
+  "area": "Lajpat Nagar, Delhi",
+  "hours": "Subah 11 baje se raat 9 baje tak",
+  "phone": "",
+  "whatsapp": "",
+  "upi_id": "",
+  "tone": "friendly",
+  "products": [
+    {
+      "name": "Special Navratri Vrat Thali (sabudana khichdi, kuttu ki puri, aloo sabzi, makhana kheer)",
+      "price_inr": 180,
+      "description": "Sirf Navratri ke dinon mein",
+      "category": "Thali",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Rajma chawal with jeera rice, boondi raita aur pyaaz-nimbu salad",
+      "price_inr": 140,
+      "description": "",
+      "category": "Thali",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Chhole bhature (2 bhature) with pickle and lassi chhota glass",
+      "price_inr": 120,
+      "description": "",
+      "category": "Thali",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Gajar ka halwa (desi ghee wala) aadha kilo",
+      "price_inr": 350,
+      "description": "Sardiyon mein",
+      "category": "Meetha",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Besan ke laddoo",
+      "price_inr": 300,
+      "description": "Aadha kilo",
+      "category": "Meetha",
+      "addon": false,
+      "price_from": false
+    }
+  ],
+  "selling_point": "",
+  "min_notice_days": 0,
+  "pickup_available": false,
+  "delivery_available": false,
+  "delivery_fee_inr": 0,
+  "allow_item_message": false,
+  "upi_display_name": "",
+  "fssai_number": "",
+  "kind": "orders",
+  "not_supported_reason": ""
+}

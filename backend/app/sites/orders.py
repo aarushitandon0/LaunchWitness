@@ -23,6 +23,10 @@ def parse_order_form(form: dict[str, str], profile: Profile) -> dict:
     name = " ".join(form.get("customer_name", "").split())[:80]
     phone = form.get("customer_phone", "").strip()
     note = form.get("note", "").strip()[:1000]
+    if profile.allow_item_message:
+        message = " ".join(form.get("item_message", "").split())[:200]
+        if message:
+            note = f"Message on the item: {message}" + (f"\n{note}" if note else "")
     if not name:
         raise OrderInvalid("Please add your name so we know who the order is for.")
     if not re.fullmatch(r"\+?[\d\s-]{10,20}", phone) or len(re.sub(r"\D", "", phone)) < 10:
@@ -33,9 +37,14 @@ def parse_order_form(form: dict[str, str], profile: Profile) -> dict:
         if not raw.isdigit() or int(raw) > MAX_QTY:
             raise OrderInvalid(f"Please enter a quantity between 0 and {MAX_QTY}.")
         if int(raw) > 0:
-            items.append({"name": product.name, "qty": int(raw), "price_inr": product.price_inr})
+            items.append({"name": product.name, "qty": int(raw), "price_inr": product.price_inr,
+                          "addon": product.addon})
     if not items and not note:
         raise OrderInvalid("Please choose at least one item, or tell us what you'd like in the note.")
+    if items and all(it["addon"] for it in items):
+        raise OrderInvalid("Extras go with another item. Please choose an item too.")
+    for it in items:
+        del it["addon"]
     total = sum(it["qty"] * it["price_inr"] for it in items)
     return {"customer_name": name, "customer_phone": phone, "note": note, "items": items, "total_inr": total}
 

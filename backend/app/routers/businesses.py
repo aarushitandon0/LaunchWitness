@@ -52,6 +52,9 @@ def business_out(b: Business, settings: Settings) -> dict:
     }
 
 
+NOT_SUPPORTED_DEFAULT = ("Your customers book a time with you, and for now we can only build shops that take orders, "
+                         "so we can't make your website yet.")
+
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
@@ -93,6 +96,13 @@ async def create_business(
     except ClaudeBudgetExceeded as e:
         audit.record(session, actor="reader", action="read_business", result="blocked", detail=str(e))
         raise HTTPException(status_code=503, detail="Our assistant has reached today's limit. Please try again tomorrow.") from e
+
+    if profile.kind == "appointments":
+        # Scope guard: v1 builds shops that take orders. Don't build a shop for a booking business.
+        reason = profile.not_supported_reason.strip() or NOT_SUPPORTED_DEFAULT
+        audit.record(session, actor="reader", action="read_business", result="refused",
+                     detail="needs appointments/booking, not orders; no shop built")
+        raise HTTPException(status_code=422, detail=reason)
 
     key = new_owner_key()
     # Only the admin on a real server creates real businesses; everyone else practises (never real GoDaddy/DNS).

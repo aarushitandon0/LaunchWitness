@@ -1,6 +1,7 @@
 """M2 acceptance: Reader -> profile -> editable -> seller site by Host -> order email."""
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -115,7 +116,7 @@ def test_meera_localhost_shows_her_site(client, meera):
     assert r.status_code == 200 and "text/html" in r.headers["content-type"]
     html = r.text
     assert "<h1>Meera&#39;s Eggless Bakes</h1>" in html
-    for section in ('id="menu"', 'id="about"', 'id="visit"', 'id="pay"', 'id="order"', 'href="/privacy"'):
+    for section in ('id="menu"', 'id="about"', 'id="info"', 'id="pay"', 'id="order"', 'href="/privacy"'):
         assert section in html
     assert "10am to 8pm, closed on Tuesdays" in html
     assert "https://wa.me/919876543210?text=Hi%20Meera%27s%20Eggless%20Bakes" in html
@@ -129,10 +130,12 @@ def test_host_with_port_and_case_works(client, meera):
 
 def test_menu_grouped_by_category_in_order(client, meera):
     html = client.get("/", headers={"host": MEERA}).text
-    cats = ["Cakes", "Cupcakes &amp; brownies", "Add-ons"]
-    positions = [html.index(f'<h3 class="cat">{c}</h3>') for c in cats]
+    cats = ["Cakes", "Cupcakes &amp; brownies", "Extras"]
+    head = '<h3 class="cat-h"><span class="dot" aria-hidden="true"></span>'
+    positions = [html.index(f"{head}{c} ") for c in cats]
     assert positions == sorted(positions)
-    assert html.index("Rasmalai") < html.index('<h3 class="cat">Cupcakes')
+    assert html.index("Rasmalai") < html.index(f"{head}Cupcakes")
+    assert html.index(f"{head}Extras") < html.index("Photo print on cake")  # add-ons are shown as extras
 
 
 def test_privacy_page(client, meera):
@@ -228,7 +231,7 @@ def test_invalid_orders_are_rejected_and_not_emailed(client, engine, mailer, mee
 
 def test_invalid_order_keeps_what_customer_typed(client, meera):
     r = client.post("/order", data=order_form(customer_phone="12"), headers={"host": MEERA})
-    assert 'value="Asha Rao"' in r.text and 'name="qty_5" type="number" inputmode="numeric" min="0" max="50" step="1" value="2"' in r.text
+    assert 'value="Asha Rao"' in r.text and re.search(r'name="qty_5" type="number"[^>]*value="2"', r.text)
 
 
 def test_order_saved_even_if_email_fails(client, engine, mailer, meera):

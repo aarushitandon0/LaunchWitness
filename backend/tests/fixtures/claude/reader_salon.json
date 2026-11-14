@@ -1,0 +1,31 @@
+{
+  "_note": "Hand-written placeholder (session 8). Capture live with: capture_live_fixtures.py reader:salon",
+  "name": "Sunita's Beauty Parlour",
+  "tagline": "Ladies beauty parlour at home",
+  "about": "I run a ladies beauty parlour from my home in Dharampeth, Nagpur, and have done so for 12 years. We do threading, waxing, facials, hair cuts and bridal makeup. Please book a time slot on WhatsApp before you come.",
+  "area": "Dharampeth, Nagpur",
+  "hours": "11am to 8pm, closed on Mondays",
+  "phone": "9822012345",
+  "whatsapp": "9822012345",
+  "upi_id": "",
+  "tone": "friendly",
+  "selling_point": "",
+  "min_notice_days": 0,
+  "pickup_available": false,
+  "delivery_available": false,
+  "delivery_fee_inr": 0,
+  "allow_item_message": false,
+  "upi_display_name": "",
+  "fssai_number": "",
+  "kind": "appointments",
+  "not_supported_reason": "Your customers book a time with you, and we can only build shops that take orders for now, so we can't make your website yet.",
+  "products": [
+    {"name": "Eyebrow threading", "price_inr": 40, "description": "", "category": "Threading", "addon": false, "price_from": false},
+    {"name": "Upper lip threading", "price_inr": 20, "description": "", "category": "Threading", "addon": false, "price_from": false},
+    {"name": "Full arms waxing", "price_inr": 250, "description": "", "category": "Waxing", "addon": false, "price_from": false},
+    {"name": "Fruit facial", "price_inr": 600, "description": "", "category": "Facials", "addon": false, "price_from": false},
+    {"name": "Gold facial", "price_inr": 1200, "description": "", "category": "Facials", "addon": false, "price_from": false},
+    {"name": "Hair cut", "price_inr": 300, "description": "", "category": "Hair & makeup", "addon": false, "price_from": true},
+    {"name": "Bridal makeup", "price_inr": 8000, "description": "", "category": "Hair & makeup", "addon": false, "price_from": true}
+  ]
+}
