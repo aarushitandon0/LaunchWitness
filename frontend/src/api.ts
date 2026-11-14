@@ -23,6 +23,7 @@ export type Business = {
   profile: Profile;
   owner_key?: string; // only in the response that created the business
   owner_link?: string;
+  assistant_note?: string | null; // set when live Claude was resting and a saved sample was used
 };
 
 export type BusinessSummary = { id: number; name: string; subdomain: string | null; site_url: string | null };
@@ -190,6 +191,9 @@ export class ApiError extends Error {
   }
 }
 
+/** Friendly note from the last API response when the assistant fell back to a saved sample (else null). */
+export let lastAssistantNote: string | null = null;
+
 async function request<T>(path: string, init?: RequestInit, businessId?: number): Promise<T> {
   let r: Response;
   try {
@@ -197,6 +201,7 @@ async function request<T>(path: string, init?: RequestInit, businessId?: number)
   } catch {
     throw new ApiError("We couldn't reach LaunchWitness. Please check your internet and try again.", 0);
   }
+  lastAssistantNote = r.headers.get("X-Assistant-Note");
   const body = await r.json().catch(() => null);
   if (!r.ok) {
     const detail = body?.detail;
