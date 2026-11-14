@@ -37,10 +37,11 @@ Open question: find one current (2025–26) India-specific figure on small busin
 Seven steps from description to proof; Meera does four of them, and only one costs money.
 
 1. **Describe.** A few lines + price list (typed, pasted or photo). No WhatsApp/Instagram API.
-   - Claude (one call) returns the business profile (name, products, prices, hours, area, tone) **plus** the site copy (tagline, about, item descriptions).
+   - Claude (one call) returns the business profile (name, products, prices, hours, area, tone) **plus** the site copy (tagline, about, item descriptions) **plus** how customers order: selling point, days of notice, pickup / delivery and delivery charge, whether customers may add a message for an item, the name the seller's UPI app shows, and her food licence (FSSAI) number if given. Plain code then tidies the reply (delivery is never a menu item; extras such as toppers are marked as extras; ordering rules leave the hours line).
+   - **Scope guard (v1 = sellers who take orders).** If the business needs bookings rather than orders (salon, tuition, clinic, classes), the Reader says so in one plain sentence and no shop is built.
 2. **Review.** She sees the profile as a form and fixes anything wrong. No AI.
 3. **Pick a name.** Claude (one small call) suggests ~10 domain names; code checks real availability + price; shows the best 3.
-4. **Preview and approve.** Code fills the fixed template: menu with prices, about, hours, order form, "Order on WhatsApp" link (`wa.me`), UPI QR, privacy page. One approval card lists the domain, total cost and every setting to be made. **Nothing is bought or changed until she taps Approve.**
+4. **Preview and approve.** Code fills the ONE fixed template, the same for every seller (no per-business code or CSS; category colours come from a fixed palette by position): header with short badges taken only from her data, menu with prices and an Add button per item (a basket that also works without JavaScript; long menus get two columns and a search box), extras listed apart, about, hours, pickup/delivery, "Order on WhatsApp" link (`wa.me`), UPI QR with "Your UPI app should show: <name>", optional FSSAI number in the footer, privacy page. No "Verified" label anywhere. One approval card lists the domain, total cost and every setting to be made. **Nothing is bought or changed until she taps Approve.**
 5. **Launch.** Code only: back up DNS, buy the domain (or use a free sandbox subdomain), point it at the server, set up email, put the site live with HTTPS. Each step streams on screen.
 6. **Launch check.** Code checks the site opens, HTTPS is valid, email settings are correct, then places a real test order through her form. If anything fails, the Doctor explains it in one sentence, applies a safe fix or undoes the change, and re-checks until green.
 7. **Report and watch.** Report headed **"Your business is ready for customers"**: every check, result, time passed. After launch, the same checks re-run lightly on a timer and alert her if something breaks.
@@ -59,7 +60,9 @@ Eight core features first; no stretch item starts until all eight run end to end
 |---|---|---|---|
 | 1 | Business reader | Core | Description + price list (text or photo) → editable profile + site copy, one Claude call |
 | 2 | Name finder | Core | Claude suggests names; code checks real availability and price; shows 3 |
-| 3 | Site builder | Core | One fixed template: menu, about, hours, order form, WhatsApp link, UPI QR, privacy page |
+| 3 | Site builder | Core | One fixed template for every seller: badges from data, menu + basket, extras, about, hours, pickup/delivery, order form, WhatsApp link, UPI QR, privacy page |
+| 3a | Orders and payment (session 9) | Core | Order date (min notice enforced), pickup/delivery, quantities, totals worked out on the server; per-order UPI pay link + QR (no gateway, no money passes through us); order ID + status page (Received → Confirmed → Paid → Preparing → Ready / Out for delivery → Delivered / Picked up, or Cancelled); seller's order list on her private link; WhatsApp hand-offs via `wa.me` links |
+| 3b | Trust and safety (session 9) | Core | Verify the owner's email before any real launch; Claude policy check that can only hold a shop for team review (never launches); "Report this shop" link + admin pause switch |
 | 4 | Launch engine | Core | Plan → preview of changes → approval card → execute (GoDaddy Domains, DNS, Email); sandbox + full modes |
 | 5 | Launch check | Core | Site resolves, HTTPS valid, email settings present, real test order arrives |
 | 6 | Repair during launch | Core | Doctor explains a failed check, applies a playbook fix or undoes from backup, re-checks |
@@ -70,7 +73,7 @@ Eight core features first; no stretch item starts until all eight run end to end
 | 11 | MCP server | Stretch | Engine tools over MCP behind the same safety gates |
 | 12 | Fleet view | Stretch | Dashboard of all launched businesses |
 
-Out of scope: payments, inventory, WhatsApp/Instagram APIs, multiple templates, custom code generation.
+Out of scope: payment gateways or holding money (UPI pay links only; "Connect Razorpay (after seller KYC)" is future work), appointments/booking, inventory, SMS, WhatsApp Business / Instagram APIs, multiple templates, custom code generation.
 
 ---
 
@@ -80,7 +83,8 @@ Claude decides and explains; plain code acts and checks. Three steps use Claude;
 
 | Agent | Job | Claude or code | Model | Output |
 |---|---|---|---|---|
-| Reader | Profile + site copy from text or photo | Claude, 1 call | Strong (vision + structured output) | Profile JSON + copy |
+| Reader | Profile + site copy + ordering details from text or photo; orders vs bookings | Claude, 1 call | Strong (vision + structured output) | Profile JSON + copy (code tidies it) |
+| Policy check (session 9) | Is this shop OK to put live? | Claude decides, code holds | Cheap | OK, or "hold for review" + one plain reason; it can never launch or unpause |
 | Namer | Suggest names; check availability + price | Claude suggests, code checks | Cheap | 3 available domains with prices |
 | Planner | Every action, setting and cost | Code, fixed schema | — | Plan + before/after preview |
 | Executor | Run the approved plan step by step, backup first | Code only | — | Step log |
@@ -245,6 +249,12 @@ Never buy a second domain on camera. Record a backup run. Rehearse proof + fix u
 | Confirm delivery for real sellers? | "Yes, I got it" link in the test email; no mailbox password needed. |
 | Was the demo failure real? | Staged so it shows reliably; detection and fix are real code. |
 | Cost per seller? | A few Claude calls (cents) + domain + mailbox she'd buy anyway. |
+| How does she get paid? | Each order shows "Pay ₹X via UPI": a prefilled UPI link on phones and a QR on laptops, with the order ID as the note. Money goes straight from the customer's UPI app to hers; it never passes through us. She marks the order Paid after checking her UPI app. Card payments ("Connect Razorpay") come later, after the seller's KYC. |
+| How does the customer know what's happening? | A status page per order (unguessable ID, first name + items only), plus a ready-typed WhatsApp message the seller sends with one tap. No SMS, no WhatsApp Business API. |
+| What if she never opens her business inbox? | New orders also go to her personal email, and the customer can send the order to her WhatsApp from the thank-you screen. |
+| Can a scammer launch a fake shop? | The owner's email is verified before a real launch, a policy check can hold a shop for review, every shop has "Report this shop", and the team can pause it. |
+| Can a salon or tutor use it? | Not yet: v1 is for sellers who take orders. The Reader says so plainly instead of building a half-working shop. |
+| Who pays renewal next year? | The seller, to GoDaddy, on her own account. We warn her at 30 / 7 / 1 days. |
 
 ---
 

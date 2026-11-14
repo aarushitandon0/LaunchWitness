@@ -4,10 +4,12 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
-**M1 + M5: everything that doesn't need real infra is done** (session 4): landing page + contact form, `/build`, prod compose, backup/restore, `docs/RUNBOOK_M1.md`, `scripts/check_m1.sh`, demo seeder, README, project brief draft, public replay built and secret-scanned. Session 5 (design + motion pass) done: new look and motion for the landing page and the whole demo flow. **Session 6 (real Claude agents) done**, and **session 7 captured all 17 live Claude fixtures** on the owner's laptop ($0.0726, every quality gate passes, measured ≈ 1 cent per launch). **Next session runs on the real VPS: follow `docs/RUNBOOK_M1.md` step by step.** M4 done against fakes (AC5 needs real infra). M3 done except the real-infra AC. M0 · M2 done.
+**M1 + M5: everything that doesn't need real infra is done** (session 4): landing page + contact form, `/build`, prod compose, backup/restore, `docs/RUNBOOK_M1.md`, `scripts/check_m1.sh`, demo seeder, README, project brief draft, public replay built and secret-scanned. Session 5 (design + motion pass) done: new look and motion for the landing page and the whole demo flow. **Session 6 (real Claude agents) done**, and **session 7 captured all 17 live Claude fixtures** on the owner's laptop ($0.0726, every quality gate passes, measured ≈ 1 cent per launch). **Session 8 rebuilt the seller shop template** (one generic template for every seller, basket, new profile fields, booking scope guard). **M1 on the VPS must happen by Nov 17** (`docs/RUNBOOK_M1.md`); session 9 (orders, UPI, tracking, trust & safety) is ready in `docs/NEXT_SESSION_S9.md`. M4 done against fakes (AC5 needs real infra). M3 done except the real-infra AC. M0 · M2 done.
 
 ## Next up
 
+0. **Deadline: M1 on the VPS by Nov 17.** If session 9 would start on Nov 16 or later, do M1 first.
+0b. **Session 9** (orders + UPI pay link + status page + seller order list + WhatsApp hand-offs + email verification + policy check + report/pause): paste `docs/NEXT_SESSION_S9.md`.
 1. **M1 on the VPS** once credit is confirmed: follow `docs/RUNBOOK_M1.md` (buy → SSH → Docker → clone → `.env` → DNS A + wildcard → prod compose → backup cron → mailbox → `check_m1.sh` all PASS). Confirm the `gddy` sub-commands with `gddy tree` (marked in the runbook).
 2. **Fable session — plug in real integrations** in the order of the runbook's step 11 table, then `USE_FAKES=false` (admin-created businesses only) and the M3 AC1 sandbox launch with real HTTPS.
 3. **Check `EMAIL_PLAN_ESTIMATE_USD`** (placeholder **$24/year**) against the real GoDaddy cart for Titan Pro Light, then set it in `.env`.
@@ -117,6 +119,18 @@ Everything below is behind an interface with a working fake; tests cover the fak
   - Older tests that pinned placeholder text updated to the live replies (Meera is now "Meera's Eggless Bakes", subdomain `meeras-eggless-bakes`; product names like "Chocolate truffle cake 1/2 kg"; Namer ranking test uses the live names and now also exercises the .com swap; Doctor DMARC test reads the saved sentence).
   - Tests: 303 passed, 2 skipped (real infra).
 
+- 2026-11-14: **Session 8, shop redesign (M5 demo polish + new profile fields):**
+  - `seller.html` rewritten as ONE generic template (a test fails on trade words like "cake"/"tailor" or seller names, and on any per-business CSS). Laptop: 1120 px page, menu left + sticky "Your order" panel right; phone: one column + a sticky "N items · ₹X · Review" bar. Hero: monogram tile, serif name, tagline, area/hours line (area hidden when the tagline already says it), badges, WhatsApp/Call. Menu appears once: each item has Add → − n + (the plain quantity boxes still work without JavaScript; the server works out totals). Category colours from a fixed 6-colour palette by position; quick-jump chips; lists of 12+ items go two-column, menus of 20+ items get a search box. Extras listed apart and can't be ordered alone. Info tiles: hours, pickup/delivery, contact, UPI (with "Your UPI app should show: <name>"). FSSAI in the footer. No "Verified" anywhere.
+  - Profile fields: `selling_point`, `min_notice_days`, `pickup_available`, `delivery_available`, `delivery_fee_inr`, `allow_item_message` (default off), `upi_display_name`, `fssai_number` (14 digits), `kind` (orders | appointments), `not_supported_reason`; product `addon`, `price_from`. All have defaults, so saved profiles and the session-7 live fixtures load unchanged. Reader prompt + JSON schema ask for them (a test keeps schema = model).
+  - `tidy_profile` (plain code, runs on every Reader reply): delivery lines leave the menu and become the delivery fee; "Add-ons/Extras" categories become extras; "from/onwards" prices become `price_from` (and a description that only repeats the price is dropped); notice days read from "at least N days"; ordering rules removed from hours. Never overrides what the Reader set; never empties the menu.
+  - Scope guard: `kind="appointments"` → describe returns 422 with one plain sentence, no Business row, audited `refused`. New hard case `sellers_hard/salon.json` + hand-written `reader_salon.json` (`_note`). Fixture mode now also matches hard-case descriptions.
+  - Review screen: "How customers order" card (selling point, notice days, pickup, delivery + charge, item message), UPI name + FSSAI fields, per-item "Extra" and "Starting price" ticks.
+  - Item message: shown only when `allow_item_message`; stored at the top of the order note.
+  - Site gallery: 6 profiles in `tests/fixtures/site_gallery/` (bakery, tailor with "from" prices, tiffin with weekly/monthly plans, candle maker with 2 items, 44 items with no categories, long Hinglish names with no phone/UPI). Sample phone/UPI/FSSAI only there (`…@example`, `98765 43210`, `12345678901234`). `scripts/render_site_gallery.py` + `scripts/shoot_site_gallery.js` render and screenshot them at 375 and 1440 px and warn on sideways scrolling (none). Screenshots, incl. before/after, in `docs/screenshots/s8/`.
+  - Browser check (Chromium, 390 px): salon description → plain refusal; Meera example → private link → review → new fields → save → site shows 3 badges + message field → basket → order → thank-you page.
+  - SPEC updated (flow, features 3a/3b for session 9, out of scope, agents, judge Q&A). Session 9 prompt written: `docs/NEXT_SESSION_S9.md`.
+  - Tests: 333 passed, 2 skipped (real infra). Live Claude spend: $0.
+
 ## Environment status
 
 | Item | Status | Notes |
@@ -193,7 +207,17 @@ Everything below is behind an interface with a working fake; tests cover the fak
 - 2026-11-14 (session 7): On Windows the local `.venv` uses `jiter==0.11.1` (Application Control blocks the 0.19.0 DLL). Not pinned in `requirements.txt` (anthropic allows `jiter>=0.4,<1`); Linux/VPS unaffected.
 - 2026-11-14 (session 7): Tests that compared exact placeholder text now compare the live fixture values (or read them from the fixture file). The fixtures are the source of truth; re-capturing a fixture may need those few strings updated again.
 
+- 2026-11-14 (session 8): Delivery needs two fields: `delivery_available` + `delivery_fee_inr` (0 = free). The plan named only the fee and `pickup_available`; a fee of 0 couldn't tell "free" from "no delivery".
+- 2026-11-14 (session 8): Badges = selling point, "Order N days ahead" (only if N > 0), pickup/delivery. Nothing else, no filler.
+- 2026-11-14 (session 8): Extras (add-ons) stay orderable but only next to a main item (server refuses an extras-only order).
+- 2026-11-14 (session 8): `min_notice_days` default is 0 (= not stated, no badge). Session 9 enforces it on the order date.
+- 2026-11-14 (session 8): "Appointments" = the customer buys the owner's time at a booked slot (salon, beauty, tuition, coaching, clinic, classes). Tailors and caterers stay "orders". The old live `no_categories` fixture (a mehendi artist) has no `kind`, so it still builds a shop; a fresh live capture may now refuse it.
+- 2026-11-14 (session 8): Seller sites use system fonts (no Google Fonts), so customers' browsers don't call a third party.
+- 2026-11-14 (session 8): The thank-you page shows a "Message on WhatsApp" button only when the seller has WhatsApp/phone; the session-9 "send this order" link replaces it.
+
 ## Open questions
+
+- Capture `reader:salon` live (1 Sonnet call, ≈ $0.01)? Until then `REQUIRE_LIVE_FIXTURES=1` fails on its `_note` (by design). It isn't in `capture_all_live.sh`'s 17 targets; run it as a single target. The live Reader replies would also start filling the new session-8 fields; re-capturing the 8 Reader fixtures (≈ $0.08) is optional, because tidy-up + defaults already cover them.
 
 - Capture live `namer_tailor` + `namer_tiffin_service` too (2 Haiku calls, ≈ $0.0002)? They're still hand-written.
 - Demo domain: SPEC's Meera story says `meerabakes.in`, but the live Namer suggests `meerasbakes.in` / `punebakes.in` (no `meerabakes`). The owner can still type any name; pick which one to buy for the demo.

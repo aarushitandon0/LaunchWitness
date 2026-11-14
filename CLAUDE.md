@@ -78,6 +78,7 @@ scripts/               # build-replay.sh and helpers
 - Save session transcript: `bash scripts/save-transcript.sh <N> <milestone>` · build replay page: `REDACT_EMAILS=<owner email> bash scripts/build-replay.sh` → `replay/build.html` (served at `/build`; redacts emails, secret-scans the page, deletes it on any hit). One Claude Code session = one file in `replay/sessions/` (the replay keeps one copy per session id: if a chat continues, replace its earlier partial file).
 - Prod on the VPS: follow `docs/RUNBOOK_M1.md`. Start/update: `docker compose --env-file .env -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build` (Caddyfile.prod, monitoring on, restart always, healthchecks) · M1 check: `bash scripts/check_m1.sh` · DB backup: `bash scripts/backup_db.sh` (restore: `--restore <file>`)
 - Demo rehearsal (practice, needs the app running): `python3 scripts/seed_demo.py [--url URL] [--launched]` · reset: `ADMIN_TOKEN` in env, `python3 scripts/seed_demo.py --reset`
+- Seller site gallery (6 very different sellers, phone + laptop screenshots): `.venv/bin/python scripts/render_site_gallery.py <tmp_dir> && node scripts/shoot_site_gallery.js <tmp_dir> docs/screenshots/<session>` (warns on sideways scrolling)
 - App pages: `/` landing + contact form · `/#/try` describe · `/#/admin` team access · `/build` replay
 
 ## Style
