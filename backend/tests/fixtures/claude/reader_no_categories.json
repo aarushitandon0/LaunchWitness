@@ -1,0 +1,61 @@
+{
+  "name": "Farah's Mehendi & Makeup",
+  "tagline": "Mehendi and simple makeup in Tolichowki, Hyderabad",
+  "about": "I'm Farah, and I do mehendi and simple makeup from my home studio in Tolichowki, Hyderabad. I also travel to your home if you prefer. For bridal bookings, please give us 2 weeks notice.",
+  "area": "Tolichowki, Hyderabad",
+  "hours": "Open every day, 10am to 9pm",
+  "phone": "9000011122",
+  "whatsapp": "9000011122",
+  "upi_id": "",
+  "tone": "friendly",
+  "products": [
+    {
+      "name": "Bridal mehendi, full hands and feet",
+      "price_inr": 4500,
+      "description": "Needs 2 weeks notice for booking",
+      "category": "Mehendi"
+    },
+    {
+      "name": "Engagement mehendi",
+      "price_inr": 2000,
+      "description": "",
+      "category": "Mehendi"
+    },
+    {
+      "name": "Simple mehendi, one hand",
+      "price_inr": 300,
+      "description": "",
+      "category": "Mehendi"
+    },
+    {
+      "name": "Arabic design, both hands",
+      "price_inr": 600,
+      "description": "",
+      "category": "Mehendi"
+    },
+    {
+      "name": "Party makeup",
+      "price_inr": 2500,
+      "description": "",
+      "category": "Makeup & styling"
+    },
+    {
+      "name": "Hairstyle",
+      "price_inr": 800,
+      "description": "",
+      "category": "Makeup & styling"
+    },
+    {
+      "name": "Saree draping",
+      "price_inr": 500,
+      "description": "",
+      "category": "Makeup & styling"
+    },
+    {
+      "name": "Travel charge within 10 km",
+      "price_inr": 300,
+      "description": "For service at your home",
+      "category": "Add-ons"
+    }
+  ]
+}

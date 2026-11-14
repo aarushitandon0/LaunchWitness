@@ -1,5 +1,4 @@
 {
-  "_note": "Hand-written placeholder (no live Claude call made yet). Replace with a real saved Doctor response.",
-  "plain_explanation": "Your website's security padlock isn't ready, so browsers may warn customers away.",
+  "plain_explanation": "Customers may see a security warning when visiting your site, which can make them hesitant to browse or buy.",
   "fix_id": "retry_certificate"
 }

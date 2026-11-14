@@ -1,5 +1,4 @@
 {
-  "_note": "Hand-written placeholder (no live Claude call made yet). Replace with a real saved Doctor response.",
-  "plain_explanation": "One launch step didn't finish, so the safest move is to put your settings back.",
+  "plain_explanation": "Your shop's email setup didn't finish, so messages to and from your customers may not arrive reliably until it's completed.",
   "fix_id": "restore_backup"
 }

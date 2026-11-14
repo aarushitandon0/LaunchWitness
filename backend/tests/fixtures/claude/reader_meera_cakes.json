@@ -1,74 +1,73 @@
 {
-  "_note": "Hand-written placeholder in Profile format. Replaced by a real saved Reader response in M2.",
-  "name": "Meera's Home Cakes",
-  "tagline": "Fresh eggless cakes, baked to order in Baner, Pune",
-  "about": "I bake eggless cakes and cupcakes fresh to order in my home kitchen in Baner, with real butter and Belgian chocolate and no preservatives. Custom birthday and anniversary cakes with photo prints or theme toppers are possible too. Please order at least 2 days ahead.",
+  "name": "Meera's Eggless Bakes",
+  "tagline": "Fresh eggless cakes and cupcakes from Baner, Pune",
+  "about": "I'm Meera, and I bake eggless cakes and cupcakes in my home kitchen in Baner, Pune. I started 3 years back for friends and family, and now we take orders from all over Pune. Everything is made fresh to order with no preservatives, using real butter and Belgian chocolate. Custom birthday and anniversary cakes with photo print or theme toppers are also possible.",
   "area": "Baner, Pune",
-  "hours": "10am to 8pm, closed Tuesdays",
+  "hours": "Open 10am to 8pm, closed on Tuesdays. Please order at least 2 days before. Orders mostly on WhatsApp.",
   "phone": "",
   "whatsapp": "",
   "upi_id": "",
   "tone": "homely",
   "products": [
     {
-      "name": "Chocolate truffle cake (1/2 kg)",
+      "name": "Chocolate truffle cake 1/2 kg",
       "price_inr": 650,
-      "description": "Rich Belgian chocolate",
+      "description": "Eggless, made fresh to order",
       "category": "Cakes"
     },
     {
-      "name": "Chocolate truffle cake (1 kg)",
+      "name": "Chocolate truffle cake 1 kg",
       "price_inr": 1200,
-      "description": "Rich Belgian chocolate",
+      "description": "Eggless, made fresh to order",
       "category": "Cakes"
     },
     {
-      "name": "Pineapple cake (1/2 kg)",
+      "name": "Pineapple cake 1/2 kg",
       "price_inr": 550,
-      "description": "",
+      "description": "Eggless, made fresh to order",
       "category": "Cakes"
     },
     {
-      "name": "Red velvet with cream cheese (1/2 kg)",
+      "name": "Red velvet cake with cream cheese 1/2 kg",
       "price_inr": 750,
-      "description": "",
+      "description": "Eggless, with cream cheese frosting",
       "category": "Cakes"
     },
     {
-      "name": "Rasmalai cake (1 kg)",
+      "name": "Rasmalai cake 1 kg",
       "price_inr": 1400,
       "description": "Festive special",
       "category": "Cakes"
     },
     {
-      "name": "Cupcakes, box of 6",
+      "name": "Cupcakes box of 6",
       "price_inr": 420,
       "description": "Assorted flavours",
       "category": "Cupcakes & brownies"
     },
     {
-      "name": "Brownies, box of 9",
+      "name": "Brownies box of 9",
       "price_inr": 480,
-      "description": "",
+      "description": "Box of 9 brownies",
       "category": "Cupcakes & brownies"
     },
     {
       "name": "Photo print on cake",
       "price_inr": 250,
-      "description": "Extra, on any cake",
+      "description": "Extra charge on top of the cake price",
       "category": "Add-ons"
     },
     {
       "name": "Theme topper",
       "price_inr": 300,
-      "description": "From ₹300",
+      "description": "Price starts from ₹300",
       "category": "Add-ons"
     },
     {
       "name": "Delivery within 10 km",
       "price_inr": 80,
-      "description": "Or pick up from Baner",
-      "category": "Add-ons"
+      "description": "Delivery charge for orders within 10 km; pickup from Baner is also available",
+      "category": "Delivery"
     }
   ]
 }

@@ -44,9 +44,9 @@ def meera(client) -> dict:
 def test_meera_input_produces_profile(client, claude):
     biz = create(client)
     assert claude.calls == ["reader_meera_cakes"]
-    assert biz["profile"]["name"] == "Meera's Home Cakes"
-    assert biz["subdomain"] == "meeras-home-cakes"
-    assert biz["site_url"] == "http://meeras-home-cakes.localhost/"
+    assert biz["profile"]["name"] == "Meera's Eggless Bakes"
+    assert biz["subdomain"] == "meeras-eggless-bakes"
+    assert biz["site_url"] == "http://meeras-eggless-bakes.localhost/"
     assert len(biz["profile"]["products"]) >= 7
 
 
@@ -85,8 +85,8 @@ def test_subdomain_must_be_unique(client):
 
 
 def test_default_subdomain_avoids_clash(client):
-    assert create(client)["subdomain"] == "meeras-home-cakes"
-    assert create(client)["subdomain"] == "meeras-home-cakes-2"
+    assert create(client)["subdomain"] == "meeras-eggless-bakes"
+    assert create(client)["subdomain"] == "meeras-eggless-bakes-2"
 
 
 def test_photo_upload_goes_to_reader(client, claude):
@@ -114,13 +114,13 @@ def test_meera_localhost_shows_her_site(client, meera):
     r = client.get("/", headers={"host": MEERA})
     assert r.status_code == 200 and "text/html" in r.headers["content-type"]
     html = r.text
-    assert "<h1>Meera&#39;s Home Cakes</h1>" in html
+    assert "<h1>Meera&#39;s Eggless Bakes</h1>" in html
     for section in ('id="menu"', 'id="about"', 'id="visit"', 'id="pay"', 'id="order"', 'href="/privacy"'):
         assert section in html
-    assert "10am to 8pm, closed Tuesdays" in html
-    assert "https://wa.me/919876543210?text=Hi%20Meera%27s%20Home%20Cakes" in html
+    assert "10am to 8pm, closed on Tuesdays" in html
+    assert "https://wa.me/919876543210?text=Hi%20Meera%27s%20Eggless%20Bakes" in html
     assert 'aria-label="UPI payment QR code"' in html and "<svg" in html
-    assert "upi://pay?pa=meera.cakes@okaxis&amp;pn=Meera%27s%20Home%20Cakes&amp;cu=INR" in html
+    assert "upi://pay?pa=meera.cakes@okaxis&amp;pn=Meera%27s%20Eggless%20Bakes&amp;cu=INR" in html
 
 
 def test_host_with_port_and_case_works(client, meera):
@@ -141,7 +141,7 @@ def test_privacy_page(client, meera):
 
 
 def test_app_host_still_serves_app(client, meera):
-    assert "Meera&#39;s Home Cakes</h1>" not in client.get("/", headers={"host": "localhost"}).text
+    assert "Meera&#39;s Eggless Bakes</h1>" not in client.get("/", headers={"host": "localhost"}).text
     assert client.get("/api/health", headers={"host": "localhost"}).json()["ok"] is True
 
 
@@ -189,9 +189,9 @@ def test_order_is_stored_and_emailed(client, engine, mailer, meera, settings):
     assert len(mailer.sent) == 1
     mail = mailer.sent[0]
     assert mail["to"] == settings.smtp_user
-    assert mail["subject"].startswith("New order for Meera's Home Cakes from Asha Rao")
-    assert "1 x Chocolate truffle cake (1/2 kg)" in mail["body"]
-    assert "2 x Cupcakes, box of 6 @ ₹420 = ₹840" in mail["body"]
+    assert mail["subject"].startswith("New order for Meera's Eggless Bakes from Asha Rao")
+    assert "1 x Chocolate truffle cake 1/2 kg" in mail["body"]
+    assert "2 x Cupcakes box of 6 @ ₹420 = ₹840" in mail["body"]
     assert "+91 99887 76655" in mail["body"] and "Happy birthday Riya" in mail["body"]
 
     with Session(engine) as s:

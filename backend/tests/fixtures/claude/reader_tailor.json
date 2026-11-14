@@ -1,10 +1,9 @@
 {
-  "_note": "Hand-written placeholder in Profile format. Replaced by a real saved Reader response in M2.",
   "name": "Sheikh Ladies & Gents Tailors",
-  "tagline": "Stitching and alterations in Aminabad, Lucknow",
-  "about": "Our family shop has been tailoring in Aminabad for 22 years. We stitch blouses, suits, kurtas, lehengas and sherwanis, and do all alterations. Wedding orders get a fitting trial before final stitching.",
+  "tagline": "Ladies and gents tailoring for every occasion in Aminabad, Lucknow",
+  "about": "We have been stitching for 22 years, and my father started this shop. We stitch blouses, salwar suits, kurtas, lehenga and sherwani, and we do all kinds of alterations. Chikankari work kurtas are also available on order. For wedding orders we give a fitting trial before the final stitching.",
   "area": "Aminabad, Lucknow",
-  "hours": "11am to 9pm, Friday half day",
+  "hours": "Open 11am to 9pm. Friday is a half day. Normal orders ready in 5-7 days, urgent orders in 2 days with extra charge.",
   "phone": "",
   "whatsapp": "",
   "upi_id": "",
@@ -14,61 +13,61 @@
       "name": "Simple blouse stitching",
       "price_inr": 450,
       "description": "",
-      "category": "Ladies"
+      "category": "Ladies stitching"
     },
     {
       "name": "Designer / padded blouse",
       "price_inr": 850,
-      "description": "From ₹850",
-      "category": "Ladies"
+      "description": "Price starts from ₹850",
+      "category": "Ladies stitching"
     },
     {
       "name": "Salwar suit stitching",
       "price_inr": 600,
       "description": "",
-      "category": "Ladies"
+      "category": "Ladies stitching"
     },
     {
       "name": "Anarkali suit",
       "price_inr": 1100,
       "description": "",
-      "category": "Ladies"
+      "category": "Ladies stitching"
     },
     {
       "name": "Gents kurta pajama",
       "price_inr": 700,
       "description": "",
-      "category": "Gents"
+      "category": "Gents stitching"
     },
     {
       "name": "Sherwani stitching",
       "price_inr": 3500,
-      "description": "From ₹3500",
-      "category": "Gents"
+      "description": "Price starts from ₹3500",
+      "category": "Gents stitching"
     },
     {
       "name": "Pant alteration / length",
       "price_inr": 120,
       "description": "",
-      "category": "Alterations & extras"
+      "category": "Alterations"
     },
     {
       "name": "Fall pico for saree",
       "price_inr": 100,
       "description": "",
-      "category": "Alterations & extras"
+      "category": "Alterations"
     },
     {
       "name": "Urgent (2 days)",
       "price_inr": 300,
-      "description": "Extra charge",
-      "category": "Alterations & extras"
+      "description": "Extra charge for 2-day delivery",
+      "category": "Extra services"
     },
     {
       "name": "Home measurement visit",
       "price_inr": 150,
-      "description": "Ladies, within Lucknow",
-      "category": "Alterations & extras"
+      "description": "For ladies within Lucknow, on appointment",
+      "category": "Extra services"
     }
   ]
 }
