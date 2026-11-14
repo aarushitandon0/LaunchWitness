@@ -1,0 +1,28 @@
+# PROD mode: automatic HTTPS for the app domain, plus on-demand TLS for seller
+# domains. Caddy asks the app before issuing any certificate; the app says yes
+# only for the app domain, seller subdomains in the DB, and seller domains in the DB.
+
+{
+	on_demand_tls {
+		ask http://app:8000/internal/tls-ask
+	}
+}
+
+(app) {
+	@internal path /internal/*
+	respond @internal 404
+	reverse_proxy app:8000
+}
+
+# The app itself.
+{$APP_DOMAIN} {
+	import app
+}
+
+# Seller sites: <label>.{$APP_DOMAIN} and seller-owned domains.
+https:// {
+	tls {
+		on_demand
+	}
+	import app
+}
