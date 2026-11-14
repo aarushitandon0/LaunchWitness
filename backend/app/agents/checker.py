@@ -14,6 +14,7 @@ from sqlmodel import Session
 
 from app import audit
 from app.agents.executor import Ctx
+from app.agents.planner import DKIM_PENDING
 from app.agents.reader import Profile
 from app.godaddy.email import TITAN_MX
 from app.models import CheckResult
@@ -107,6 +108,24 @@ def check_launch_clean(ctx: Ctx) -> Outcome:
                    "Some launch steps didn't finish.", f"plan {ctx.plan.status}; unfinished: {bad}")
 
 
+def check_settings_match(ctx: Ctx) -> Outcome:
+    """Monitoring (daily): every setting the launch wrote still has the value it wrote."""
+    current = {}
+    for zone in {c["zone"] for c in ctx.changes}:
+        for r in ctx.integ.godaddy.get_records(zone):
+            current.setdefault((zone, r["type"], r["name"]), set()).add(str(r.get("data", "")))
+    changed = []
+    for c in ctx.changes:
+        want = {str(r.get("data", "")) for r in c["after"]}
+        have = current.get((c["zone"], c["type"], c["name"]), set())
+        ok = bool(have) if (c["deferred"] or DKIM_PENDING in want) else want <= have
+        if not ok:
+            changed.append(f"{c['type']} {c['name']}")
+    ok = not changed
+    return Outcome("settings_match", ok, "Your settings are the same as at launch." if ok else
+                   "Some of your settings changed since launch.", f"changed: {changed}" if changed else "all match")
+
+
 CHECKS = {
     "site_points": check_site_points,
     "https": check_https,
@@ -116,13 +135,26 @@ CHECKS = {
     "email_dmarc": check_email_dmarc,
     "test_order": check_test_order,
     "launch_clean": check_launch_clean,
+    "settings_match": check_settings_match,  # monitoring only
+}
+LAUNCH_CHECKS = ["site_points", "https", "email_mx", "email_spf", "email_dkim", "email_dmarc", "test_order",
+                 "launch_clean"]
+SANDBOX_CHECKS = ["site_points", "https", "test_order", "launch_clean"]
+TITLES = {
+    "site_points": "Your address leads to your website",
+    "https": "Your website opens securely",
+    "email_mx": "Emails reach your mailbox",
+    "email_spf": "Your mailbox may send email for you",
+    "email_dkim": "Your emails are signed",
+    "email_dmarc": "Protection against fake emails in your name",
+    "test_order": "A test order reached your inbox",
+    "launch_clean": "Every launch step finished",
+    "settings_match": "Your settings are unchanged since launch",
 }
 
 
 def checks_for(ctx: Ctx) -> list[str]:
-    if ctx.plan.mode == "full":
-        return list(CHECKS)
-    return ["site_points", "https", "test_order", "launch_clean"]
+    return list(LAUNCH_CHECKS) if ctx.plan.mode == "full" else list(SANDBOX_CHECKS)
 
 
 def run_check(ctx: Ctx, name: str, attempt: int = 0) -> Outcome:
@@ -135,7 +167,7 @@ def run_check(ctx: Ctx, name: str, attempt: int = 0) -> Outcome:
 
 
 def save(session: Session, ctx: Ctx, out: Outcome, attempt: int) -> None:
-    session.add(CheckResult(business_id=ctx.business.id, plan_id=ctx.plan.id, check=out.check, passed=out.passed,
+    session.add(CheckResult(business_id=ctx.business.id, plan_id=ctx.plan.id, run_id=ctx.run_id, check=out.check, passed=out.passed,
                             detail=json.dumps({"plain": out.plain, "detail": out.detail}), attempt=attempt))
     session.commit()
     audit.record(session, actor="checker", action=f"check_{out.check}", target=ctx.plan.site_host,

@@ -56,8 +56,8 @@ def test_full_launch_all_checks_green(client, integ, engine, settings):
     assert [o.check for o in outs] == ["site_points", "https", "email_mx", "email_spf", "email_dkim", "email_dmarc",
                                        "test_order", "launch_clean"]
     assert all(o.passed for o in outs), [(o.check, o.detail) for o in outs]
-    assert len(ctx.session.exec(select(CheckResult)).all()) == 8
-    test_order = ctx.session.exec(select(Order).where(Order.is_test)).one()
+    assert len(ctx.session.exec(select(CheckResult).where(CheckResult.run_id == None)).all()) == 8  # noqa: E711
+    test_order = ctx.session.exec(select(Order).where(Order.is_test).order_by(Order.id.desc())).first()
     assert integ.inbox.find(subject_contains=f"(#{test_order.id})")[0].subject.startswith("[TEST] New order")
 
 
@@ -199,8 +199,8 @@ def test_doctor_stops_after_three_attempts(client, integ, engine, settings):
     failed = run_check(ctx, "email_dmarc")
     result = repair(FixtureClaudeClient(), ctx, failed)
     assert not result.fixed and len(result.attempts) == MAX_ATTEMPTS
-    assert [r.attempt for r in ctx.session.exec(select(CheckResult).where(CheckResult.check == "email_dmarc"))
-            .all()] == [0, 1, 2, 3]
+    assert [r.attempt for r in ctx.session.exec(select(CheckResult).where(
+        CheckResult.check == "email_dmarc", CheckResult.run_id == None)).all()] == [0, 1, 2, 3]  # noqa: E711
 
 
 def test_certificate_retry_then_green(client, integ, engine, settings):

@@ -39,7 +39,10 @@ def business_for_host(host: str, settings: Settings, session: Session) -> Busine
     label = subdomain_label(h, settings)
     if label is not None:
         return session.exec(select(Business).where(Business.subdomain == label)).first()
-    return session.exec(select(Business).where(Business.domain == h)).first()
+    q = select(Business).where(Business.domain == h)
+    if not settings.use_fakes:  # a practice launch's domain is pretend: never serve it or get it a certificate
+        q = q.where(Business.practice == False)  # noqa: E712
+    return session.exec(q.order_by(Business.practice)).first()
 
 
 def site_url(subdomain: str, settings: Settings) -> str:

@@ -7,6 +7,7 @@ by the owner on godaddy.com, and any future code path must go through
 `app.safety.spend_guard.authorize_purchase` first.
 """
 
+from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 import httpx
@@ -34,6 +35,7 @@ class GoDaddy(Protocol):
     def set_records(self, domain: str, rtype: str, name: str, records: list[DnsRecord]) -> None: ...
     def delete_records(self, domain: str, rtype: str, name: str) -> None: ...
     def purchase_domain(self, domain: str, price_usd: float) -> dict: ...
+    def domain_expires(self, domain: str) -> datetime | None: ...
 
 
 class GoDaddyClient:
@@ -88,6 +90,15 @@ class GoDaddyClient:
     def purchase_domain(self, domain: str, price_usd: float) -> dict:
         raise PurchaseNotSupported("Domains are bought by the owner on godaddy.com; the app only adopts them.")
 
+    def domain_expires(self, domain: str) -> datetime | None:
+        """Registration end date from GET /v1/domains/{domain} ("expires"). TODO(real): verify field on prod."""
+        r = self._http.get(f"/v1/domains/{domain}")
+        if r.status_code == 404:
+            return None
+        r.raise_for_status()
+        value = r.json().get("expires")
+        return datetime.fromisoformat(value.replace("Z", "+00:00")) if value else None
+
 
 class FakeGoDaddyClient:
     """In-memory stand-in for tests and practice mode."""
@@ -99,6 +110,7 @@ class FakeGoDaddyClient:
         self.zones: dict[str, list[DnsRecord]] = {}
         self.calls: list[tuple] = []
         self.fail_next: dict[str, int] = {}  # method name -> number of upcoming calls that raise
+        self.expires: dict[str, datetime] = {}  # domain -> registration end (default: a year from now)
 
     def _maybe_fail(self, method: str) -> None:
         if self.fail_next.get(method, 0) > 0:
@@ -134,6 +146,11 @@ class FakeGoDaddyClient:
         self.calls.append(("purchase_domain", domain, price_usd))
         self.owned.add(domain)
         return {"domain": domain, "price_usd": price_usd, "order_id": f"fake-{len(self.owned)}"}
+
+    def domain_expires(self, domain: str) -> datetime | None:
+        if domain not in self.owned:
+            return None
+        return self.expires.get(domain) or datetime.now(UTC) + timedelta(days=365)
 
     def writes(self) -> list[tuple]:
         return [c for c in self.calls if c[0] in ("set_records", "delete_records")]

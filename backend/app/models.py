@@ -16,9 +16,17 @@ class Business(SQLModel, table=True):
     description: str = ""
     price_list_text: str = ""
     profile_json: str = "{}"  # Reader output (M2)
-    domain: str | None = Field(default=None, unique=True, index=True)  # e.g. "meerascakes.in"
+    # e.g. "meerascakes.in". Unique among real businesses / among practice ones (checked in code),
+    # so a practice launch can never hold a real seller's domain.
+    domain: str | None = Field(default=None, index=True)
     subdomain: str | None = Field(default=None, unique=True, index=True)  # label under APP_DOMAIN
     status: str = "draft"  # draft | planned | launching | live | failed
+    # Practice businesses always run against the fake world (never real GoDaddy/DNS/email).
+    # Only businesses created with the admin token on a real server are not practice.
+    practice: bool = True
+    owner_key_hash: str = ""  # sha256 of the secret owner link token (the token itself is never stored)
+    visitor: str = ""  # hashed client IP that created it (daily limit)
+    demo_fault: str = ""  # admin demo switch, consumed by the next check run: "" | "dmarc" | "mx"
     created_at: datetime = Field(default_factory=utcnow)
 
 
@@ -33,6 +41,8 @@ class Plan(SQLModel, table=True):
     dns_json: str = "[]"  # [{zone, type, name, before: [...], after: [...], say, deferred}]
     total_cost_usd: float = 0.0
     status: str = "draft"  # draft | approved | running | done | failed | blocked
+    visitor: str = ""  # hashed client IP that approved it (daily launch limit)
+    approved_at: datetime | None = None
     created_at: datetime = Field(default_factory=utcnow)
 
 
@@ -59,10 +69,26 @@ class DnsBackup(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
 
 
+class CheckRun(SQLModel, table=True):
+    """One round of checks: after a launch, on "Run checks now", or by the monitor."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    business_id: int = Field(foreign_key="business.id", index=True)
+    plan_id: int = Field(foreign_key="plan.id", index=True)
+    trigger: str  # launch | manual | monitor_quick | monitor_daily | monitor_recheck
+    status: str = "running"  # running | done
+    passed: bool | None = None
+    repairs_json: str = "[]"  # Doctor attempts: [{check, fixed, attempts: [{explanation, fix_id, applied, message, passed}]}]
+    info_json: str = "{}"  # e.g. {"cert_days_left": 80, "domain_days_left": 300}
+    started_at: datetime = Field(default_factory=utcnow)
+    finished_at: datetime | None = None
+
+
 class CheckResult(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     business_id: int = Field(foreign_key="business.id", index=True)
     plan_id: int | None = Field(default=None, foreign_key="plan.id", index=True)
+    run_id: int | None = Field(default=None, foreign_key="checkrun.id", index=True)
     attempt: int = 0  # 0 = first check, 1..3 = re-check after a repair
     check: str  # e.g. "https", "dns_a", "mx", "test_order"
     passed: bool
@@ -78,6 +104,18 @@ class AuditEvent(SQLModel, table=True):
     target: str = ""
     result: str  # "ok" | "blocked" | "failed" | ...
     detail: str = ""
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class Alert(SQLModel, table=True):
+    """An email sent to the owner by monitoring. Used so each warning is sent once."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    business_id: int = Field(foreign_key="business.id", index=True)
+    kind: str  # check_failed | domain_expiry | cert_expiry
+    key: str  # e.g. the check name, or "<expiry date>:<days threshold>"
+    sent_to: str = ""
+    resolved_at: datetime | None = None  # check_failed: set when the check passes again
     created_at: datetime = Field(default_factory=utcnow)
 
 
