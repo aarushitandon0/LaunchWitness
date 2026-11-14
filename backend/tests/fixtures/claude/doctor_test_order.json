@@ -1,5 +1,4 @@
 {
-  "_note": "Hand-written placeholder (no live Claude call made yet). Replace with a real saved Doctor response.",
-  "plain_explanation": "The test order didn't reach your inbox, so real orders might not either.",
+  "plain_explanation": "Orders from your shop may not reach your inbox, so customers could place purchases that you never see.",
   "fix_id": "readd_mx"
 }

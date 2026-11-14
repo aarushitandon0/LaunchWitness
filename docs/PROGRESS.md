@@ -4,37 +4,36 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
-**M1 + M5: everything that doesn't need real infra is done** (session 4): landing page + contact form, `/build`, prod compose, backup/restore, `docs/RUNBOOK_M1.md`, `scripts/check_m1.sh`, demo seeder, README, project brief draft, public replay built and secret-scanned. Session 5 (design + motion pass) done: new look and motion for the landing page and the whole demo flow. **Session 6 (real Claude agents) done offline:** live-ready capture script, hard test inputs, quality gates, live→fixture fallback on the public path; the 17 live calls run on the owner's laptop (`docs/LIVE_FIXTURES.md`) because cloud sessions can't hold an Anthropic key. **Next session runs on the real VPS: follow `docs/RUNBOOK_M1.md` step by step.** M4 done against fakes (AC5 needs real infra). M3 done except the real-infra AC. M0 · M2 done.
+**M1 + M5: everything that doesn't need real infra is done** (session 4): landing page + contact form, `/build`, prod compose, backup/restore, `docs/RUNBOOK_M1.md`, `scripts/check_m1.sh`, demo seeder, README, project brief draft, public replay built and secret-scanned. Session 5 (design + motion pass) done: new look and motion for the landing page and the whole demo flow. **Session 6 (real Claude agents) done**, and **session 7 captured all 17 live Claude fixtures** on the owner's laptop ($0.0726, every quality gate passes, measured ≈ 1 cent per launch). **Next session runs on the real VPS: follow `docs/RUNBOOK_M1.md` step by step.** M4 done against fakes (AC5 needs real infra). M3 done except the real-infra AC. M0 · M2 done.
 
 ## Next up
 
 1. **M1 on the VPS** once credit is confirmed: follow `docs/RUNBOOK_M1.md` (buy → SSH → Docker → clone → `.env` → DNS A + wildcard → prod compose → backup cron → mailbox → `check_m1.sh` all PASS). Confirm the `gddy` sub-commands with `gddy tree` (marked in the runbook).
 2. **Fable session — plug in real integrations** in the order of the runbook's step 11 table, then `USE_FAKES=false` (admin-created businesses only) and the M3 AC1 sandbox launch with real HTTPS.
-3. **Live Claude fixtures — on your laptop:** `bash scripts/capture_all_live.sh` (steps in `docs/LIVE_FIXTURES.md`; 17 calls, worst case $0.14). Then commit `backend/tests/fixtures/claude/` and fill in the measured "Cost per launch" below from `--report`. Until then the Reader/Namer/Doctor fixtures are **placeholders** and 13 tests skip.
-4. **Check `EMAIL_PLAN_ESTIMATE_USD`** (placeholder **$24/year**) against the real GoDaddy cart for Titan Pro Light, then set it in `.env`.
-5. **M4 AC5 (evening):** one full launch of Meera's purchased domain (if budget allows), recorded — needs M1 + the Fable session.
-6. **M5 on the live app:** fill the live link + video in `README.md`; turn `docs/PROJECT_BRIEF.md` into the PDF (find a 2025–26 India stat); record the demo video (SPEC §12; rehearse with `scripts/seed_demo.py --launched` + the demo switch); rebuild `/build` (`scripts/build-replay.sh`) at the very end so it has every session; final secret scan; submit. Stretch only after the user says core is done.
+3. **Check `EMAIL_PLAN_ESTIMATE_USD`** (placeholder **$24/year**) against the real GoDaddy cart for Titan Pro Light, then set it in `.env`.
+4. **M4 AC5 (evening):** one full launch of Meera's purchased domain (if budget allows), recorded — needs M1 + the Fable session.
+5. **M5 on the live app:** fill the live link + video in `README.md`; turn `docs/PROJECT_BRIEF.md` into the PDF (find a 2025–26 India stat); record the demo video (SPEC §12; rehearse with `scripts/seed_demo.py --launched` + the demo switch); rebuild `/build` (`scripts/build-replay.sh`) at the very end so it has every session; final secret scan; submit. Stretch only after the user says core is done.
 
-## ⚠️ Placeholder Claude fixtures (no live Claude call has been made yet)
+## Live Claude fixtures (captured session 7, 2026-11-14 UTC)
 
-Every file in `backend/tests/fixtures/claude/` is still **hand-written** and carries a `_note` key saying so:
-`reader_meera_cakes.json`, `reader_tiffin_service.json`, `reader_tailor.json` · `namer_*.json` ×3 · `doctor_<check>.json` ×8.
-Five new hard-case Reader fixtures don't exist yet (`reader_whatsapp_messy`, `reader_hinglish`, `reader_no_categories`,
-`reader_handwritten_photo`, `reader_prompt_injection`). Their tests skip until they're captured. `REQUIRE_LIVE_FIXTURES=1` makes skips and placeholders fail.
-Capture them all with `bash scripts/capture_all_live.sh` on the laptop. Live Claude spend so far: **$0.00** (ClaudeUsage table is empty; no live call made in session 6).
+All 17 targets in `backend/tests/fixtures/claude/` are real replies (one live call each, no retries, nothing failed):
+Reader ×8 (`meera_cakes`, `tiffin_service`, `tailor`, `whatsapp_messy`, `hinglish`, `no_categories`, `handwritten_photo`, `prompt_injection`) · `namer_meera_cakes` · `doctor_<check>` ×8.
+`REQUIRE_LIVE_FIXTURES=1 pytest -q tests/test_s6_agents.py` → 43 passed. Injection ignored (real name + prices kept), all 6 handwritten prices read right, Namer 10 names = 5 × (.in, .com), every Doctor sentence jargon-free.
+**Still hand-written:** `namer_tailor.json`, `namer_tiffin_service.json` (not in the capture list; only used when those example shops ask for names in fixture mode). See Open questions.
+Live Claude spend so far: **$0.0726** (17 ClaudeUsage rows, total $0.07256).
 
 ## Cost per launch (for judges)
 
-| Agent | Model | Calls per launch | Estimated tokens (in / out) | Estimated cost | Worst case (capped) |
+| Agent | Model | Calls per launch | Measured tokens (in / out) | Measured cost | Worst case (capped) |
 |---|---|---|---|---|---|
-| Reader | Sonnet 5.5 ($2 / $10 per MTok) | 1 (+1 retry only on a bad reply) | ~700 / ~700 (text) · ~2,200 / ~700 (photo) | ~$0.008 · ~$0.011 | $0.017 · $0.020 |
-| Namer | Haiku 5.5 ($0.10 / $0.50) | 1 | ~150 / ~120 | ~$0.0001 | $0.0002 |
-| Doctor | Haiku 5.5 | 0 on a green launch, 1 per failed check (max 3 per check) | ~250 / ~50 | ~$0.00005 each | $0.0001 each |
-| **Total** | | ~2–3 | | **≈ 1 cent per launch** | ≈ 2 cents |
+| Reader | Sonnet 5.5 ($2 / $10 per MTok) | 1 (+1 retry only on a bad reply) | 1,566 / 701 (avg of 3 sample sellers) · 2,477 / 465 (photo) | **$0.0101** · $0.0096 (photo) · $0.0079 (avg of 4 hard text cases) | $0.017 · $0.020 |
+| Namer | Haiku 5.5 ($0.10 / $0.50) | 1 | 441 / 98 | $0.0001 | $0.0002 |
+| Doctor | Haiku 5.5 | 0 on a green launch, 1 per failed check (max 3 per check) | ~626 / ~58 (avg of 8) | $0.0001 each | $0.0001 each |
+| **Total** | | 2 on a green launch | | **$0.0102 per launch** (+$0.0001 per repaired check) | ≈ 2 cents (Reader retry + 3 Doctor calls) |
 
-*Estimated* from prompt sizes and the code's own cost formula. Thinking is off on both models, so no hidden thinking tokens.
-**Measured: TBD.** After the laptop capture, replace this with the `--report` numbers (Reader row = average of the 3 sample sellers; photo = `reader_handwritten_photo`).
-So for judges: "about one cent per launch". $100 covers roughly 10,000 launches.
+**Measured** in session 7 from `scripts/capture_live_fixtures.py --report` (ClaudeUsage rows, 17 live calls, 2026-11-14 UTC). Thinking is off on both models.
+Reader input is about 2× the earlier estimate (system prompt + profile schema ≈ 1,400 tokens), output matched; the total is still about one cent.
+**For judges: "about 1 cent per launch (measured $0.010); $100 of Claude covers about 9,800 launches."**
 
 ## Real integration TODO (Fable session)
 
@@ -112,6 +111,12 @@ Everything below is behind an interface with a working fake; tests cover the fak
   - Prompts: Reader treats input as data (ignores instructions in it), tidies item names, answers in English. Namer asks for 5 names × (.in, .com), letters only. `rank` always shows a .in and a .com when available. Doctor gets only the fixes allowed for that check, and a stricter no-jargon list. Thinking off on Haiku 5.5 too (`disabled`), so short `max_tokens` can't be eaten by thinking. SDK errors → `ClaudeUnavailable`; SDK timeout 60 s, 1 retry.
 - Tests: 292 passed, 13 skipped (2 real-infra; 11 waiting for the live fixtures). `npm run build` clean.
 
+- 2026-11-14 (UTC; 2026-11-15 local): **Session 7, live Claude fixtures** (owner's Windows laptop):
+  - 17 live calls, one per target, all saved first time; quality gates 43/43 with `REQUIRE_LIVE_FIXTURES=1`. Spend **$0.0726** (worst case was $0.138, cap $1.50).
+  - Windows fixes: `capture_all_live.sh` uses `.venv/Scripts/python.exe` (and `python.exe -m pytest`, since App Control blocks `pytest.exe`) when `.venv/bin` is missing; Linux/Mac unchanged. Docstring + `docs/LIVE_FIXTURES.md` note the Windows path.
+  - Older tests that pinned placeholder text updated to the live replies (Meera is now "Meera's Eggless Bakes", subdomain `meeras-eggless-bakes`; product names like "Chocolate truffle cake 1/2 kg"; Namer ranking test uses the live names and now also exercises the .com swap; Doctor DMARC test reads the saved sentence).
+  - Tests: 303 passed, 2 skipped (real infra).
+
 ## Environment status
 
 | Item | Status | Notes |
@@ -185,7 +190,13 @@ Everything below is behind an interface with a working fake; tests cover the fak
 - 2026-11-14 (session 6): Namer shortlist (top 3) always includes a .in and a .com when one of each is available; otherwise cheapest-then-shortest as before.
 - 2026-11-14 (session 6): Hard-case sellers live in `tests/fixtures/sellers_hard/` so they're not offered as "Try an example" buttons.
 
+- 2026-11-14 (session 7): On Windows the local `.venv` uses `jiter==0.11.1` (Application Control blocks the 0.19.0 DLL). Not pinned in `requirements.txt` (anthropic allows `jiter>=0.4,<1`); Linux/VPS unaffected.
+- 2026-11-14 (session 7): Tests that compared exact placeholder text now compare the live fixture values (or read them from the fixture file). The fixtures are the source of truth; re-capturing a fixture may need those few strings updated again.
+
 ## Open questions
+
+- Capture live `namer_tailor` + `namer_tiffin_service` too (2 Haiku calls, ≈ $0.0002)? They're still hand-written.
+- Demo domain: SPEC's Meera story says `meerabakes.in`, but the live Namer suggests `meerasbakes.in` / `punebakes.in` (no `meerabakes`). The owner can still type any name; pick which one to buy for the demo.
 
 - Should seller sites also answer on `www.<domain>` (needs tls-ask + DNS change)? Currently no.
 - Exact Titan Pro Light yearly price for the approval card estimate (placeholder $24).

@@ -47,14 +47,15 @@ def events(engine, action=None):
 
 def test_names_are_checked_and_best_three_returned(client, claude, integ):
     biz = meera(client)
-    integ.availability.prices = {"meerascakes.in": 8.99, "meerabakes.in": 7.99, "meeracakes.shop": 2.99,
-                                 "bakedbymeera.in": 8.99}
-    integ.availability.taken = {"meerahomecakes.in"} | {n for n in json.loads(
+    # Three cheapest are all .in, so the shortlist swaps its last .in for the best .com.
+    integ.availability.prices = {"punebakes.in": 7.99, "eggless.in": 8.99, "meerasbakes.in": 8.99,
+                                 "meerasbakes.com": 11.99}
+    integ.availability.taken = {n for n in json.loads(
         Path("tests/fixtures/claude/namer_meera_cakes.json").read_text())["names"] if n not in integ.availability.prices}
     out = client.get(f"/api/businesses/{biz['id']}/names").json()
     assert claude.calls[-1] == "namer_meera_cakes"
-    assert out == [{"domain": "meeracakes.shop", "price_usd": 2.99}, {"domain": "meerabakes.in", "price_usd": 7.99},
-                   {"domain": "meerascakes.in", "price_usd": 8.99}]
+    assert out == [{"domain": "punebakes.in", "price_usd": 7.99}, {"domain": "eggless.in", "price_usd": 8.99},
+                   {"domain": "meerasbakes.com", "price_usd": 11.99}]
     assert len(integ.availability.calls[0]) == 10
 
 

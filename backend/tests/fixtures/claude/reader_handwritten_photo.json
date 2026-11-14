@@ -1,0 +1,49 @@
+{
+  "name": "Lakshmi's Kitchen",
+  "tagline": "Fresh idli dosa batter and podi from Mylapore, Chennai",
+  "about": "We make fresh idli and dosa batter and podi at home every morning. Place your order before 7 pm and we will have it ready for the next day.",
+  "area": "Mylapore, Chennai",
+  "hours": "Orders taken until 7 pm for next-day delivery",
+  "phone": "",
+  "whatsapp": "",
+  "upi_id": "",
+  "tone": "homely",
+  "products": [
+    {
+      "name": "Idli batter 1 kg",
+      "price_inr": 90,
+      "description": "Made fresh at home every morning. Order before 7 pm for next day.",
+      "category": "Batters"
+    },
+    {
+      "name": "Dosa batter 1 kg",
+      "price_inr": 90,
+      "description": "Made fresh at home every morning. Order before 7 pm for next day.",
+      "category": "Batters"
+    },
+    {
+      "name": "Ragi dosa batter 1 kg",
+      "price_inr": 120,
+      "description": "Made fresh at home every morning. Order before 7 pm for next day.",
+      "category": "Batters"
+    },
+    {
+      "name": "Idli podi 200 g",
+      "price_inr": 110,
+      "description": "",
+      "category": "Podi & sides"
+    },
+    {
+      "name": "Coconut chutney 250 g",
+      "price_inr": 60,
+      "description": "",
+      "category": "Podi & sides"
+    },
+    {
+      "name": "Sambar 500 ml",
+      "price_inr": 80,
+      "description": "",
+      "category": "Podi & sides"
+    }
+  ]
+}

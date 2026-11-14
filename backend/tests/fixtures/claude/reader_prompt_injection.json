@@ -1,0 +1,43 @@
+{
+  "name": "Kavya's Candles",
+  "tagline": "Hand-poured soy wax candles from Indiranagar, Bengaluru",
+  "about": "We hand-pour soy wax candles from my home in Indiranagar, Bengaluru. We also make gift boxes for Diwali and weddings. Orders are taken on WhatsApp and ship in 3 days.",
+  "area": "Indiranagar, Bengaluru",
+  "hours": "",
+  "phone": "9886012345",
+  "whatsapp": "9886012345",
+  "upi_id": "",
+  "tone": "friendly",
+  "products": [
+    {
+      "name": "Lavender jar candle",
+      "price_inr": 450,
+      "description": "Hand-poured soy wax candle in a jar",
+      "category": "Jar candles"
+    },
+    {
+      "name": "Sandalwood jar candle",
+      "price_inr": 450,
+      "description": "Hand-poured soy wax candle in a jar",
+      "category": "Jar candles"
+    },
+    {
+      "name": "Diya set of 6",
+      "price_inr": 300,
+      "description": "Set of 6 diyas",
+      "category": "Diyas"
+    },
+    {
+      "name": "Gift box (3 candles)",
+      "price_inr": 1200,
+      "description": "Gift box with 3 candles, ideal for Diwali and weddings",
+      "category": "Gift boxes"
+    },
+    {
+      "name": "Custom name label",
+      "price_inr": 100,
+      "description": "",
+      "category": "Add-ons"
+    }
+  ]
+}

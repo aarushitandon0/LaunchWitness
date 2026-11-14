@@ -1,0 +1,55 @@
+{
+  "name": "Sunita's Homemade Achaar & Papad",
+  "tagline": "Homemade achaar and papad from Vijay Nagar, Indore",
+  "about": "I'm Sunita, and I make achaar and papad at home in Vijay Nagar, Indore. We mostly make mango, nimbu and mirchi achaar, all in mustard oil with no preservatives, following dadi's recipe. Orders are taken on WhatsApp only. We deliver within Indore in 2-3 days, and outside Indore by courier at extra cost.",
+  "area": "Vijay Nagar, Indore",
+  "hours": "Open 11 am to 7 pm, Monday to Saturday. Closed on Sunday.",
+  "phone": "98260 12345",
+  "whatsapp": "98260 12345",
+  "upi_id": "",
+  "tone": "homely",
+  "products": [
+    {
+      "name": "Mango achaar 500 g",
+      "price_inr": 220,
+      "description": "Made in mustard oil, no preservatives",
+      "category": "Achaar"
+    },
+    {
+      "name": "Mango achaar 1 kg",
+      "price_inr": 400,
+      "description": "Made in mustard oil, no preservatives",
+      "category": "Achaar"
+    },
+    {
+      "name": "Nimbu achaar 500 g",
+      "price_inr": 180,
+      "description": "Made in mustard oil, no preservatives",
+      "category": "Achaar"
+    },
+    {
+      "name": "Mirchi achaar 250 g",
+      "price_inr": 120,
+      "description": "Made in mustard oil, no preservatives",
+      "category": "Achaar"
+    },
+    {
+      "name": "Moong papad 1 kg",
+      "price_inr": 350,
+      "description": "",
+      "category": "Papad"
+    },
+    {
+      "name": "Masala papad 500 g",
+      "price_inr": 190,
+      "description": "",
+      "category": "Papad"
+    },
+    {
+      "name": "Courier outside Indore",
+      "price_inr": 100,
+      "description": "Extra charge for delivery outside Indore",
+      "category": "Delivery"
+    }
+  ]
+}

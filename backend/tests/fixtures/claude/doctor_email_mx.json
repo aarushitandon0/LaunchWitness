@@ -1,5 +1,4 @@
 {
-  "_note": "Hand-written placeholder (no live Claude call made yet). Replace with a real saved Doctor response.",
-  "plain_explanation": "Emails sent to your shop address have nowhere to go, so customer messages would be lost.",
+  "plain_explanation": "Emails sent to your shop's address may bounce back or never reach you, so customers could lose contact with you.",
   "fix_id": "readd_mx"
 }

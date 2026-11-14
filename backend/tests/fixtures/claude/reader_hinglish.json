@@ -1,0 +1,49 @@
+{
+  "name": "Rahul's Chai Nashta",
+  "tagline": "Fresh chai and nashta from our home stall in Aliganj, Lucknow",
+  "about": "I'm Rahul, and I run a small chai-nashta stall from my home in Aliganj, Lucknow. We serve kulhad chai, masala chai and simple snacks like bun maska, samosa and poha. We also take bulk orders for offices, just let us know one day before.",
+  "area": "Aliganj, Lucknow",
+  "hours": "Open 7 AM to 11 AM and 5 PM to 9 PM. Closed on Mondays.",
+  "phone": "",
+  "whatsapp": "",
+  "upi_id": "rahulchai@okaxis",
+  "tone": "friendly",
+  "products": [
+    {
+      "name": "Kulhad chai",
+      "price_inr": 20,
+      "description": "",
+      "category": "Chai"
+    },
+    {
+      "name": "Masala chai (large)",
+      "price_inr": 30,
+      "description": "Large cup",
+      "category": "Chai"
+    },
+    {
+      "name": "Bun maska",
+      "price_inr": 35,
+      "description": "",
+      "category": "Nashta"
+    },
+    {
+      "name": "Samosa (2 pc)",
+      "price_inr": 30,
+      "description": "Plate of 2 pieces",
+      "category": "Nashta"
+    },
+    {
+      "name": "Poha plate",
+      "price_inr": 40,
+      "description": "",
+      "category": "Nashta"
+    },
+    {
+      "name": "Office bulk chai (20 cup flask)",
+      "price_inr": 350,
+      "description": "Flask of 20 cups, order one day before",
+      "category": "Bulk orders"
+    }
+  ]
+}

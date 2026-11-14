@@ -113,7 +113,7 @@ def test_build_is_not_on_seller_sites(tmp_path, client):
     app = _app(tmp_path, page)
     app.dependency_overrides.update(client.app.dependency_overrides)
     with TestClient(app) as c:
-        r = c.get("/build", headers={"host": "meeras-home-cakes.localhost"})
+        r = c.get("/build", headers={"host": "meeras-eggless-bakes.localhost"})
         assert "replay" not in r.text
 
 

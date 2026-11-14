@@ -8,6 +8,8 @@ The run stops at the first reply that fails a check, so a broken prompt can't bu
 
 ## 1. Get the branch and set up (one time)
 
+**Windows (Git Bash):** a Windows venv keeps its programs in `.venv/Scripts/` (`python.exe`, `pip.exe`, `pytest.exe`), not `.venv/bin/`. In every command below, replace `.venv/bin/` with `.venv/Scripts/`. `capture_all_live.sh` picks the right one by itself.
+
 ```bash
 git fetch origin && git checkout main && git pull
 ```

@@ -4,7 +4,9 @@
 # Needs in .env (never on the command line): ANTHROPIC_API_KEY=..., CLAUDE_MODE=live, CLAUDE_DAILY_SPEND_CAP_USD=1.5
 set -euo pipefail
 cd "$(dirname "$0")/../backend"
-PY=../.venv/bin/python
+# Linux/Mac venvs use .venv/bin; Windows venvs use .venv/Scripts.
+if [ -d ../.venv/bin ]; then VBIN=../.venv/bin; PY=$VBIN/python; PYTEST=$VBIN/pytest
+else VBIN=../.venv/Scripts; PY=$VBIN/python.exe; PYTEST="$PY -m pytest"; fi
 CAP_LIMIT=1.5
 
 $PY - "$CAP_LIMIT" <<'PY'
@@ -30,6 +32,6 @@ $PY ../scripts/capture_live_fixtures.py $READERS
 echo "== Namer + Doctor: 9 calls (Namer uses Meera's new Reader fixture) =="
 $PY ../scripts/capture_live_fixtures.py namer:meera_cakes doctor:all
 echo "== Quality gates on the new fixtures (fixture mode, no calls) =="
-CLAUDE_MODE=fixture REQUIRE_LIVE_FIXTURES=1 ../.venv/bin/pytest -q tests/test_s6_agents.py
+CLAUDE_MODE=fixture REQUIRE_LIVE_FIXTURES=1 $PYTEST -q tests/test_s6_agents.py
 echo "== Spend today (ClaudeUsage table) =="
 $PY ../scripts/capture_live_fixtures.py --report

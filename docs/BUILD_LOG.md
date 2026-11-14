@@ -73,3 +73,10 @@ One entry per Claude Code session, newest last. This is what judges read to unde
 - Result: 292 tests pass, 13 skip (11 wait for the live fixtures). Worst case for all 17 live calls: $0.14. Estimated ≈ 1 cent per launch. **Live Claude spend this session: $0.00** (ClaudeUsage table empty).
 - Next: run `bash scripts/capture_all_live.sh` on the laptop, commit the fixtures, fill in the measured cost per launch; then M1 on the VPS.
 
+### Session 7 — 2026-11-14 (UTC) — Live Claude fixtures
+- Goal: replace the placeholder Reader/Namer/Doctor fixtures with real replies, pass the session 6 quality gates in strict mode, and measure the cost per launch. Budget: at most $1.50, as little as possible.
+- Asked Claude to: follow the ritual, never read or print `.env`, dry-run first and wait for my "go", make one live call per target with no retries, stop and fix offline on any failure, then commit the fixtures + docs, save the transcript, rebuild the replay and merge.
+- Claude built: Windows support in `scripts/capture_all_live.sh` (`.venv/Scripts`, `python -m pytest`), a Windows note in `docs/LIVE_FIXTURES.md`, the 17 live fixtures, and test updates for the new fixture text; measured cost table in PROGRESS.md.
+- What checking caught: before any call, the Anthropic SDK wouldn't import because Windows Application Control blocks `jiter` 0.19.0's DLL; an older `jiter` (0.11.1) loads and is allowed by the SDK, so it was installed in the local venv only. After the calls, the script's last step failed because `pytest.exe` is blocked too (switched to `python -m pytest`; no extra spend). The full suite then showed 6 older tests pinned to the placeholder text (e.g. "Meera's Home Cakes"); one landing test was passing only because the old host name no longer existed, so it was updated too.
+- Result: all 17 calls succeeded first time: prompt injection ignored, all 6 handwritten prices right, Namer gives 5 × (.in, .com), Doctor sentences jargon-free. Strict gates 43/43; full suite 303 passed, 2 skipped. **Live Claude spend: $0.0726** (ClaudeUsage, 17 rows). **Measured ≈ $0.010 per launch (about 1 cent).**
+- Next: M1 on the VPS (`docs/RUNBOOK_M1.md`).

@@ -1,5 +1,4 @@
 {
-  "_note": "Hand-written placeholder (no live Claude call made yet). Replace with a real saved Doctor response.",
-  "plain_explanation": "Email services can't tell your mailbox is allowed to send for you, so your replies may land in spam.",
+  "plain_explanation": "Emails from your shop may land in your customers' spam folder, so they might not see your messages.",
   "fix_id": "readd_email_auth"
 }

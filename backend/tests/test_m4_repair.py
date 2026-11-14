@@ -159,7 +159,8 @@ def test_missing_dmarc_is_explained_fixed_and_rechecked(client, integ, engine, s
     assert result.fixed and len(result.attempts) == 1
     a = result.attempts[0]
     assert a["fix_id"] == "readd_email_auth" and a["applied"] and a["passed"]
-    assert a["explanation"] == "A missing protection setting means order emails could land in spam."
+    saved = json.loads(Path("tests/fixtures/claude/doctor_email_dmarc.json").read_text(encoding="utf-8"))
+    assert a["explanation"] == saved["plain_explanation"]
     assert claude.calls == ["doctor_email_dmarc"]
     acts = [(e.action, e.result) for e in ctx.session.exec(select(AuditEvent).order_by(AuditEvent.id)).all()]
     tail = acts[acts.index(("check_email_dmarc", "fail")):]
