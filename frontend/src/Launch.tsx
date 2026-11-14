@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
 import { api, ApiError, Business, NameIdea, Plan, Step, usd } from "./api";
+import { Cross, Dot, EASE, Spinner, Tick, useCalm } from "./motion";
 import { goTo } from "./App";
 import { ErrorBox } from "./Describe";
 
@@ -37,6 +39,7 @@ export function LaunchChoice({ businessId }: { businessId: number }) {
 
   return (
     <>
+      <p className="eyebrow">Step 3 of 5 · choose an address</p>
       <h1>Put {biz.profile.name} online</h1>
       <p className="tagline">Pick where your website lives. You'll see every step and the total cost before anything happens.</p>
 
@@ -87,14 +90,16 @@ export function LaunchChoice({ businessId }: { businessId: number }) {
   );
 }
 
-const STATUS_ICON: Record<Step["status"], string> = {
-  pending: "○",
-  running: "◌",
-  done: "✅",
-  skipped: "➖",
-  failed: "⚠️",
-  blocked: "⛔",
-};
+function StepMark({ status }: { status: Step["status"] }) {
+  if (status === "done") return <Tick />;
+  if (status === "running") return <Spinner />;
+  if (status === "blocked") return <Cross tone="wait" />;
+  if (status === "failed") return <Cross />;
+  return <Dot />;
+}
+
+/** Gap between log lines appearing, so the launch reads as a story even when the work is instant. */
+const LINE_GAP_MS = 420;
 
 /** Step 4–5: the approval card (draft) and then the live step log (polled). */
 export function PlanView({ businessId, planId }: { businessId: number; planId: number }) {
@@ -109,21 +114,36 @@ export function PlanView({ businessId, planId }: { businessId: number; planId: n
     load();
   }, [planId]);
 
+  const calm = useCalm();
   const active = plan && (plan.status === "approved" || plan.status === "running");
-  const [watched, setWatched] = useState(false);
+  // Stream the log only for a launch we see happen (opened as a draft or while running).
+  // Opening a finished launch later shows the whole log at once.
+  const streaming = useRef<boolean | null>(null);
+  if (plan && streaming.current === null) streaming.current = !calm && plan.status !== "done" && plan.status !== "failed" && plan.status !== "blocked";
+  const [shown, setShown] = useState(0);
   useEffect(() => {
     if (!active) return;
-    setWatched(true);
     const t = window.setInterval(load, 1000);
     return () => window.clearInterval(t);
   }, [active]);
-  // When a launch we were watching finishes, go straight to the proof.
+
+  const steps = plan?.steps ?? [];
+  const reached = steps.filter((s) => s.status !== "pending").length;
+  const target = !streaming.current ? steps.length : active ? Math.min(steps.length, reached + 1) : plan?.status === "draft" ? 0 : steps.length;
+  const visible = streaming.current ? Math.min(shown, target) : steps.length;
   useEffect(() => {
-    if (watched && plan?.status === "done") {
-      const t = window.setTimeout(() => goTo(`#/b/${businessId}/report`), 1200);
+    if (!streaming.current || shown >= target) return;
+    const t = window.setTimeout(() => setShown((n) => n + 1), shown === 0 ? 150 : LINE_GAP_MS);
+    return () => window.clearTimeout(t);
+  }, [shown, target]);
+
+  // When a launch we were watching finishes (and its log has played), go straight to the proof.
+  useEffect(() => {
+    if (streaming.current && plan?.status === "done" && visible >= steps.length) {
+      const t = window.setTimeout(() => goTo(`#/b/${businessId}/report`), 1500);
       return () => window.clearTimeout(t);
     }
-  }, [watched, plan?.status]);
+  }, [plan?.status, visible, steps.length]);
 
   if (!plan) return error ? <ErrorBox error={error} /> : <p>Loading…</p>;
 
@@ -150,6 +170,7 @@ export function PlanView({ businessId, planId }: { businessId: number; planId: n
   if (plan.status === "draft") {
     return (
       <>
+        <p className="eyebrow">Step 4 of 5 · approve</p>
         <h1>Check and approve</h1>
         <p className="tagline">Nothing is bought or changed until you tap Approve.</p>
         <section className="card approval">
@@ -253,19 +274,44 @@ export function PlanView({ businessId, planId }: { businessId: number; planId: n
   const stopped = plan.status === "failed" || plan.status === "blocked";
   const waitingToBuy =
     plan.practice && plan.status === "blocked" && plan.steps.some((s) => s.kind === "get_domain" && s.status === "blocked");
+  const shownSteps = plan.steps.slice(0, visible);
+  const doneCount = shownSteps.filter((s) => s.status === "done" || s.status === "skipped").length;
+  const finished = plan.status === "done" && visible >= plan.steps.length;
   return (
     <>
+      <p className="eyebrow">{plan.site_host}</p>
       <h1>
-        {plan.status === "done" ? "Your website is on!" : stopped ? "Launch paused" : "Launching your website…"}
+        {finished ? (
+          "Your website is on!"
+        ) : stopped && visible >= plan.steps.length ? (
+          "Launch paused"
+        ) : (
+          <>
+            <span className="live-dot" aria-hidden />
+            Launching your website…
+          </>
+        )}
       </h1>
-      <p className="tagline">{plan.site_host}</p>
-      <ol className="card steplog" aria-live="polite">
-        {plan.steps.map((s) => (
-          <li key={s.id} className={`st-${s.status}`}>
-            <span className="icon" aria-hidden>
-              {STATUS_ICON[s.status]}
+      <div className="progress" aria-hidden>
+        <motion.span
+          initial={false}
+          animate={{ scaleX: plan.steps.length ? doneCount / plan.steps.length : 0 }}
+          transition={{ duration: 0.6, ease: EASE }}
+        />
+      </div>
+      <ol className="card rows steplog" aria-live="polite">
+        {shownSteps.map((s) => (
+          <motion.li
+            key={s.id}
+            className={`st-${s.status}`}
+            initial={streaming.current ? { opacity: 0, y: 10 } : false}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: EASE }}
+          >
+            <span className="icon">
+              <StepMark status={s.status} />
             </span>
-            <div>
+            <div className="body">
               <div className="title">{s.title}</div>
               {s.message && <div className="msg">{s.message}</div>}
               <details>
@@ -274,7 +320,7 @@ export function PlanView({ businessId, planId }: { businessId: number; planId: n
                 {s.started_at && <p className="muted">Started {new Date(s.started_at).toLocaleTimeString()}</p>}
               </details>
             </div>
-          </li>
+          </motion.li>
         ))}
       </ol>
       {waitingToBuy && (
@@ -299,12 +345,12 @@ export function PlanView({ businessId, planId }: { businessId: number; planId: n
             {busy ? "Resuming…" : "Resume"}
           </button>
         )}
-        {plan.status === "done" && (
+        {finished && (
           <a className="btn btn-primary" href={`#/b/${businessId}/report`}>
             See your launch report →
           </a>
         )}
-        {plan.status === "done" && plan.site_url && (
+        {finished && plan.site_url && (
           <a className="btn btn-ghost" href={plan.site_url} target="_blank" rel="noreferrer">
             Open my website
           </a>

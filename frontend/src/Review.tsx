@@ -79,6 +79,7 @@ export default function Review({ id }: { id: number }) {
 
   return (
     <form onSubmit={save}>
+      <p className="eyebrow">Step 2 of 5 · check</p>
       <h1>Check your details</h1>
       <p className="tagline">This is what we understood. Fix anything that's wrong, then save — your website updates straight away.</p>
 

@@ -1,5 +1,7 @@
+import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { api, ApiError, keys, Report } from "./api";
+import { api, ApiError, CheckRow, keys, Report } from "./api";
+import { Cross, Dot, EASE, Spinner, Tick, TypeIn, useCalm } from "./motion";
 import { goTo } from "./App";
 import { ErrorBox } from "./Describe";
 
@@ -52,6 +54,7 @@ export function OwnerLinkPage({ businessId }: { businessId: number }) {
   }
   return (
     <>
+      <p className="eyebrow">Before you go on</p>
       <h1>Save your private link</h1>
       <p className="tagline">
         This link is the key to your shop. Anyone who has it can change your website, so keep it to yourself. We can't
@@ -72,7 +75,7 @@ export function OwnerLinkPage({ businessId }: { businessId: number }) {
                 .catch(() => setCopied(false))
             }
           >
-            {copied ? "✅ Copied" : "Copy link"}
+            {copied ? "Copied" : "Copy link"}
           </button>
           <button className="btn btn-ghost" onClick={done}>
             I've saved it, continue →
@@ -85,6 +88,85 @@ export function OwnerLinkPage({ businessId }: { businessId: number }) {
 }
 
 // ---------- launch report ----------
+
+type Phase = "checking" | "failed" | "doctor" | "typed" | "fixed" | "final";
+type Seq = { runId: number | null; index: number; phase: Phase; done: boolean };
+const PLAYED = (runId: number) => `lw-played-run-${runId}`;
+function hasPlayed(runId: number) {
+  try {
+    return window.localStorage.getItem(PLAYED(runId)) === "1";
+  } catch {
+    return false;
+  }
+}
+function markPlayed(runId: number) {
+  try {
+    window.localStorage.setItem(PLAYED(runId), "1");
+  } catch {
+    /* ignore */
+  }
+}
+
+/** One check row. `state` is where the playback is for this row; "final" shows the real result. */
+function CheckLine({
+  c,
+  doctor,
+  state,
+  onTyped,
+}: {
+  c: CheckRow;
+  doctor: string;
+  state: Phase | "waiting";
+  onTyped: () => void;
+}) {
+  const live = state !== "final";
+  const red = state === "failed" || state === "doctor" || state === "typed" || (state === "final" && !c.passed);
+  const green = (state === "final" && c.passed) || state === "fixed";
+  const showDoctor = !!doctor && (state === "doctor" || state === "typed" || state === "fixed" || (state === "final" && !c.first_passed));
+  return (
+    <motion.li
+      className={red ? "bad row-bad" : green ? "ok" : "st-pending"}
+      layout="position"
+      transition={{ duration: 0.4, ease: EASE }}
+    >
+      <span className="icon">
+        {state === "waiting" ? <Dot /> : state === "checking" ? <Spinner /> : red ? <Cross /> : <Tick animate={live} />}
+      </span>
+      <div className="body">
+        <div className="title">
+          {c.title}
+          {green && c.fixed && (
+            <motion.span className="badge" initial={live ? { opacity: 0, scale: 0.8 } : false} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3, ease: EASE }}>
+              Fixed by us
+            </motion.span>
+          )}
+        </div>
+        {red && <div className="msg">{c.plain}</div>}
+        {showDoctor && (
+          <motion.div
+            className="doctor"
+            initial={live ? { opacity: 0, y: 6 } : false}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: EASE }}
+          >
+            <div className="doctor-label">What went wrong</div>
+            {state === "doctor" ? <TypeIn text={doctor} onDone={onTyped} /> : doctor}
+          </motion.div>
+        )}
+        {state === "fixed" && <div className="fixnote">We fixed it and checked again: it works now.</div>}
+        {state === "final" && (
+          <>
+            <div className="muted when">Checked {time(c.at)}</div>
+            <details>
+              <summary>Details</summary>
+              <p className="mono">{c.detail}</p>
+            </details>
+          </>
+        )}
+      </div>
+    </motion.li>
+  );
+}
 
 export function ReportPage({ businessId }: { businessId: number }) {
   const [rep, setRep] = useState<Report | null>(null);
@@ -110,6 +192,46 @@ export function ReportPage({ businessId }: { businessId: number }) {
     return () => window.clearInterval(t);
   }, [checking]);
 
+  // ---- check-by-check playback, once per check run ----
+  const calm = useCalm();
+  const [seq, setSeq] = useState<Seq>({ runId: null, index: 0, phase: "checking", done: true });
+  const runId = rep?.run?.status === "done" ? rep.run.id : null;
+  useEffect(() => {
+    if (runId === null) return;
+    if (calm || hasPlayed(runId)) setSeq({ runId, index: 0, phase: "checking", done: true });
+    else setSeq({ runId, index: 0, phase: "checking", done: false });
+  }, [runId]);
+  useEffect(() => {
+    const checks = rep?.run?.checks ?? [];
+    if (seq.done || seq.runId === null || seq.runId !== runId) return;
+    if (seq.index >= checks.length) {
+      markPlayed(seq.runId);
+      setSeq({ ...seq, done: true });
+      return;
+    }
+    const c = checks[seq.index];
+    const hasDoctor = !!rep?.run?.repairs.find((r) => r.check === c.check)?.attempts[0]?.explanation;
+    const next = (patch: Partial<Seq>, ms: number) => {
+      const t = window.setTimeout(() => setSeq((s) => ({ ...s, ...patch })), ms);
+      return () => window.clearTimeout(t);
+    };
+    const advance = { index: seq.index + 1, phase: "checking" as Phase };
+    switch (seq.phase) {
+      case "checking":
+        return next(c.first_passed ? { phase: "final" } : { phase: "failed" }, 480);
+      case "final":
+        return next(advance, 260);
+      case "failed":
+        return next(hasDoctor ? { phase: "doctor" } : advance, hasDoctor ? 800 : 1100);
+      case "doctor":
+        return; // TypeIn calls onTyped
+      case "typed":
+        return next(c.passed ? { phase: "fixed" } : advance, 900);
+      case "fixed":
+        return next(advance, 1100);
+    }
+  }, [seq, runId]);
+
   const act = async (fn: () => Promise<unknown>) => {
     setBusy(true);
     setError(null);
@@ -128,16 +250,32 @@ export function ReportPage({ businessId }: { businessId: number }) {
   const mon = rep.monitoring;
   const launched = rep.plan !== null && rep.headline !== "Your business isn't launched yet";
 
+  // Before the playback effect has picked up a new run, treat it as "about to play" (no flash of results).
+  const fresh = !!run && run.status === "done" && seq.runId !== run.id && !calm && !hasPlayed(run.id);
+  const playing = fresh || (!!run && run.status === "done" && seq.runId === run.id && !seq.done);
+  const cur = run && seq.runId === run.id ? seq : { index: 0, phase: "checking" as Phase };
+  const waiting = checking || playing;
+  const headClass = waiting ? "headline-wait" : rep.ready ? "headline-ok" : "headline-todo";
+  const headText = playing ? "Checking that everything works…" : rep.headline;
+
   return (
     <>
-      <p className="muted report-name">{rep.business.name} · launch report</p>
-      <div className={`headline ${rep.ready ? "headline-ok" : checking ? "headline-wait" : "headline-todo"}`}>
-        <span className="big-icon" aria-hidden>
-          {rep.ready ? "✅" : checking ? "⏳" : "⚠️"}
-        </span>
-        <h1>{rep.headline}</h1>
-      </div>
-      {rep.left.length > 0 && (
+      <p className="eyebrow report-name">Step 5 of 5 · proof · {rep.business.name}</p>
+      <motion.div className={`headline ${headClass}`} layout="position" transition={{ duration: 0.4, ease: EASE }}>
+        <span className="icon">{waiting ? <Spinner size={30} /> : rep.ready ? <Tick size={30} /> : <Cross size={30} />}</span>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.h1
+            key={headText}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.35, ease: EASE }}
+          >
+            {headText}
+          </motion.h1>
+        </AnimatePresence>
+      </motion.div>
+      {rep.left.length > 0 && !waiting && (
         <ul className="left">
           {rep.left.map((l, i) => (
             <li key={i}>{l}</li>
@@ -147,11 +285,11 @@ export function ReportPage({ businessId }: { businessId: number }) {
 
       <div className="actions">
         {launched && (
-          <button className="btn btn-primary" disabled={busy || checking} onClick={() => act(() => api.runChecks(businessId))}>
-            {checking ? "Checking…" : busy ? "Starting…" : "Run checks now"}
+          <button className="btn btn-primary" disabled={busy || waiting} onClick={() => act(() => api.runChecks(businessId))}>
+            {waiting ? "Checking…" : busy ? "Starting…" : "Run checks now"}
           </button>
         )}
-        {rep.ready && rep.business.site_url && (
+        {rep.ready && !waiting && rep.business.site_url && (
           <a className="btn btn-ghost" href={rep.business.site_url} target="_blank" rel="noreferrer">
             Open my website
           </a>
@@ -164,38 +302,43 @@ export function ReportPage({ businessId }: { businessId: number }) {
       </div>
       {error && <ErrorBox error={error} />}
 
-      {run && (
+      {run && run.status === "done" && (
         <>
           <h2>What we checked</h2>
           <p className="muted">
             {run.trigger === "launch" ? "Right after your launch" : "When you pressed “Run checks now”"},{" "}
             {time(run.started_at)}.
           </p>
-          <ul className="card checks">
-            {run.checks.map((c) => (
-              <li key={c.check} className={c.passed ? "ok" : "bad"}>
-                <span className="icon" aria-hidden>
-                  {c.passed ? "✅" : "⚠️"}
-                </span>
-                <div>
-                  <div className="title">
-                    {c.title}
-                    {c.fixed && <span className="badge">Fixed by us</span>}
-                  </div>
-                  {!c.passed && <div className="msg">{c.plain}</div>}
-                  <div className="muted when">Checked {time(c.at)}</div>
-                  <details>
-                    <summary>Details</summary>
-                    <p className="mono">{c.detail}</p>
-                  </details>
-                </div>
-              </li>
+          <ul className="card rows checks">
+            {run.checks.map((c, i) => (
+              <CheckLine
+                key={`${run.id}-${c.check}`}
+                c={c}
+                doctor={run.repairs.find((r) => r.check === c.check)?.attempts[0]?.explanation ?? ""}
+                state={!playing || i < cur.index ? "final" : i > cur.index ? "waiting" : cur.phase}
+                onTyped={() =>
+                  setSeq((s) => (s.runId === run.id && s.index === i && s.phase === "doctor" ? { ...s, phase: "typed" } : s))
+                }
+              />
             ))}
           </ul>
         </>
       )}
+      {run && run.status === "running" && (
+        <ul className="card rows checks">
+          <li>
+            <span className="icon">
+              <Spinner />
+            </span>
+            <div className="body">
+              <div className="title">Running every check…</div>
+              <div className="muted when">Results appear here in a moment.</div>
+            </div>
+          </li>
+        </ul>
+      )}
 
-      {run && run.repairs.length > 0 && (
+      {run && !waiting && run.repairs.length > 0 && (
         <>
           <h2>What went wrong, and what we did</h2>
           <ul className="card repairs">
@@ -204,7 +347,7 @@ export function ReportPage({ businessId }: { businessId: number }) {
                 <div className="title">
                   {r.fixed ? "✅" : "⚠️"} {r.title}
                 </div>
-                {r.attempts[0] && <p className="doctor">“{r.attempts[0].explanation}”</p>}
+                {r.attempts[0] && <p className="quote">“{r.attempts[0].explanation}”</p>}
                 <p>
                   {r.fixed
                     ? `We fixed it${r.attempts.length > 1 ? ` after ${r.attempts.length} tries` : ""} and checked again: it works now.`

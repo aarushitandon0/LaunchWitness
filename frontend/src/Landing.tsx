@@ -1,12 +1,66 @@
-import { FormEvent, useState } from "react";
+import { motion, MotionValue, useScroll, useSpring, useTransform } from "framer-motion";
+import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api";
 import { ErrorBox } from "./Describe";
+import { EASE, useCalm } from "./motion";
 
-const STEPS = [
-  ["Describe", "Write a few lines about your business and paste your price list, the way you'd tell a friend."],
-  ["Check", "We turn it into your website. You fix anything we got wrong, then pick a free address or your own name."],
-  ["Approve", "You see every step, every setting we'll change and the exact cost. Nothing happens until you say yes."],
-  ["Proof", "We launch it, then prove it works: the site opens securely, email is set up, and a test order reaches your inbox."],
+const STEPS: { title: string; text: string; icon: ReactNode }[] = [
+  {
+    title: "Describe your business",
+    text: "Write a few lines about what you sell and paste your price list, the way you'd tell a friend. A photo of your menu works too.",
+    icon: (
+      <svg viewBox="0 0 64 64" className="step-icon" aria-hidden>
+        <rect x="8" y="12" width="48" height="34" rx="10" fill="none" stroke="currentColor" strokeWidth="1.6" />
+        <path d="M20 46l-6 9 14-9" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+        <path d="M18 25h28M18 33h18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    title: "Check your website",
+    text: "We turn it into your website. Fix anything we got wrong, then pick a free address or your own name with its real price.",
+    icon: (
+      <svg viewBox="0 0 64 64" className="step-icon" aria-hidden>
+        <rect x="8" y="10" width="48" height="40" rx="8" fill="none" stroke="currentColor" strokeWidth="1.6" />
+        <path d="M8 20h48" stroke="currentColor" strokeWidth="1.6" />
+        <circle cx="14" cy="15" r="1.6" fill="currentColor" />
+        <circle cx="19" cy="15" r="1.6" fill="currentColor" />
+        <rect x="15" y="27" width="14" height="14" rx="3" fill="none" stroke="currentColor" strokeWidth="1.6" />
+        <path d="M35 29h14M35 35h10M35 41h12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    title: "Approve every change",
+    text: "You see every step, every setting we'll change (before and after) and the exact cost. Nothing happens until you say yes.",
+    icon: (
+      <svg viewBox="0 0 64 64" className="step-icon" aria-hidden>
+        <rect x="12" y="8" width="40" height="48" rx="8" fill="none" stroke="currentColor" strokeWidth="1.6" />
+        <path d="M20 22h24M20 30h16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        <circle cx="40" cy="44" r="8" fill="none" stroke="currentColor" strokeWidth="1.6" />
+        <path d="M36.5 44.2l2.4 2.4 4.6-4.8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
+    title: "Get proof it works",
+    text: "We launch it, then prove it: the site opens securely, your email is set up, and a real test order lands in your inbox. Anything broken is repaired or undone.",
+    icon: (
+      <svg viewBox="0 0 64 64" className="step-icon" aria-hidden>
+        <path d="M32 7l20 7v15c0 13-8.5 23-20 28C20.5 52 12 42 12 29V14z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+        <path d="M23.5 31.5l6 6 11-12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+];
+
+const PIECES = [
+  ["Domains", "Your own name, found, priced and adopted"],
+  ["DNS", "Every setting backed up before it changes"],
+  ["Email", "orders@ your name, signed and protected"],
+  ["VPS", "Your shop served from a GoDaddy server"],
+  ["HTTPS", "A secure padlock, checked for real"],
+  ["Monitoring", "Quiet checks every 15 minutes after launch"],
 ];
 
 const PROMISES = [
@@ -16,55 +70,355 @@ const PROMISES = [
 ];
 
 export default function Landing() {
+  const calm = useCalm();
+  const darkRef = useRef<HTMLElement>(null);
+  // 0 → the dark section's top is at the bottom of the screen; 1 → it reached the top.
+  const { scrollYProgress } = useScroll({ target: darkRef, offset: ["start end", "start start"] });
+  const p = useSpring(scrollYProgress, { stiffness: 140, damping: 30, mass: 0.4, restDelta: 0.0005 });
+  const scale = useTransform(p, [0, 1], [1, calm ? 1 : 0.88]);
+  const y = useTransform(p, [0, 1], [0, calm ? 0 : -36]);
+  const dim = useTransform(p, [0, 1], [0, calm ? 0 : 0.55]);
+
   return (
-    <>
-      <section className="hero">
-        <h1>Describe your business. We put it online on GoDaddy, and prove it works.</h1>
-        <p className="tagline">
-          Meera bakes eggless cakes in Pune. Her customers find her on Instagram and order in messages, but she has no
-          website, no business email, and no time to learn what “DNS” means. LaunchWitness turns her two lines and a
-          price list into a live shop with her own name and email, and checks that a real order reaches her inbox
-          before her first customer does.
-        </p>
-        <div className="actions">
-          <a className="btn btn-primary" href="#/try">
-            Try it (practice mode)
-          </a>
-          <a className="btn btn-ghost" href="/build">
-            How this was built
-          </a>
+    <div className="landing">
+      <div className="stack">
+        <motion.section className="hero-card" style={{ scale, y }} aria-labelledby="hero-title">
+          <div className="hero-inner">
+            <div className="hero-head">
+              <motion.p
+                className="eyebrow"
+                initial={calm ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, ease: EASE }}
+              >
+                For small sellers · runs on GoDaddy
+              </motion.p>
+              <h1 className="display" id="hero-title">
+                <Line i={0}>Describe it.</Line>
+                <Line i={1}>
+                  <span className="inline-icon" aria-hidden>
+                    <svg viewBox="0 0 24 24">
+                      <path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="var(--accent-ink)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  We launch it.
+                </Line>
+                <Line i={2}>Then we prove it.</Line>
+              </h1>
+            </div>
+            <HeroShape progress={p} />
+            <motion.div
+              className="hero-copy"
+              initial={calm ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.45, ease: EASE }}
+            >
+              <p>
+                Type a few lines and your price list. LaunchWitness puts your shop online with your own name and email,
+                then proves it works — a secure site, working email and a real test order in your inbox — before your
+                first customer arrives.
+              </p>
+              <div className="hero-meta">
+                <a className="btn btn-primary" href="#/try">
+                  Try it (practice mode)
+                </a>
+                <a className="dotlink" href="/build">
+                  How this was built
+                </a>
+              </div>
+              <p className="small">Practice mode uses a pretend GoDaddy: nothing is bought and no real settings change.</p>
+            </motion.div>
+          </div>
+          <motion.div className="hero-dim" style={{ opacity: dim }} aria-hidden />
+          <div className="scroll-cue" aria-hidden>
+            Scroll <span />
+          </div>
+        </motion.section>
+
+        <section className="dark on-dark" id="how" ref={darkRef} aria-labelledby="how-title">
+          <div className="wrap">
+            <SectionHead id="how-title" title="How it works" label="/ 4 steps · about 10 minutes">
+              From a few lines of text to a shop that's online, on your own name, with proof that orders reach you.
+            </SectionHead>
+            <Steps />
+          </div>
+        </section>
+      </div>
+
+      <section className="dark dark-cont on-dark" aria-labelledby="pieces-title">
+        <div className="wrap">
+          <SectionHead id="pieces-title" title="Built on GoDaddy" label="/ the pieces we set up for you">
+            We do the technical parts on GoDaddy for you, and check each one before we call it done.
+          </SectionHead>
+          <Marquee />
+          <div style={{ height: "clamp(3rem, 7vw, 6rem)" }} />
+          <SectionHead id="promises-title" title="Our promises" label="/ safety first" />
+          <ul className="promise-grid">
+            {PROMISES.map(([title, text], i) => (
+              <Reveal as="li" className="promise" key={title} delay={i * 0.08}>
+                <div className="title">{title}</div>
+                <p>{text}</p>
+              </Reveal>
+            ))}
+          </ul>
         </div>
-        <p className="muted small">Practice mode uses a pretend GoDaddy: nothing is bought and no real settings change.</p>
       </section>
 
-      <h2>How it works</h2>
-      <ol className="card how">
-        {STEPS.map(([title, text], i) => (
-          <li key={title}>
-            <span className="num" aria-hidden>
-              {i + 1}
-            </span>
-            <div>
-              <div className="title">{title}</div>
-              <div>{text}</div>
+      <section className="closing" id="contact" aria-labelledby="meera-title">
+        <div className="wrap closing-grid">
+          <Reveal>
+            <p className="eyebrow">Who it's for</p>
+            <h2 id="meera-title">Meera bakes eggless cakes in Pune.</h2>
+            <p className="tagline">
+              Her customers find her on Instagram and order in messages, but she has no website, no business email, and
+              no time to learn what “DNS” means. LaunchWitness turns her two lines and a price list into a live shop with
+              her own name and email, and checks that a real order reaches her inbox before her first customer does.
+            </p>
+            <div className="actions">
+              <a className="btn btn-primary" href="#/try">
+                Try it yourself
+              </a>
             </div>
-          </li>
-        ))}
-      </ol>
+          </Reveal>
+          <Reveal delay={0.1}>
+            <p className="eyebrow">Contact us</p>
+            <ContactForm />
+          </Reveal>
+        </div>
+      </section>
+    </div>
+  );
+}
 
-      <h2>Our promises</h2>
-      <ul className="card promises">
-        {PROMISES.map(([title, text]) => (
-          <li key={title}>
-            <div className="title">✅ {title}</div>
-            <div className="muted">{text}</div>
-          </li>
-        ))}
-      </ul>
+/** One headline line that rises out of a mask on first load. */
+function Line({ i, children }: { i: number; children: ReactNode }) {
+  const calm = useCalm();
+  return (
+    <span className="line" style={{ overflow: "hidden", paddingBottom: "0.06em" }}>
+      <motion.span
+        style={{ display: "inline-block" }}
+        initial={calm ? false : { y: "105%" }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.9, delay: 0.1 + i * 0.09, ease: EASE }}
+      >
+        {children}
+      </motion.span>
+    </span>
+  );
+}
 
-      <h2>Contact us</h2>
-      <ContactForm />
-    </>
+/** Fades content up when it scrolls into view, and back out when it leaves (so scrolling up reverses it). */
+function Reveal({
+  children,
+  delay = 0,
+  className,
+  as = "div",
+}: {
+  children: ReactNode;
+  delay?: number;
+  className?: string;
+  as?: "div" | "li";
+}) {
+  const calm = useCalm();
+  const Tag = as === "li" ? motion.li : motion.div;
+  return (
+    <Tag
+      className={className}
+      initial={calm ? false : { opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: false, amount: 0.25 }}
+      transition={{ duration: 0.7, delay, ease: EASE }}
+    >
+      {children}
+    </Tag>
+  );
+}
+
+function SectionHead({ id, title, label, children }: { id: string; title: string; label: string; children?: ReactNode }) {
+  const calm = useCalm();
+  return (
+    <div className="section-head">
+      <div className="meta">
+        <Reveal>
+          <h2 id={id}>{title}</h2>
+        </Reveal>
+        <span className="label">{label}</span>
+      </div>
+      <motion.div
+        className="rule"
+        initial={calm ? false : { scaleX: 0 }}
+        whileInView={{ scaleX: 1 }}
+        viewport={{ once: false, amount: 1 }}
+        transition={{ duration: 1.1, ease: EASE }}
+      />
+      {children && (
+        <Reveal delay={0.1}>
+          <p>{children}</p>
+        </Reveal>
+      )}
+    </div>
+  );
+}
+
+function Steps() {
+  const [active, setActive] = useState(0);
+  const [hoverable, setHoverable] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(hover: hover) and (pointer: fine)");
+    setHoverable(mq.matches);
+  }, []);
+  return (
+    <ol className="steps">
+      {STEPS.map((s, i) => (
+        <Reveal as="li" key={s.title} delay={i * 0.07} className={`step-li${active === i ? " active" : ""}`}>
+          <button
+            type="button"
+            className={`step${active === i ? " active" : ""}`}
+            aria-expanded={active === i}
+            onClick={() => setActive(i)}
+            onFocus={() => setActive(i)}
+            onMouseEnter={hoverable ? () => setActive(i) : undefined}
+          >
+            <span className="label">/0{i + 1}</span>
+            {s.icon}
+            <span className="step-title">{s.title}</span>
+            <span className="step-desc">
+              <span>
+                <span className="txt">{s.text}</span>
+              </span>
+            </span>
+          </button>
+        </Reveal>
+      ))}
+    </ol>
+  );
+}
+
+function Marquee() {
+  const calm = useCalm();
+  const group = (hidden: boolean, list = [...PIECES, ...PIECES]) => (
+    <div className="marquee-group" aria-hidden={hidden || undefined}>
+      {list.map(([name, text], i) => (
+        <div className="tile" key={i}>
+          <span className="label">/ GoDaddy</span>
+          <div>
+            <strong>{name}</strong>
+            <span>{text}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+  if (calm) return <div className="marquee-static">{group(false, PIECES)}</div>;
+  return (
+    <div className="marquee">
+      <div className="marquee-track">
+        {group(false)}
+        {group(true)}
+      </div>
+    </div>
+  );
+}
+
+/** Abstract "launch layers": four slabs (site, name, email, proof) that drift apart as you scroll. Pure SVG. */
+function HeroShape({ progress }: { progress: MotionValue<number> }) {
+  const calm = useCalm();
+  const spread = (k: number) => useTransform(progress, [0, 1], [0, calm ? 0 : -k]);
+  const ys = [spread(0), spread(26), spread(56), spread(92)];
+  const ballY = useTransform(progress, [0, 1], [0, calm ? 0 : -140]);
+  const rot = useTransform(progress, [0, 1], [0, calm ? 0 : -8]);
+  const slabs = [
+    { cy: 330, top: "url(#lw-g-ink)", left: "#0d0d0c", right: "#2a2a27" },
+    { cy: 272, top: "url(#lw-g-amber)", left: "#c9772c", right: "#e3934a" },
+    { cy: 214, top: "url(#lw-g-lime)", left: "#a9bd3a", right: "#c3d851" },
+    { cy: 156, top: "url(#lw-g-paper)", left: "#d8cdb8", right: "#ece3d2" },
+  ];
+  return (
+    <motion.div
+      className="hero-shape"
+      aria-hidden
+      initial={calm ? false : { opacity: 0, y: 30, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 1.2, delay: 0.2, ease: EASE }}
+    >
+      {/* Each layer is its own HTML element so the browser can move it on the GPU without repainting the drawing. */}
+      <motion.div className="shape-rot" style={{ rotate: rot }}>
+        <svg className="shape-layer" viewBox="0 0 400 460">
+          <Defs />
+          <ellipse cx="200" cy="420" rx="170" ry="34" fill="url(#lw-g-shadow)" />
+        </svg>
+        {slabs.map((s, i) => (
+          <motion.div key={i} className="shape-layer" style={{ y: ys[i] }}>
+            <svg viewBox="0 0 400 460">
+              <Slab cy={s.cy} top={s.top} left={s.left} right={s.right} />
+              {i === 3 && (
+                <g>
+                  <ellipse cx="200" cy={s.cy} rx="44" ry="25" fill="#161614" />
+                  <path
+                    d={`M182 ${s.cy + 1} l12 6 l22 -14`}
+                    fill="none"
+                    stroke="#dcf06a"
+                    strokeWidth="5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </g>
+              )}
+            </svg>
+          </motion.div>
+        ))}
+        <motion.div className="shape-layer" style={{ y: ballY }}>
+          <div className="shape-layer float">
+            <svg viewBox="0 0 400 460">
+              <circle cx="292" cy="70" r="24" fill="url(#lw-g-ball)" />
+            </svg>
+          </div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function Defs() {
+  return (
+    <defs>
+      <linearGradient id="lw-g-ink" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stopColor="#3b3b37" />
+        <stop offset="1" stopColor="#151513" />
+      </linearGradient>
+      <linearGradient id="lw-g-amber" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stopColor="#ffd2a1" />
+        <stop offset="1" stopColor="#f29a52" />
+      </linearGradient>
+      <linearGradient id="lw-g-lime" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stopColor="#f3fbb8" />
+        <stop offset="1" stopColor="#cfe556" />
+      </linearGradient>
+      <linearGradient id="lw-g-paper" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stopColor="#ffffff" />
+        <stop offset="1" stopColor="#efe6d6" />
+      </linearGradient>
+      <radialGradient id="lw-g-ball" cx="0.35" cy="0.3" r="0.75">
+        <stop offset="0" stopColor="#fbffd9" />
+        <stop offset="0.45" stopColor="#dcf06a" />
+        <stop offset="1" stopColor="#7f8f1f" />
+      </radialGradient>
+      <radialGradient id="lw-g-shadow" cx="0.5" cy="0.5" r="0.5">
+        <stop offset="0" stopColor="rgba(60,40,10,0.28)" />
+        <stop offset="1" stopColor="rgba(60,40,10,0)" />
+      </radialGradient>
+    </defs>
+  );
+}
+
+function Slab({ cy, top, left, right }: { cy: number; top: string; left: string; right: string }) {
+  const cx = 200, w = 150, h = 86, t = 20;
+  return (
+    <g strokeLinejoin="round">
+      <path d={`M${cx - w} ${cy} L${cx} ${cy + h} L${cx} ${cy + h + t} L${cx - w} ${cy + t} Z`} fill={left} stroke={left} strokeWidth="6" />
+      <path d={`M${cx} ${cy + h} L${cx + w} ${cy} L${cx + w} ${cy + t} L${cx} ${cy + h + t} Z`} fill={right} stroke={right} strokeWidth="6" />
+      <path d={`M${cx} ${cy - h} L${cx + w} ${cy} L${cx} ${cy + h} L${cx - w} ${cy} Z`} fill={top} stroke={top} strokeWidth="6" />
+    </g>
   );
 }
 
