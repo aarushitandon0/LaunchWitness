@@ -115,3 +115,24 @@ def test_build_is_not_on_seller_sites(tmp_path, client):
     with TestClient(app) as c:
         r = c.get("/build", headers={"host": "meeras-home-cakes.localhost"})
         assert "replay" not in r.text
+
+
+def test_admin_deletes_practice_business_only(client, engine):
+    from app.models import Business
+    from tests.test_m3_launch import approve, meera, plan
+
+    ADMIN = {"X-Admin-Token": ADMIN_TOKEN}
+    biz = meera(client)
+    approve(client, plan(client, biz))
+    url = f"/api/admin/practice-businesses/{biz['id']}"
+    assert client.delete(url).status_code == 403
+    assert client.delete(url, headers=ADMIN).json() == {"ok": True}
+    with Session(engine) as s:
+        assert s.get(Business, biz["id"]) is None
+        assert not s.exec(select(AuditEvent).where(AuditEvent.business_id == biz["id"])).all()
+        real = Business(name="Real", practice=False)
+        s.add(real)
+        s.commit()
+        rid = real.id
+    r = client.delete(f"/api/admin/practice-businesses/{rid}", headers=ADMIN)
+    assert r.status_code == 409

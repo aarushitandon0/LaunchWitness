@@ -26,3 +26,6 @@ replay/raw/
 
 # os
 .DS_Store
+
+# database backups (scripts/backup_db.sh)
+backups/

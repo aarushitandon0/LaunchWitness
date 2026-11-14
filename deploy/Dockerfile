@@ -18,6 +18,9 @@ COPY backend/app ./app
 # Claude fixture mode (CLAUDE_MODE=fixture) reads saved responses from here.
 COPY backend/tests/fixtures ./tests/fixtures
 COPY --from=web /web/dist /app/frontend/dist
+# The /build page (replay/build.html, made by scripts/build-replay.sh). Raw transcripts are
+# excluded by .dockerignore; if build.html is missing, /build shows "coming soon".
+COPY replay/ /app/replay/
 RUN useradd --create-home --uid 10001 lw && mkdir -p /app/backend/data && chown lw /app/backend/data
 USER lw
 EXPOSE 8000
