@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { api, ApiError, Business, inr, Order, Product, Profile } from "./api";
+import { api, ApiError, Business, inr, keys, Order, Product, Profile } from "./api";
 import { ErrorBox } from "./Describe";
 
 type TextKey = Exclude<keyof Profile, "products">;
@@ -21,6 +21,7 @@ export default function Review({ id }: { id: number }) {
   const [biz, setBiz] = useState<Business | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [subdomain, setSubdomain] = useState("");
+  const [ownerEmail, setOwnerEmail] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadError, setLoadError] = useState<ApiError | null>(null);
   const [saveError, setSaveError] = useState<ApiError | null>(null);
@@ -35,6 +36,9 @@ export default function Review({ id }: { id: number }) {
         setBiz(b);
         setProfile(b.profile);
         setSubdomain(b.subdomain);
+        setOwnerEmail(b.owner_email);
+        const k = keys.owner(id);
+        if (k) keys.setOwner(id, k, b.profile.name);
       })
       .catch(setLoadError);
     api.orders(id).then(setOrders).catch(() => setOrders([]));
@@ -57,10 +61,11 @@ export default function Review({ id }: { id: number }) {
     setSaveError(null);
     try {
       const cleaned = { ...profile, products: profile.products.filter((p) => p.name.trim()) };
-      const b = await api.save(id, cleaned, subdomain);
+      const b = await api.save(id, cleaned, subdomain, ownerEmail.trim());
       setBiz(b);
       setProfile(b.profile);
       setSubdomain(b.subdomain);
+      setOwnerEmail(b.owner_email);
       setSavedAt(new Date());
       setDirty(false);
     } catch (err) {
@@ -158,6 +163,27 @@ export default function Review({ id }: { id: number }) {
         </label>
       </section>
 
+      <h2>Your personal email</h2>
+      <section className="card">
+        <label className="field">
+          <span>Email for warnings</span>
+          <input
+            type="email"
+            value={ownerEmail}
+            onChange={(e) => {
+              setOwnerEmail(e.target.value);
+              setDirty(true);
+            }}
+            placeholder="you@gmail.com"
+            maxLength={254}
+          />
+          <small>
+            Only for warnings about your website, for example if it stops opening or your name needs renewing. It isn't
+            shown on your website.
+          </small>
+        </label>
+      </section>
+
       {saveError && <ErrorBox error={saveError} />}
       <div className="actions">
         <button className="btn btn-primary" type="submit" disabled={saving}>
@@ -168,9 +194,14 @@ export default function Review({ id }: { id: number }) {
             View my website
           </a>
         )}
-        {!dirty && (
+        {!dirty && biz.status !== "live" && (
           <a className="btn btn-primary" href={`#/b/${id}/launch`}>
             Launch my website →
+          </a>
+        )}
+        {!dirty && biz.status === "live" && (
+          <a className="btn btn-primary" href={`#/b/${id}/report`}>
+            See your launch report →
           </a>
         )}
         {savedAt && !dirty && <span className="saved">✅ Saved. Your website is up to date.</span>}

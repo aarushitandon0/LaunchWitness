@@ -1,25 +1,37 @@
 import { useEffect, useState } from "react";
-import { api } from "./api";
+import { api, keys } from "./api";
 import Describe from "./Describe";
 import Review from "./Review";
 import { LaunchChoice, PlanView } from "./Launch";
+import { AdminPage, OwnerLinkPage, ReportPage } from "./Report";
 
 type Route =
   | { page: "describe" }
+  | { page: "admin" }
+  | { page: "saved"; businessId: number }
   | { page: "review"; businessId: number }
   | { page: "launch"; businessId: number }
-  | { page: "plan"; planId: number };
+  | { page: "report"; businessId: number }
+  | { page: "plan"; businessId: number; planId: number };
 
-/** Tiny hash router: #/ · #/b/<id> · #/b/<id>/launch · #/plan/<id> */
+/** Tiny hash router: #/ · #/admin · #/b/<id>[?key=…] · #/b/<id>/saved · #/b/<id>/launch · #/b/<id>/plan/<pid> · #/b/<id>/report */
 function useRoute(): Route {
   const parse = (): Route => {
-    const h = window.location.hash;
-    let m = h.match(/^#\/b\/(\d+)\/launch/);
-    if (m) return { page: "launch", businessId: Number(m[1]) };
+    let h = window.location.hash;
+    // Owner link: remember the key in this browser, then drop it from the address bar.
+    const k = h.match(/^#\/b\/(\d+)\?key=([A-Za-z0-9_-]+)/);
+    if (k) {
+      keys.setOwner(Number(k[1]), k[2]);
+      h = `#/b/${k[1]}`;
+      window.history.replaceState(null, "", h);
+    }
+    if (h.startsWith("#/admin")) return { page: "admin" };
+    let m = h.match(/^#\/b\/(\d+)\/plan\/(\d+)/);
+    if (m) return { page: "plan", businessId: Number(m[1]), planId: Number(m[2]) };
+    m = h.match(/^#\/b\/(\d+)\/(launch|report|saved)/);
+    if (m) return { page: m[2] as "launch" | "report" | "saved", businessId: Number(m[1]) };
     m = h.match(/^#\/b\/(\d+)/);
     if (m) return { page: "review", businessId: Number(m[1]) };
-    m = h.match(/^#\/plan\/(\d+)/);
-    if (m) return { page: "plan", planId: Number(m[1]) };
     return { page: "describe" };
   };
   const [route, setRoute] = useState(parse);
@@ -59,7 +71,10 @@ export default function App() {
       {route.page === "describe" && <Describe />}
       {route.page === "review" && <Review key={route.businessId} id={route.businessId} />}
       {route.page === "launch" && <LaunchChoice key={route.businessId} businessId={route.businessId} />}
-      {route.page === "plan" && <PlanView key={route.planId} planId={route.planId} />}
+      {route.page === "plan" && <PlanView key={route.planId} businessId={route.businessId} planId={route.planId} />}
+      {route.page === "report" && <ReportPage key={route.businessId} businessId={route.businessId} />}
+      {route.page === "saved" && <OwnerLinkPage key={route.businessId} businessId={route.businessId} />}
+      {route.page === "admin" && <AdminPage />}
       <Health />
     </main>
   );

@@ -83,7 +83,8 @@ def report(b: Annotated[Business, Depends(owned_business)], admin: Annotated[boo
     info = json.loads(info_row.info_json) if info_row else {}
     events = session.exec(select(AuditEvent).where(AuditEvent.business_id == b.id)
                           .order_by(AuditEvent.id.desc()).limit(AUDIT_LIMIT)).all()
-    site = (f"https://{plan.site_host}/" if plan and plan.mode == "full"
+    # A practice launch's own name is pretend (maybe someone else's real site): link the practice address instead.
+    site = (f"https://{plan.site_host}/" if plan and plan.mode == "full" and not b.practice
             else site_url(b.subdomain, settings) if b.subdomain else None)
     return {
         "business": {"id": b.id, "name": b.name, "site_url": site, "has_owner_email": bool(b.owner_email),

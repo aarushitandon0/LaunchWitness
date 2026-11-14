@@ -156,6 +156,7 @@ def test_practice_buy_then_full_launch_green(client, integ, engine):
     rep = report(client, biz)
     assert rep["ready"], rep["left"]
     assert len(rep["run"]["checks"]) == 8
+    assert rep["business"]["site_url"] == "http://meera.localhost/"  # never the pretend (maybe real) domain
     assert not [c for c in integ.godaddy.calls if c[0] == "purchase_domain"]  # nothing "bought", even in the fake
     (ev,) = events(engine, action="practice_buy")
     assert "nothing bought" in ev.detail

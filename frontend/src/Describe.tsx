@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
-import { api, ApiError, BusinessSummary, Sample } from "./api";
-import { go } from "./App";
+import { api, ApiError, keys, Sample } from "./api";
+import { goTo } from "./App";
+import { rememberNewLink } from "./Report";
 
 export default function Describe() {
   const [description, setDescription] = useState("");
@@ -9,11 +10,10 @@ export default function Describe() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [samples, setSamples] = useState<Sample[]>([]);
-  const [existing, setExisting] = useState<BusinessSummary[]>([]);
+  const existing = keys.mine(); // businesses whose owner link was opened in this browser
 
   useEffect(() => {
     api.samples().then(setSamples).catch(() => setSamples([]));
-    api.list().then(setExisting).catch(() => setExisting([]));
   }, []);
 
   async function submit(e: FormEvent) {
@@ -22,7 +22,9 @@ export default function Describe() {
     setError(null);
     try {
       const b = await api.create(description, priceList, photo);
-      go(b.id);
+      if (b.owner_key) keys.setOwner(b.id, b.owner_key, b.profile.name);
+      if (b.owner_link) rememberNewLink(b.id, b.owner_link);
+      goTo(`#/b/${b.id}/saved`);
     } catch (err) {
       setError(err instanceof ApiError ? err : new ApiError(String(err), 0));
     } finally {
@@ -90,16 +92,14 @@ export default function Describe() {
 
       {existing.length > 0 && (
         <section className="existing">
-          <h2>Your businesses</h2>
+          <h2>Your businesses on this device</h2>
           <ul>
             {existing.map((b) => (
               <li key={b.id}>
                 <a href={`#/b/${b.id}`}>{b.name}</a>
-                {b.site_url && (
-                  <a className="muted" href={b.site_url} target="_blank" rel="noreferrer">
-                    view site
-                  </a>
-                )}
+                <a className="muted" href={`#/b/${b.id}/report`}>
+                  launch report
+                </a>
               </li>
             ))}
           </ul>

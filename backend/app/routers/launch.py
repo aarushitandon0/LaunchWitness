@@ -97,7 +97,7 @@ def read_plan(plan: Annotated[Plan, Depends(owned_plan)], settings: Annotated[Se
     out = card_out(plan, settings)
     b = session.get(Business, plan.business_id)
     out["practice"] = b.practice
-    out["site_url"] = (f"https://{plan.site_host}/" if plan.mode == "full"
+    out["site_url"] = (f"https://{plan.site_host}/" if plan.mode == "full" and not b.practice
                        else site_url(b.subdomain, settings) if b and b.subdomain else None)
     out["approvals"] = [{"action": a.action, "target": a.target, "amount_usd": a.amount_usd,
                          "approved_by": a.approved_by, "used": a.used_at is not None}
