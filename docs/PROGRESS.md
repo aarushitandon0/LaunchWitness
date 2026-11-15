@@ -4,7 +4,7 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
-**Session 9F (Nov 15–16): Phase 1 (claims made true) + Phase 2 (accounts and multi-tenancy) done and merged.** Email-link sign-in, guest practice, team approval, per-owner shops, CSRF, host-only cookies, team page, account deletion; 52 access tests; frontend rewired (no owner links). Checkpoint: `docs/S9F_PHASE2_CHECKPOINT.md`. Next: Phase 3 (order proof chain) — see `docs/STATE_FOR_NEXT_SESSION.md`.
+**Session 9F (Nov 15–16): Phase 1 (claims made true) + Phase 2 (accounts and multi-tenancy) done and merged.** Email-link sign-in, guest practice, team approval, per-owner shops, CSRF, host-only cookies, team page, account deletion; 52 access tests; frontend rewired (no owner links). Checkpoint: `docs/S9F_PHASE2_CHECKPOINT.md`. **Phase 3 (order proof chain + check any address) done and merged** (Nov 16). Next: Phase 4 (Doctor) — see `docs/STATE_FOR_NEXT_SESSION.md`.
 
 **Session 8.5 (Nov 15): real app domain + mailbox wired, no VPS yet.** `launchwitness.com` and `hello@launchwitness.com` are bought; the contact form sent a real email over GoDaddy SMTP from a local run. **Positioning changed to proof first** (see Decisions). VPS arrives free on **Wed Nov 18**; M1 happens then.
 
@@ -13,7 +13,7 @@ Claude Code reads this at the start of every session and updates it at the end. 
 ## Next up
 
 - **S9F Phase 3 → 6** in the order of `docs/STATE_FOR_NEXT_SESSION.md` (proof chain, Doctor, design, verification + VPS handover).
-- **Owner TODO:** look up hello@launchwitness.com's daily send limit (sign-in links, orders and alerts all go through it).
+- **Owner TODO:** look up hello@launchwitness.com's daily send limit (sign-in links, orders, daily test orders and alerts all go through it). Known risk: if hello@ lapses (about Dec 15) or hits its limit, sign-in, orders and alerts all stop. Set `MAILBOX_EXPIRES_ON` on the server so `/api/health` warns 14 days ahead.
 - **Owner TODO (VPS):** set `ADMIN_EMAIL` and a fresh `ADMIN_TOKEN` in the server `.env`; `DEV_MODE` must stay false there.
 
 0. **M1 on the VPS on Wed Nov 18** (the VPS is free and arrives then; **do not buy one**). The old "by Nov 17" deadline can't be met; session 9 can run before it. Thursday Nov 19 demo shop = `meerasbakes.launchwitness.com` via the wildcard record (no seller domain bought).
@@ -239,6 +239,8 @@ Everything below is behind an interface with a working fake; tests cover the fak
 
 - **S9F accounts (Fable's design, kept):** email-link sign-in only; guest practice + "sign in to keep it" is the one claim path; pending until the team approves (beta); `ADMIN_EMAIL` is the admin, `ADMIN_TOKEN` command line only; subdomains only for real launches; `MAX_LIVE_SHOPS=40` for certificate limits; orders/alerts to verified sign-in addresses.
 - **S9F (Opus) fixes:** the policy check never uses the saved-fixture fallback (fails closed); the daily describe cap counts `describe_used` rows that survive shop deletion; a delete-account token is checked against the signed-in email before it's used up; ruff rules pinned in `backend/pyproject.toml` (E4/E7/E9/F/I); the Vite dev proxy rewrites Origin to `LW_APP_ORIGIN` (default `http://localhost`) in dev only; `seed_demo.py` now works as a command-line admin (no owner keys).
+
+- **S9F P3:** a real shop's headline is "Almost ready" until the owner taps "Yes, I got it" (her inbox can't be read), because "accepted" must never read as "delivered"; the daily monitoring run includes a test order (one email per shop per day); test orders are marked by a single-use `TestTicket` nonce posted as `lw_test` (an unknown or used nonce is just a normal order); the "Yes, I got it" link uses a random token (hash stored), not an HMAC, so no new secret is needed; `/r/<token>` shows check names, states, hop times and servers only.
 
 ## Open questions
 

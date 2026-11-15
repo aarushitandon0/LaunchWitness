@@ -108,3 +108,11 @@ One entry per Claude Code session, newest last. This is what judges read to unde
 - Result: 437 passed, 2 skipped; ruff, `tsc --noEmit` and the build clean. Live Claude spend: $0.
 - Next: Phase 3 (order proof chain + check any address).
 
+### Session 9F Phase 3 — 2026-11-16 (IST) — The order proof made real (Opus)
+- Goal: make the differentiator real: prove each hop of an order separately, never call "accepted" "delivered", and let anyone check an address.
+- Asked Claude to: evidence table; outside-in test order through the public form with an SSRF guard; separate hops (form → mail server → inbox or owner tap); HTTPS marker + certificate wait; authoritative DNS; report hop trace and "N of M proven"; shareable `/r/<token>`; daily test order; "Check any address"; WhatsApp "Send this order to the shop"; mailbox expiry warning.
+- Claude built: `app/proof.py`, `app/checks/safe_fetch.py`, `app/routers/proof.py`, `AuthoritativeResolver`, `Evidence`/`TestTicket`/`ReportShare`/`AddressCheck` tables, `accept_order_form` (one form handler for customers and the checker), report hop trace + share panel + "Yes, I got it" page, landing check section; `tests/test_s9_phase3_proof.py` (40 tests).
+- What checking caught: a real shop with the owner's own inbox showed "ready" on a mail server's "accepted" alone (now "Almost ready" until her tap); my headline edit briefly swallowed the "ready" branch (suite caught it); the landing section's heading was invisible on the dark background and had no phone gutter (screenshots caught both).
+- Result: 477 passed, 2 skipped; ruff, tsc and build clean. Real network paths (SafeWeb, AuthoritativeResolver, IMAP) are unit-tested with stubs only: unproven until the VPS. Live Claude spend: $0.
+- Next: Phase 4 (investigating Doctor), Phase 5 (design), Phase 6 (verification + VPS handover).
+

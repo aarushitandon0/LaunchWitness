@@ -114,6 +114,14 @@ Repair happens during launch, because that's where setups actually go wrong: set
 
 **Confirming the test order:** for real sellers the app can't read their inbox (GoDaddy emails mailbox passwords to the account owner only), so the seller taps "Yes, I got it". For the demo mailbox, the checker can also read the inbox over IMAP (password in env).
 
+**The proof chain (session 9F Phase 3).** Every claim on the report is backed by a stored `Evidence` row, and each hop is recorded separately with its time and the server that answered:
+- *Address answered*: asked of the zone's own nameservers (found from NS), which server is recorded.
+- *Page opened*: HTTPS with a valid certificate **and** the shop's `<meta name="lw-shop">` marker, so a parked page with a valid certificate fails. Waits up to 2 minutes while a new certificate is issued.
+- *Test order*: the checker opens the public shop page, finds the order form and posts it like a customer (same fields and form token) with a one-time code (`TestTicket`). Then: *Form accepted* → *Mail server accepted* (message id) → *In the inbox* (IMAP, only for mailboxes we hold) **or** *Owner confirmed* (a single-use "Yes, I got it" link in the test email). **"Accepted" is never shown as "delivered"**: until one of the last two exists the report says "N of M proven, 1 needs you" and the headline is "Almost ready". Test orders are hidden from the seller's list.
+- The checker may only fetch the shop's own host (SSRF guard: https only, hostnames only, public IPs only, IP pinned, every redirect re-checked). Practice shops are never on the internet, so practice runs the same page template and form handler in-process, and every row is labelled practice.
+- **Share:** `/r/<token>` is a read-only, revocable report with no customer data.
+- **Check any address** (landing page): read-only public checks of any domain (address, HTTPS, certificate days, MX/SPF/DMARC) in plain English. SSRF-guarded, rate-limited, sends no email and stores nothing about the address. A free extra entry point, not the product.
+
 **Demo failure:** during launch one check fails on purpose (e.g. DMARC missing → orders would land in spam). The Doctor explains, re-adds, re-checks to green. The fault is staged — say so if asked.
 
 ---

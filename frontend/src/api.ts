@@ -163,7 +163,26 @@ export type CheckRow = {
   attempt: number;
   first_passed: boolean;
   fixed: boolean;
+  waiting?: boolean;
+  state?: "proven" | "needs_you" | "failed"; // from stored evidence only
+  hops?: Hop[];
 };
+
+/** One proven hop, as stored (e.g. "Form accepted" at 14:02:11, by which server). */
+export type Hop = {
+  step: string;
+  title: string;
+  at: string;
+  source: string;
+  server: string;
+  message_id: string;
+  status_code: number | null;
+  cert_not_after: string | null;
+  answer: string;
+  practice: boolean;
+};
+
+export type AddressResult = { check: string; ok: boolean | null; plain: string; detail: string };
 
 export type Repair = {
   check: string;
@@ -182,6 +201,7 @@ export type Report = {
   ready: boolean;
   headline: string;
   left: string[];
+  proof: { proven: number; total: number; needs_you: number; last_checked_at: string | null; stale: boolean };
   run: {
     id: number;
     trigger: string;
@@ -260,7 +280,7 @@ export class ApiError extends Error {
 export let lastAssistantNote: string | null = null;
 
 /** Pages that work without signing in. A 401 anywhere else sends the person to sign in. */
-const OPEN_PAGES = /^#\/(try|signin.*|check)?$/;
+const OPEN_PAGES = /^#\/(try|signin.*|check|got-it)?$/;
 
 function toSignIn() {
   const here = window.location.hash || "#/";
@@ -362,6 +382,13 @@ export const api = {
   },
   report: (id: number) => request<Report>(`/api/businesses/${id}/report`),
   runChecks: (id: number) => request<{ ok: boolean; run_id: number }>(`/api/businesses/${id}/checks`, { method: "POST" }),
+  // ---- proof ----
+  shareStatus: (id: number) => request<{ active: boolean; created_at: string | null }>(`/api/businesses/${id}/share`),
+  share: (id: number) => request<{ url: string }>(`/api/businesses/${id}/share`, { method: "POST" }),
+  unshare: (id: number) => request<{ ok: boolean }>(`/api/businesses/${id}/share`, { method: "DELETE" }),
+  confirmTestOrder: (token: string) => request<{ ok: boolean; shop: string }>("/api/proof/confirm", json({ token })),
+  checkAddress: (address: string) =>
+    request<{ address: string; read_only: boolean; results: AddressResult[] }>("/api/check-address", json({ address })),
   // ---- team ----
   admin: {
     users: (status?: string) => request<AdminUser[]>(`/api/admin/users${status ? `?status=${status}` : ""}`),

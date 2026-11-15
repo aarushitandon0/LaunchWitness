@@ -80,7 +80,8 @@ scripts/               # build-replay.sh and helpers
 - Demo rehearsal (practice, needs the app running, `ADMIN_TOKEN` in env): `python3 scripts/seed_demo.py [--url URL] [--launched]` · reset: `python3 scripts/seed_demo.py --reset`
 - Lint: `.venv/Scripts/python -m ruff check backend` (rules pinned in `backend/pyproject.toml`). On Windows use `.venv/Scripts/python -m pytest` (pytest.exe is blocked).
 - Seller site gallery (6 very different sellers, phone + laptop screenshots): `.venv/bin/python scripts/render_site_gallery.py <tmp_dir> && node scripts/shoot_site_gallery.js <tmp_dir> docs/screenshots/<session>` (warns on sideways scrolling)
-- App pages: `/` landing + contact form · `/#/try` describe (guest practice) · `/#/signin` · `/#/shops` · `/#/account` · `/#/admin` team · `/build` replay
+- App pages: `/` landing + contact form + "Check any address" (`#check`) · `/#/try` describe (guest practice) · `/#/signin` · `/#/shops` · `/#/account` · `/#/admin` team · `/#/got-it?token=` ("Yes, I got it") · `/r/<token>` shared report · `/build` replay
+- Proof chain: every report claim comes from `Evidence` rows (`app/proof.py`); the checker reaches shops only through `shop_web` (in-process for practice, `SafeWeb` SSRF guard otherwise). Handoff for the next session: `docs/STATE_FOR_NEXT_SESSION.md`.
 
 ## Style
 
