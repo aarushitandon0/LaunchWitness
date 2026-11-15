@@ -73,13 +73,14 @@ scripts/               # build-replay.sh and helpers
 - Run locally (full stack): `docker compose -f deploy/docker-compose.yml up --build` → http://localhost · stop: `docker compose -f deploy/docker-compose.yml down`
 - Practice mode: `USE_FAKES=true` (default) runs GoDaddy/DNS/mailbox/HTTP against in-memory fakes; set `SERVER_IP`, `USE_FAKES=false` on the VPS once the real integrations exist (see PROGRESS.md "Real integration TODO").
 - Live Claude fixtures (owner's laptop; cloud sessions can't hold the key): `bash scripts/capture_all_live.sh` (17 calls, worst case $0.14, cap must be ≤ $1.50, stops at the first failure; details `docs/LIVE_FIXTURES.md`). Single targets: `cd backend && ../.venv/bin/python ../scripts/capture_live_fixtures.py [--dry-run] reader:<seller> | namer:<seller> | doctor:<check>|all` · spend today: `… --report` · strict check: `REQUIRE_LIVE_FIXTURES=1 pytest -q tests/test_s6_agents.py`. Handwritten test image: `.venv/bin/python scripts/make_handwritten_pricelist.py <out.jpg>`
-- Team (admin) access in the browser: set `ADMIN_TOKEN` (16+ chars) in `.env`, open `/#/admin`, paste it. The report page then shows the demo fault switch. Owners use their private link (`/#/b/<id>?key=…`, shown once after "describe").
+- Accounts: sign in by email link at `/#/signin` (local: `DEV_MODE=true` shows the link on screen; never on https). The `ADMIN_EMAIL` user is the team: `/#/admin` (approve accounts, pause shops, reports) and the demo fault switch on reports. `ADMIN_TOKEN` (16+ chars) is for command-line tools only (`X-Admin-Token`, no cookies). Every route must be listed in `backend/app/safety/route_table.py` (a test enforces it).
 - Monitoring: on by default (`MONITOR_ENABLED=true`, starts with the app); tests never start it.
 - Save session transcript: `bash scripts/save-transcript.sh <N> <milestone>` · build replay page: `REDACT_EMAILS=<owner email> bash scripts/build-replay.sh` → `replay/build.html` (served at `/build`; redacts emails, secret-scans the page, deletes it on any hit). One Claude Code session = one file in `replay/sessions/` (the replay keeps one copy per session id: if a chat continues, replace its earlier partial file).
 - Prod on the VPS: follow `docs/RUNBOOK_M1.md`. Start/update: `docker compose --env-file .env -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build` (Caddyfile.prod, monitoring on, restart always, healthchecks) · M1 check: `bash scripts/check_m1.sh` · DB backup: `bash scripts/backup_db.sh` (restore: `--restore <file>`)
-- Demo rehearsal (practice, needs the app running): `python3 scripts/seed_demo.py [--url URL] [--launched]` · reset: `ADMIN_TOKEN` in env, `python3 scripts/seed_demo.py --reset`
+- Demo rehearsal (practice, needs the app running, `ADMIN_TOKEN` in env): `python3 scripts/seed_demo.py [--url URL] [--launched]` · reset: `python3 scripts/seed_demo.py --reset`
+- Lint: `.venv/Scripts/python -m ruff check backend` (rules pinned in `backend/pyproject.toml`). On Windows use `.venv/Scripts/python -m pytest` (pytest.exe is blocked).
 - Seller site gallery (6 very different sellers, phone + laptop screenshots): `.venv/bin/python scripts/render_site_gallery.py <tmp_dir> && node scripts/shoot_site_gallery.js <tmp_dir> docs/screenshots/<session>` (warns on sideways scrolling)
-- App pages: `/` landing + contact form · `/#/try` describe · `/#/admin` team access · `/build` replay
+- App pages: `/` landing + contact form · `/#/try` describe (guest practice) · `/#/signin` · `/#/shops` · `/#/account` · `/#/admin` team · `/build` replay
 
 ## Style
 

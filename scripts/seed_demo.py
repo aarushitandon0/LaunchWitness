@@ -8,12 +8,12 @@ so start the app first. Standard library only.
   python3 scripts/seed_demo.py --launched            # ... and a full practice launch (report green)
   python3 scripts/seed_demo.py --reset               # delete the demo businesses made by this script
   options: --url http://localhost:8000 (default; on the VPS: https://<APP_DOMAIN>)
-           --email you@example.org   (personal email for alerts; default demo@example.org)
 
-ADMIN_TOKEN (env, never on the command line) is needed for --reset; when the server is in
-practice mode it is also sent while seeding so the per-visitor limits don't block rehearsals.
-It refuses to continue if the business would NOT be practice.
-State (ids + private owner links) is kept in ~/.launchwitness-demo.json (not in the repo).
+ADMIN_TOKEN (env, never on the command line) is required: this is a command-line caller, so it
+sends no cookies and no Origin, only the emergency admin token (the server allows exactly that).
+The shop it makes has no owner (a practice workspace, removed after 24 hours); open its report
+in a browser signed in as the team (ADMIN_EMAIL). It refuses to continue if the shop is NOT practice.
+State (ids) is kept in ~/.launchwitness-demo.json (not in the repo).
 """
 
 import argparse
@@ -33,9 +33,9 @@ STATE = Path.home() / ".launchwitness-demo.json"
 
 class Api:
     def __init__(self, url: str, admin: str):
-        self.url, self.admin, self.owner = url.rstrip("/"), admin, ""
+        self.url, self.admin = url.rstrip("/"), admin
 
-    def call(self, method: str, path: str, body=None, form=None, admin=False):
+    def call(self, method: str, path: str, body=None, form=None):
         headers = {}
         data = None
         if body is not None:
@@ -43,10 +43,7 @@ class Api:
         if form is not None:
             data = urllib.parse.urlencode(form).encode()
             headers["Content-Type"] = "application/x-www-form-urlencoded"
-        if self.owner:
-            headers["X-Owner-Key"] = self.owner
-        if admin and self.admin:
-            headers["X-Admin-Token"] = self.admin
+        headers["X-Admin-Token"] = self.admin
         req = urllib.request.Request(self.url + path, data=data, method=method, headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=30) as r:
@@ -70,15 +67,13 @@ def save_state(rows: list[dict]) -> None:
     STATE.chmod(0o600)
 
 
-def seed(api: Api, launched: bool, email: str) -> None:
-    mode = api.call("GET", "/api/practice-mode", admin=True)
-    use_admin = bool(mode.get("admin")) and mode.get("practice")  # admin only while the whole server is practice
+def seed(api: Api, launched: bool) -> None:
+    if not api.call("GET", "/api/admin/check").get("admin"):
+        sys.exit("FAIL: ADMIN_TOKEN was not accepted.")
     s = json.loads(SELLER.read_text(encoding="utf-8"))
-    biz = api.call("POST", "/api/businesses", form={"description": s["description"], "price_list": s["price_list"]},
-                   admin=use_admin)
-    api.owner = biz["owner_key"]
+    biz = api.call("POST", "/api/businesses", form={"description": s["description"], "price_list": s["price_list"]})
     rows = load_state()
-    rows.append({"id": biz["id"], "url": api.url, "owner_link": biz["owner_link"]})
+    rows.append({"id": biz["id"], "url": api.url})
     save_state(rows)
     if not biz.get("practice"):
         sys.exit(f"FAIL: business #{biz['id']} is NOT practice (the server is real and an admin token was used). "
@@ -86,7 +81,7 @@ def seed(api: Api, launched: bool, email: str) -> None:
     used = {r.get("sub") for r in rows}
     sub = "meera" if "meera" not in used else f"meera-{len(rows)}"
     biz = api.call("PUT", f"/api/businesses/{biz['id']}",
-                   body={"profile": biz["profile"], "subdomain": sub, "owner_email": email})
+                   body={"profile": biz["profile"], "subdomain": sub})
     rows[-1]["sub"] = sub
     save_state(rows)
     print(f"OK: created {biz['profile']['name']} (#{biz['id']}, practice) at {biz['site_url']}")
@@ -96,7 +91,7 @@ def seed(api: Api, launched: bool, email: str) -> None:
             sys.exit("FAIL: no free practice names found")
         domain = names[0]["domain"]
         plan = api.call("POST", f"/api/businesses/{biz['id']}/plans", body={"mode": "full", "domain": domain})
-        api.call("POST", f"/api/plans/{plan['id']}/approve", body={"approved_by": "Meera (demo seed)"}, admin=use_admin)
+        api.call("POST", f"/api/plans/{plan['id']}/approve", body={"approved_by": "Meera (demo seed)"})
         for _ in range(60):
             p = api.call("GET", f"/api/plans/{plan['id']}")
             if p["status"] == "blocked":
@@ -112,17 +107,14 @@ def seed(api: Api, launched: bool, email: str) -> None:
                 break
             time.sleep(0.5)
         print(f"OK: practice launch on {domain}: {rep['headline']}")
-    print(f"Private owner link (open it in the demo browser): {rows[-1]['owner_link']}")
-    print(f"Report: {api.url}/#/b/{biz['id']}/report")
+    print(f"Report (sign in as the team to open it): {api.url}/#/b/{biz['id']}/report")
 
 
 def reset(api: Api) -> None:
-    if not api.admin:
-        sys.exit("FAIL: set ADMIN_TOKEN in the environment to reset (e.g. export it from the server .env).")
     rows = [r for r in load_state() if r["url"].rstrip("/") == api.url]
     for r in rows:
         try:
-            api.call("DELETE", f"/api/admin/practice-businesses/{r['id']}", admin=True)
+            api.call("DELETE", f"/api/admin/practice-businesses/{r['id']}")
             print(f"OK: deleted demo business #{r['id']}")
         except SystemExit as e:
             print(f"skip #{r['id']}: {e}")
@@ -136,10 +128,12 @@ def main() -> None:
     ap.add_argument("--url", default="http://localhost:8000")
     ap.add_argument("--launched", action="store_true")
     ap.add_argument("--reset", action="store_true")
-    ap.add_argument("--email", default="demo@example.org")
     a = ap.parse_args()
-    api = Api(a.url, os.environ.get("ADMIN_TOKEN", ""))
-    reset(api) if a.reset else seed(api, a.launched, a.email)
+    token = os.environ.get("ADMIN_TOKEN", "")
+    if not token:
+        sys.exit("FAIL: set ADMIN_TOKEN in the environment (e.g. export it from the server .env).")
+    api = Api(a.url, token)
+    reset(api) if a.reset else seed(api, a.launched)
 
 
 if __name__ == "__main__":

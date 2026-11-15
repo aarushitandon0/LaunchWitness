@@ -45,11 +45,12 @@ The model **decides and explains**; plain code **acts and checks**.
 - **Back up, then undo.** The current records are saved before any DNS write. A write without a backup is refused, and a failed launch can be put back.
 - **Scoped actions.** A launch can only touch its own domain (or its own subdomain), one record type and name at a time. The Doctor can only pick from 5 fixes in code (`restore_backup`, `readd_mx`, `readd_email_auth`, `retry_certificate`, `repoint_site`). Anything else is refused and logged. At most 3 attempts are made, and no fix spends money.
 - **Everything is audited.** Every state change writes an audit event, shown in the report.
-- **Safe public link.**
-  - Visitors' businesses are always **practice** (a pretend GoDaddy), even on the real server.
-  - There are per-visitor daily limits on describe, launch and contact messages.
-  - Each business has a secret owner link; only its hash is stored.
-  - Admin is off until a strong `ADMIN_TOKEN` is set.
+- **Accounts and a safe public link.**
+  - Anyone can **try it without signing in**: a practice shop (pretend GoDaddy) kept for 24 hours.
+  - **Sign in by email link** (no passwords) to keep it. New accounts practise until the team approves them; only approved accounts can launch for real, on a free `<shop>.launchwitness.com` address.
+  - Each owner sees only their own shops (someone else's answers "We couldn't find that shop"). Every route is classified, and a test fails on any that isn't.
+  - Session cookies are host-only, so shop pages on subdomains never receive them. Every change needs the app's Origin and a CSRF token.
+  - Per-visitor and per-account daily limits; at most 40 live shops (certificate limits); a go-live policy check that can only hold a shop for review; "Report this shop" and a team pause switch.
 - **No secrets in the repo.** All keys come from environment variables (`.env` exists only on the server). Transcripts are redacted and secret-scanned before they're committed.
 
 ## Architecture
@@ -98,7 +99,11 @@ Or the full stack with Caddy: `docker compose -f deploy/docker-compose.yml up --
 Rehearse the demo:
 - `python3 scripts/seed_demo.py --launched` creates Meera's shop and runs a practice launch.
 - `--reset` removes it.
-- For the demo fault (DMARC removed, then fixed by the Doctor): set `ADMIN_TOKEN` to 16+ characters, open `/#/admin`, then use the switch on the report.
+- For the demo fault (DMARC removed, then fixed by the Doctor): sign in as the team (`ADMIN_EMAIL`), open the shop's report, then use the switch. (`ADMIN_TOKEN` is for command-line tools such as this script only.)
+
+**Judges:** open the live app, press **Try it**, pick an example seller and run a practice launch; no account needed. A seeded read-only demo seller comes in Phase 6. To see the account side, sign in with your email (you'll stay in practice until approved).
+
+Local development: set `DEV_MODE=true` in `.env` (http only; it refuses to start on https). Sign-in links are then shown on screen instead of emailed. `npm run dev` proxies `/api` to :8000 and presents the app's own origin.
 
 Production on the VPS: follow [`docs/RUNBOOK_M1.md`](docs/RUNBOOK_M1.md) (copy-paste steps with a check after each). `scripts/check_m1.sh` verifies the result, and `scripts/backup_db.sh` backs up and restores the database. More commands are in [`CLAUDE.md`](CLAUDE.md).
 
@@ -110,7 +115,7 @@ The whole product was built in Claude Code sessions, each one following a fixed 
 3. It makes small, tested commits.
 4. At the end it updates [`docs/PROGRESS.md`](docs/PROGRESS.md) and [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md), then saves a redacted transcript.
 
-- **I make the product decisions**: scope, safety rules, budget, and what to postpone. Claude asks when the spec doesn't answer something and records the answer under "Decisions". For example: no accounts but a secret owner link; a "Pretend I bought it" button for practice; the email plan shown as a separate estimate.
+- **I make the product decisions**: scope, safety rules, budget, and what to postpone. Claude asks when the spec doesn't answer something and records the answer under "Decisions". For example: email-link accounts with team approval during the beta (they replaced the earlier secret owner links); a "Pretend I bought it" button for practice; the email plan shown as a separate estimate.
 - **Hard rules hold across sessions**:
   - no secrets in the repo
   - Claude never spends money

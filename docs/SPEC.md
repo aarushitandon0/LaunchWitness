@@ -46,9 +46,9 @@ Seven steps from description to proof; Meera does four of them, and only one cos
 6. **Launch check.** Code checks the site opens, HTTPS is valid, email settings are correct, then places a real test order through her form. If anything fails, the Doctor explains it in one sentence, applies a safe fix or undoes the change, and re-checks until green.
 7. **Report and watch.** Report headed **"Your business is ready for customers"**: every check, result, time passed. After launch, the same checks re-run lightly on a timer and alert her if something breaks.
 
-**Two launch modes, same code:**
-- **Sandbox launch** at `<slug>.<APP_DOMAIN>`: free, real DNS writes on the app's own domain, real checks. Used for development, rehearsals and judges trying it.
-- **Full launch** on a purchased domain: run once, for the recorded demo.
+**Two launch modes, same code (updated session 9F):**
+- **Practice launch** (everyone, the default; guests too): every step against a pretend GoDaddy. Nothing goes on the internet; always labelled "Practice".
+- **Real launch** at `<slug>.launchwitness.com`, for **approved accounts only**: $0, one A record per shop written through the GoDaddy API (no wildcard), real checks. **Own-domain launch is cut** for this round (practice only); the product says so. Unproven on real infrastructure until the VPS (Wed Nov 18).
 
 ---
 
@@ -62,7 +62,8 @@ Eight core features first; no stretch item starts until all eight run end to end
 | 2 | Name finder | Core | Claude suggests names; code checks real availability and price; shows 3 |
 | 3 | Site builder | Core | One fixed template for every seller: badges from data, menu + basket, extras, about, hours, pickup/delivery, order form, WhatsApp link, UPI QR, privacy page |
 | 3a | Orders and payment (session 9) | Core | Order date (min notice enforced), pickup/delivery, quantities, totals worked out on the server; per-order UPI pay link + QR (no gateway, no money passes through us); order ID + status page (Received → Confirmed → Paid → Preparing → Ready / Out for delivery → Delivered / Picked up, or Cancelled); seller's order list on her private link; WhatsApp hand-offs via `wa.me` links |
-| 3b | Trust and safety (session 9) | Core | Verify the owner's email before any real launch; Claude policy check that can only hold a shop for team review (never launches); "Report this shop" link + admin pause switch |
+| 3b | Trust and safety (session 9) | Core | Email-link sign-in (the owner's address is proven) + team approval before any real launch; Claude policy check that can only hold a shop for team review (never launches; fails closed); "Report this shop" link + admin pause switch |
+| 3c | Accounts and tenancy (session 9F) | Core | Guest practice → sign in to keep it; sessions; My shops (max 3); each owner sees only their own shops; team page; account deletion. See §9a |
 | 4 | Launch engine | Core | Plan → preview of changes → approval card → execute (GoDaddy Domains, DNS, Email); sandbox + full modes |
 | 5 | Launch check | Core | Site resolves, HTTPS valid, email settings present, real test order arrives |
 | 6 | Repair during launch | Core | Doctor explains a failed check, applies a playbook fix or undoes from backup, re-checks |
@@ -175,6 +176,21 @@ Say plainly to judges: hosting is the Docker VPS, not GoDaddy's Hosting API.
 5. **Spend guards in code.** `ALLOW_PURCHASE=false` default, hard `MAX_SPEND_USD` cap, purchase only when flag on AND owner approved.
 
 Every step goes to the audit log shown in the report.
+
+---
+
+## 9a. Accounts and tenancy (session 9F)
+
+- **Guest practice.** "Try it" needs no account: an anonymous cookie owns a practice workspace (pretend GoDaddy, never public, deleted after 24 hours).
+- **Sign in by emailed link.** No passwords. The link carries 32 random bytes, only its SHA-256 is stored, it works once for 15 minutes, and only the "Sign in" button (a POST) uses it, so mail scanners opening the link change nothing. Same answer whether or not the address has an account. Limits per address and per IP. Signing in keeps the guest's shops (up to the limit). There is no other "claim" mechanism.
+- **Sessions.** `__Host-lw_session`: Secure, HttpOnly, SameSite=Lax, Path=/, no Domain (host-only), so shop subdomains never receive it. New id at every sign-in; 14-day sliding expiry; log out; log out everywhere; suspension ends every session at once. CSRF: Origin check + a token derived from the cookie on every change.
+- **Tenancy.** Every business route goes through one gate; the ownership filter is part of the database query; another owner's shop answers 404. Shoppers never sign in.
+- **Team approval during the beta.** New accounts are *pending* (practice only) until the team approves them. The admin is the `ADMIN_EMAIL` user; `ADMIN_TOKEN` stays for the command line only.
+- **Limits.** 3 shops per account; a daily cap on describes (Claude calls) that deleting shops doesn't reset; **at most `MAX_LIVE_SHOPS` (40) live shops**, because Let's Encrypt issues about 50 new certificates per registered domain per week and every shop subdomain needs its own.
+- **Orders and alerts** go to the owners' verified sign-in addresses (the app mailbox only for shops the team runs, or ownerless guest shops).
+- **Go-live gate.** At real approval: approved account, not a guest shop, not paused, under the live-shop cap, policy check OK (or cleared by the team).
+- **Deleting an account** needs the emailed link *and* being signed in; it unpublishes and deletes the shops, erases the email and keeps one anonymous audit row.
+- Route classes live in `backend/app/safety/route_table.py`; a test fails on any unclassified route.
 
 ---
 

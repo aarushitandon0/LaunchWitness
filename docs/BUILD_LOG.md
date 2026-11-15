@@ -98,3 +98,13 @@ One entry per Claude Code session, newest last. This is what judges read to unde
 - What checking caught: the mailbox is GoDaddy Professional Email (secureserver.net), not Titan, while the planner still assumes Titan's DKIM name (open question); the old "M1 by Nov 17" deadline can't hold with a Nov 18 VPS; a mixed-case `LaunchWitness.in.` test case was missed by the first find-and-replace.
 - Result: real contact-form email sent over port 465 (HTTP 200, no fallback needed). 339 passed, 2 skipped. Live Claude spend: $0.
 - Next: session 9 (`docs/NEXT_SESSION_S9.md`), M1 on Wed Nov 18.
+
+### Session 9F — 2026-11-15/16 (IST) — Claims made true, then accounts and multi-tenancy (Fable, finished by Opus)
+- Goal: make every claim on screen true (Phase 1), then let many sellers use one app safely (Phase 2).
+- Asked Claude to: Fable audited the app and fixed B1–B9/S2/S5–S8 (commit `d02a430`), then designed accounts: email-link sign-in, guest practice, team approval, one access gate, CSRF, host-only cookies, route classification. Fable hit its usage limit mid-Phase 2; Opus was asked to finish it without redesigning, make it green, write the access test suite and the frontend, and merge.
+- Claude built: (Fable) `accounts.py`, `tenancy.py`, `agents/policy.py`, auth/admin routers, `request_guard.py`, `route_table.py`, models + migration; (Opus) the remaining test updates, `tests/test_s9_phase2_access.py` (52 tests incl. a generated owner-route matrix), the frontend (sign in, check email, confirm, My shops, account, team page, CSRF in `api.ts`, guest/pending banners, "Launch for real"), `seed_demo.py` on the admin token, checkpoint doc + screenshots.
+- I changed / rejected: no claim flow other than guest → sign in; subdomains only; approval card shows $0; never name other builders.
+- What checking caught: the policy check failed **open** in live mode (the fixture fallback answered "ok"); deleting a shop reset the per-user Claude cap; anyone signed in could burn another user's delete link; the account page showed a stale "pending" after approval (cached `/me`); the top-bar sign-in link was invisible on the dark bar; a lifespan test was touching the developer's real database.
+- Result: 437 passed, 2 skipped; ruff, `tsc --noEmit` and the build clean. Live Claude spend: $0.
+- Next: Phase 3 (order proof chain + check any address).
+

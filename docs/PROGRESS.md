@@ -4,11 +4,17 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
+**Session 9F (Nov 15–16): Phase 1 (claims made true) + Phase 2 (accounts and multi-tenancy) done and merged.** Email-link sign-in, guest practice, team approval, per-owner shops, CSRF, host-only cookies, team page, account deletion; 52 access tests; frontend rewired (no owner links). Checkpoint: `docs/S9F_PHASE2_CHECKPOINT.md`. Next: Phase 3 (order proof chain) — see `docs/STATE_FOR_NEXT_SESSION.md`.
+
 **Session 8.5 (Nov 15): real app domain + mailbox wired, no VPS yet.** `launchwitness.com` and `hello@launchwitness.com` are bought; the contact form sent a real email over GoDaddy SMTP from a local run. **Positioning changed to proof first** (see Decisions). VPS arrives free on **Wed Nov 18**; M1 happens then.
 
 **M1 + M5: everything that doesn't need real infra is done** (session 4): landing page + contact form, `/build`, prod compose, backup/restore, `docs/RUNBOOK_M1.md`, `scripts/check_m1.sh`, demo seeder, README, project brief draft, public replay built and secret-scanned. Session 5 (design + motion pass) done: new look and motion for the landing page and the whole demo flow. **Session 6 (real Claude agents) done**, and **session 7 captured all 17 live Claude fixtures** on the owner's laptop ($0.0726, every quality gate passes, measured ≈ 1 cent per launch). **Session 8 rebuilt the seller shop template** (one generic template for every seller, basket, new profile fields, booking scope guard). **M1 on the VPS must happen by Nov 17** (`docs/RUNBOOK_M1.md`); session 9 (orders, UPI, tracking, trust & safety) is ready in `docs/NEXT_SESSION_S9.md`. M4 done against fakes (AC5 needs real infra). M3 done except the real-infra AC. M0 · M2 done.
 
 ## Next up
+
+- **S9F Phase 3 → 6** in the order of `docs/STATE_FOR_NEXT_SESSION.md` (proof chain, Doctor, design, verification + VPS handover).
+- **Owner TODO:** look up hello@launchwitness.com's daily send limit (sign-in links, orders and alerts all go through it).
+- **Owner TODO (VPS):** set `ADMIN_EMAIL` and a fresh `ADMIN_TOKEN` in the server `.env`; `DEV_MODE` must stay false there.
 
 0. **M1 on the VPS on Wed Nov 18** (the VPS is free and arrives then; **do not buy one**). The old "by Nov 17" deadline can't be met; session 9 can run before it. Thursday Nov 19 demo shop = `meerasbakes.launchwitness.com` via the wildcard record (no seller domain bought).
 0a. **Owner check:** run `python scripts/list_godaddy_domains.py` (read-only, prod keys from `.env`) and confirm `launchwitness.com` shows ACTIVE.
@@ -230,6 +236,9 @@ Everything below is behind an interface with a working fake; tests cover the fak
 - 2026-11-15 (session 8.5): `EMAIL_PLAN_ESTIMATE_USD=23.88` (Pro Light, 1-yr term). The $5.99/mo monthly price is noted in `.env.example` and config only; the approval card shows the yearly figure.
 - 2026-11-15 (session 8.5): `scripts/list_godaddy_domains.py` = one read-only GET to the prod Domains API with keys from env/`.env`; prints domain, status, expiry, auto-renew; never prints the key. stdlib only, so it runs without the venv.
 - 2026-11-15 (session 8.5, user): Thursday demo shop on `meerasbakes.launchwitness.com` (wildcard), since `meerasbakes.in` wasn't bought.
+
+- **S9F accounts (Fable's design, kept):** email-link sign-in only; guest practice + "sign in to keep it" is the one claim path; pending until the team approves (beta); `ADMIN_EMAIL` is the admin, `ADMIN_TOKEN` command line only; subdomains only for real launches; `MAX_LIVE_SHOPS=40` for certificate limits; orders/alerts to verified sign-in addresses.
+- **S9F (Opus) fixes:** the policy check never uses the saved-fixture fallback (fails closed); the daily describe cap counts `describe_used` rows that survive shop deletion; a delete-account token is checked against the signed-in email before it's used up; ruff rules pinned in `backend/pyproject.toml` (E4/E7/E9/F/I); the Vite dev proxy rewrites Origin to `LW_APP_ORIGIN` (default `http://localhost`) in dev only; `seed_demo.py` now works as a command-line admin (no owner keys).
 
 ## Open questions
 
