@@ -28,7 +28,7 @@ LOCAL=false
 tmpf() { local f; f="$(mktemp)"; cygpath -m "$f" 2>/dev/null || echo "$f"; }
 
 # Read one value from .env without printing it (no `source`: values may contain spaces/symbols).
-envval() { grep -E "^$1=" .env 2>/dev/null | tail -n1 | cut -d= -f2- | sed -e 's/[[:space:]]#.*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"; }
+envval() { grep -E "^$1=" .env 2>/dev/null | tail -n1 | cut -d= -f2- | sed -e 's/[[:space:]]*#.*$//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"; }
 
 if $LOCAL; then
   COMPOSE=(docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml -f deploy/docker-compose.local.yml)
