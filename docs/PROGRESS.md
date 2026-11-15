@@ -4,6 +4,13 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
+**Session 10 (Nov 16, Opus): deployable and safe for real users. Parts A–E merged.** The production-like Docker stack runs
+locally (Caddy local CA, real `__Host-` cookies, Mailpit) and `scripts/check_m1.sh --local` passes. Also: SQLite
+WAL/busy_timeout/foreign keys, online backups (7 daily + 4 weekly) with a tested restore, the startup self-check, fixture-mode
+real launches held for review, Privacy/Terms, the Renewals card + team alerts, zone hygiene with admin approval, the
+dangling-CNAME finding, the XSS test, `docs/SECURITY.md`, the e2e suite (4 flows, Docker + dev server) and
+`docs/NEXT_SESSION_VPS.md`. **Next: the VPS on Wed Nov 18, following `docs/NEXT_SESSION_VPS.md` exactly.**
+
 **Session 9F (Nov 15–16): Phase 1 (claims made true) + Phase 2 (accounts and multi-tenancy) done and merged.** Email-link sign-in, guest practice, team approval, per-owner shops, CSRF, host-only cookies, team page, account deletion; 52 access tests; frontend rewired (no owner links). Checkpoint: `docs/S9F_PHASE2_CHECKPOINT.md`. **Phase 3 (order proof chain + check any address) done and merged** (Nov 16). Next: Phase 4 (Doctor) — see `docs/STATE_FOR_NEXT_SESSION.md`.
 
 **Session 8.5 (Nov 15): real app domain + mailbox wired, no VPS yet.** `launchwitness.com` and `hello@launchwitness.com` are bought; the contact form sent a real email over GoDaddy SMTP from a local run. **Positioning changed to proof first** (see Decisions). VPS arrives free on **Wed Nov 18**; M1 happens then.
@@ -11,6 +18,11 @@ Claude Code reads this at the start of every session and updates it at the end. 
 **M1 + M5: everything that doesn't need real infra is done** (session 4): landing page + contact form, `/build`, prod compose, backup/restore, `docs/RUNBOOK_M1.md`, `scripts/check_m1.sh`, demo seeder, README, project brief draft, public replay built and secret-scanned. Session 5 (design + motion pass) done: new look and motion for the landing page and the whole demo flow. **Session 6 (real Claude agents) done**, and **session 7 captured all 17 live Claude fixtures** on the owner's laptop ($0.0726, every quality gate passes, measured ≈ 1 cent per launch). **Session 8 rebuilt the seller shop template** (one generic template for every seller, basket, new profile fields, booking scope guard). **M1 on the VPS must happen by Nov 17** (`docs/RUNBOOK_M1.md`); session 9 (orders, UPI, tracking, trust & safety) is ready in `docs/NEXT_SESSION_S9.md`. M4 done against fakes (AC5 needs real infra). M3 done except the real-infra AC. M0 · M2 done.
 
 ## Next up
+
+- **Wed Nov 18: `docs/NEXT_SESSION_VPS.md`** (SSH/firewall → Docker → clone → owner fills `.env` → staging CA → `A @` → real CA →
+  `check_m1.sh` → backup cron → first real shop A record → HTTPS + marker → outside-in test order + IMAP proof).
+- **Owner TODO:** an off-server copy of `backups/` (manual; no cloud service chosen). Exact `MAILBOX_EXPIRES_ON` date from GoDaddy.
+- Then S9F Phase 4 (investigating Doctor) and Phase 5 (design), and the demo + submission.
 
 - **S9F Phase 3 → 6** in the order of `docs/STATE_FOR_NEXT_SESSION.md` (proof chain, Doctor, design, verification + VPS handover).
 - **Owner TODO:** look up hello@launchwitness.com's daily send limit (sign-in links, orders, daily test orders and alerts all go through it). Known risk: if hello@ lapses (about Dec 15) or hits its limit, sign-in, orders and alerts all stop. Set `MAILBOX_EXPIRES_ON` on the server so `/api/health` warns 14 days ahead.
@@ -163,6 +175,19 @@ Everything below is behind an interface with a working fake; tests cover the fak
 | Availability check method | Undecided | gddy / Domains API / OTE / RDAP — interface + fake ready (`GoDaddyAvailabilityChecker` stub) |
 
 ## Decisions
+
+- 2026-11-16 (S10): **one app process** is enforced (startup lock next to the DB + `WEB_CONCURRENCY` guard), not only documented.
+- 2026-11-16 (S10): `/api/health` shows **only harmless warnings publicly** (mailbox expiry, email not set up, database not writable);
+  the rest (weak admin token, DEV_MODE, fixture on a real server, purchases on…) only to the admin, the logs and `check_m1.sh`.
+  Reason: a public "ADMIN_TOKEN is weak" helps an attacker.
+- 2026-11-16 (S10): real server + `CLAUDE_MODE=fixture` → every real launch held for team review (fail closed). Test stand-ins for
+  the VPS now say `claude_mode=live` (the VPS will run live).
+- 2026-11-16 (S10): certificate alerts stay at 7/1 days; 30/7/1 is for things a person renews (domains, the team mailbox).
+  Caddy renews certificates ~30 days ahead, so a 30-day certificate alert would fire before every renewal.
+- 2026-11-16 (S10): the app domain and the team mailbox alert the **team** (ADMIN_EMAIL), not every seller: sellers can't renew them.
+- 2026-11-16 (S10): there's no "weekly view" for owners; the nearest renewal is shown on **My shops** instead.
+- 2026-11-16 (S10): `SMTP_SECURITY=plain` exists only for a one-word local host (Mailpit); refused for any real host name.
+- 2026-11-16 (S10): `PRACTICE_STEP_SECONDS` (pretend world only) for demos and the kill-mid-launch drill.
 
 - 2026-11-14: Name is LaunchWitness (working name, may change).
 - 2026-11-14: Hero = launch + proof before first customer; repair happens during launch; light monitoring is core, full monitoring is stretch.
