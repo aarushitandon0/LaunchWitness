@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     # fakes (practice mode, nothing real changes). Set false on the VPS once the
     # real integrations are filled in (see PROGRESS.md "Real integration TODO").
     use_fakes: bool = True
+    # Pretend world only: pause this many seconds before each launch step (0 = none). For demos, and for
+    # the "kill the app mid-launch" check in deploy/README.md. Never affects real launches.
+    practice_step_seconds: float = 0.0
     # Live-link guards (per visitor = per client IP, per UTC day; admin is exempt).
     visitor_describes_per_day: int = 5
     address_checks_per_hour: int = 10  # public "Check any address": per visitor
@@ -92,6 +95,9 @@ class Settings(BaseSettings):
     mail_provider: Literal["secureserver", "titan"] = "secureserver"
     smtp_host: str = "smtpout.secureserver.net"
     smtp_port: int = 465
+    # ssl (465, default) | starttls (587) | plain: ONLY for a local catch-all on a one-word docker host
+    # (e.g. `mailpit` in deploy/docker-compose.local.yml). Refused for any real host name.
+    smtp_security: Literal["ssl", "starttls", "plain"] = "ssl"
     smtp_user: str = "hello@example.com"
     smtp_password: SecretStr = SecretStr("")
     imap_host: str = "imap.secureserver.net"
@@ -107,6 +113,13 @@ class Settings(BaseSettings):
     def _dev_mode_never_in_production(self):
         if self.dev_mode and self.app_base_url.lower().startswith("https://"):
             raise ValueError("DEV_MODE=true is for local http development only; remove it on an https server.")
+        return self
+
+    @model_validator(mode="after")
+    def _plain_smtp_only_locally(self):
+        host = self.smtp_host.strip().lower()
+        if self.smtp_security == "plain" and ("." in host and host != "localhost"):
+            raise ValueError("SMTP_SECURITY=plain is only for a local catch-all (a one-word host like `mailpit`).")
         return self
 
     @property

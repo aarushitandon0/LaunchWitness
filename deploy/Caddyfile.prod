@@ -1,25 +1,60 @@
-# PROD mode: automatic HTTPS for the app domain, plus on-demand TLS for seller
-# domains. Caddy asks the app before issuing any certificate; the app says yes
-# only for the app domain, seller subdomains in the DB, and seller domains in the DB.
+# PROD Caddyfile (also used by the local production-like stack, see deploy/README.md).
+#
+# - The app on {$APP_DOMAIN} (automatic HTTPS + HSTS).
+# - Shops (<slug>.{$APP_DOMAIN}) on on-demand TLS: before issuing any certificate Caddy asks the app
+#   (/internal/tls-ask), which says yes only for the app domain and live, real, unpaused shops.
+# - /internal/* answers 404 from outside on EVERY host (the app also refuses it for public host names).
+# - Caddy passes the Host header through and sets X-Forwarded-For to the real client address. No
+#   trusted_proxies are configured, so whatever X-Forwarded-For a client sends is replaced, not trusted.
+#   The app (app/safety/access.py::visitor_id) reads the LAST entry: that is always Caddy's.
+#
+# Env (substituted when Caddy reads this file):
+#   APP_DOMAIN           launchwitness.com (local: launchwitness.localhost)
+#   ACME_CA              optional; set to Let's Encrypt STAGING for first tests (see docs/NEXT_SESSION_VPS.md)
+#   CADDY_EXTRA_GLOBAL   optional; the local stack sets `local_certs` (Caddy's own CA instead of Let's Encrypt)
 
 {
+	{$CADDY_EXTRA_GLOBAL}
+	acme_ca {$ACME_CA:https://acme-v02.api.letsencrypt.org/directory}
 	on_demand_tls {
 		ask http://app:8000/internal/tls-ask
+	}
+	servers {
+		timeouts {
+			read_header 10s
+			read_body 30s
+			write 90s
+			idle 2m
+		}
 	}
 }
 
 (app) {
-	@internal path /internal/*
+	@internal path /internal /internal/*
 	respond @internal 404
-	reverse_proxy app:8000
+
+	# Price-list photos are at most 5 MB (app/agents/reader.py); leave room for the form around it.
+	request_body {
+		max_size 8MB
+	}
+	encode gzip
+	header -Server
+
+	reverse_proxy app:8000 {
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 90s
+		}
+	}
 }
 
 # The app itself.
 {$APP_DOMAIN} {
+	header Strict-Transport-Security "max-age=31536000"
 	import app
 }
 
-# Seller sites: <label>.{$APP_DOMAIN} and seller-owned domains.
+# Shops: <slug>.{$APP_DOMAIN}. One A record per live shop (no wildcard), certificate on first visit.
 https:// {
 	tls {
 		on_demand

@@ -3,6 +3,7 @@
 from collections.abc import Iterator
 from pathlib import Path
 
+from sqlalchemy import event
 from sqlalchemy.engine import Engine
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
@@ -13,17 +14,37 @@ from app.config import get_settings
 _engine: Engine | None = None
 
 
+BUSY_TIMEOUT_MS = 5000
+
+
+def _sqlite_pragmas(dbapi_conn, _record, *, wal: bool) -> None:
+    """Set on EVERY new connection: wait up to 5 s for a lock instead of failing at once, enforce
+    foreign keys, and (file databases) use WAL so readers never block the one writer."""
+    cur = dbapi_conn.cursor()
+    cur.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
+    cur.execute("PRAGMA foreign_keys=ON")
+    if wal:
+        cur.execute("PRAGMA journal_mode=WAL")
+        cur.execute("PRAGMA synchronous=NORMAL")  # safe with WAL; a power cut loses at most the last commit
+    cur.close()
+
+
 def make_engine(database_url: str) -> Engine:
     if database_url in ("sqlite://", "sqlite:///:memory:"):
         # One shared in-memory DB across threads (tests).
-        return create_engine(
+        engine = create_engine(
             "sqlite://",
             connect_args={"check_same_thread": False},
             poolclass=StaticPool,
         )
+        event.listen(engine, "connect", lambda c, r: _sqlite_pragmas(c, r, wal=False))
+        return engine
     if database_url.startswith("sqlite:///"):
         Path(database_url.removeprefix("sqlite:///")).parent.mkdir(parents=True, exist_ok=True)
-    return create_engine(database_url, connect_args={"check_same_thread": False})
+    engine = create_engine(database_url, connect_args={"check_same_thread": False})
+    if database_url.startswith("sqlite"):
+        event.listen(engine, "connect", lambda c, r: _sqlite_pragmas(c, r, wal=True))
+    return engine
 
 
 def get_engine() -> Engine:

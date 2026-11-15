@@ -49,19 +49,24 @@ def purge_business(session: Session, settings: Settings, integ: Integrations, b:
     """Delete a shop and everything personal that hangs off it (orders hold customers' names and
     phone numbers). The audit rows of the shop go too; the caller writes one anonymous record."""
     unpublish(session, settings, integ, b)
+    delete_business_rows(session, b)
+    session.commit()
+
+
+def delete_business_rows(session: Session, b: Business) -> None:
+    """Every row that belongs to the shop, children first (foreign keys are enforced), then the shop."""
+    _purge_extra(session, b.id)
     for table in (Alert, CheckResult, CheckRun, Order, Approval, DnsBackup, AuditEvent, Membership, ShopReport):
         session.exec(delete(table).where(table.business_id == b.id))
-    _purge_extra(session, b.id)
     session.exec(delete(Plan).where(Plan.business_id == b.id))
     session.delete(b)
-    session.commit()
 
 
 def _purge_extra(session: Session, business_id: int) -> None:
     """Tables added by later phases (evidence, shared reports) register here."""
     from app import models
 
-    for name in ("Evidence", "ReportShare", "TestTicket"):
+    for name in ("Evidence", "ReportShare", "TestTicket", "ZoneFinding"):
         table = getattr(models, name, None)
         if table is not None:
             session.exec(delete(table).where(table.business_id == business_id))

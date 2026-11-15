@@ -1,0 +1,52 @@
+# Production-like stack on your own computer: HTTPS through Caddy (its own local CA), real cookies
+# (DEV_MODE=false), the pretend GoDaddy world (USE_FAKES=true), saved Claude answers, and every email
+# caught by Mailpit (nothing leaves the machine). It never reads ../.env.
+#
+#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml -f deploy/docker-compose.local.yml up -d --build
+#
+# App:    https://launchwitness.localhost       (shops: https://<slug>.launchwitness.localhost)
+# Mail:   http://localhost:8025                  (Mailpit inbox; sign-in links arrive here)
+# Details and checks: deploy/README.md
+
+name: launchwitness-local
+
+services:
+  app:
+    env_file: !reset []
+    environment:
+      APP_DOMAIN: launchwitness.localhost
+      APP_BASE_URL: https://launchwitness.localhost
+      ADMIN_EMAIL: admin@launchwitness.localhost
+      ADMIN_TOKEN: ${LOCAL_ADMIN_TOKEN:-local-stack-only-admin-token}
+      DEV_MODE: "false"
+      USE_FAKES: "true"
+      CLAUDE_MODE: fixture
+      SERVER_IP: 127.0.0.1
+      MONITOR_ENABLED: "true"
+      PRACTICE_STEP_SECONDS: ${PRACTICE_STEP_SECONDS:-0}
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_SECURITY: plain
+      SMTP_USER: hello@launchwitness.localhost
+      IMAP_USER: hello@launchwitness.localhost
+      # The e2e suite signs up several people from one address; keep the real limits otherwise.
+      SIGNIN_LINKS_PER_IP_PER_HOUR: "200"
+      USER_DESCRIBES_PER_DAY: "50"
+      VISITOR_DESCRIBES_PER_DAY: "50"
+      VISITOR_LAUNCHES_PER_DAY: "50"
+    depends_on:
+      - mailpit
+
+  caddy:
+    environment:
+      APP_DOMAIN: launchwitness.localhost
+      CADDY_EXTRA_GLOBAL: local_certs
+
+  mailpit:
+    image: axllent/mailpit:v1.21.8
+    ports:
+      - "127.0.0.1:8025:8025"   # web inbox + API, this computer only
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    restart: unless-stopped

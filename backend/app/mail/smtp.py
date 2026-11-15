@@ -31,17 +31,20 @@ class SmtpMailer:
         self.port = settings.smtp_port
         self.user = settings.smtp_user
         self._password = settings.smtp_password
+        self.security = settings.smtp_security
 
     def _connect(self) -> smtplib.SMTP:
+        if self.security == "plain":  # local catch-all only (config refuses it for real host names)
+            return smtplib.SMTP(self.host, self.port, timeout=TIMEOUT_S)
         context = ssl.create_default_context()
-        if self.port != STARTTLS_PORT:
+        if self.port != STARTTLS_PORT and self.security == "ssl":
             try:
                 return smtplib.SMTP_SSL(self.host, self.port, context=context, timeout=TIMEOUT_S)
             except (ConnectionError, TimeoutError, ssl.SSLError, smtplib.SMTPConnectError,
                     smtplib.SMTPServerDisconnected) as e:
                 log.warning("SMTP SSL to %s:%s failed (%s); trying port %s with STARTTLS",
                             self.host, self.port, type(e).__name__, STARTTLS_PORT)
-        s = smtplib.SMTP(self.host, STARTTLS_PORT, timeout=TIMEOUT_S)
+        s = smtplib.SMTP(self.host, STARTTLS_PORT if self.security == "ssl" else self.port, timeout=TIMEOUT_S)
         try:
             s.starttls(context=context)
         except Exception:
@@ -59,7 +62,8 @@ class SmtpMailer:
         if html:
             msg.add_alternative(html, subtype="html")
         with self._connect() as s:
-            s.login(self.user, self._password.get_secret_value())
+            if self.security != "plain" or self._password.get_secret_value():
+                s.login(self.user, self._password.get_secret_value())
             s.send_message(msg)
         return msg["Message-ID"]
 

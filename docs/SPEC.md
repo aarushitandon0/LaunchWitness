@@ -158,7 +158,7 @@ One GoDaddy Docker VPS (4 vCPU / 8 GB, provided at $0) runs everything; GoDaddy 
 - **SQLite:** profiles, plans, DNS backups, check results, audit log.
 - **Outside:** Claude API; GoDaddy Domains/DNS/Email (OTE sandbox in dev, `GODADDY_ENV=ote|prod`); SMTP through the app's one mailbox.
 - **Secrets** live only in environment variables.
-- **Sandbox subdomains** need a wildcard `*.<APP_DOMAIN>` A record → VPS.
+- **Sandbox subdomains** get one A record each (`<slug>.<APP_DOMAIN>` → VPS), written by the app at launch; no wildcard (decided S9F). Only `@` (and optionally `www`) is made by hand.
 
 | Step | GoDaddy piece | Calls |
 |---|---|---|

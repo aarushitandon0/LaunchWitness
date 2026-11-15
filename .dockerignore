@@ -10,3 +10,5 @@ frontend/dist
 *.tsbuildinfo
 replay/sessions
 replay/raw
+e2e
+backups

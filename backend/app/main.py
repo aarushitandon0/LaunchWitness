@@ -5,6 +5,7 @@ own domain in the DB) get that seller's pages; everything else gets the app.
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated
@@ -47,16 +48,24 @@ def start_monitor(settings: Settings):
 
     monitor.scheduler.add_job(lambda: purge_old_guest_shops(engine, settings, get_practice_integrations()), "interval",
                               hours=1, id="guest_cleanup", replace_existing=True, max_instances=1, coalesce=True)
+    logging.getLogger("launchwitness").warning("monitor started (pid %s): jobs=%s", os.getpid(),
+                                               sorted(j.id for j in monitor.scheduler.get_jobs()))
     return monitor
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    from app import singleton
+
+    # ONE process only: the scheduler runs in-process and SQLite has one writer. A second worker
+    # would send every alert and daily test order twice, so it refuses to start.
+    singleton.acquire(get_settings().database_url)
     init_db()
     from app.db import get_engine
     from app.startup import reconcile
 
-    reconcile(get_engine())  # close launches / check runs that lost their worker in a restart
+    closed = reconcile(get_engine())  # close launches / check runs that lost their worker in a restart
+    logging.getLogger("launchwitness").warning("startup reconcile: %s", closed)
     settings = get_settings()
     from app.accounts import ensure_admin
     from app.integrations import get_practice_integrations

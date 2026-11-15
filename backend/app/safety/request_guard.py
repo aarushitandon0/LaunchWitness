@@ -25,6 +25,14 @@ APP_ONLY = ("/api/", "/internal/", "/assets/", "/build", "/r/")
 STALE = "This page is out of date. Please refresh it and try again."
 
 
+def is_internal_host(host: str) -> bool:
+    """`app`, `app:8000`, `localhost`, `testserver`, an IP literal: yes. Anything with a dot in its name: no."""
+    h = normalize_host(host)
+    if h.startswith("[") or h.replace(".", "").isdigit():
+        return True
+    return bool(h) and "." not in h
+
+
 def origin_of(value: str | None) -> str | None:
     if not value:
         return None
@@ -41,6 +49,10 @@ async def request_guard(request: Request, call_next):
     path = request.url.path
     on_shop_host = subdomain_label(normalize_host(request.headers.get("host", "")), settings) is not None
     if on_shop_host and (path.startswith(APP_ONLY) or path == "/api"):
+        return PlainTextResponse("Not found", status_code=404)
+    if (path == "/internal" or path.startswith("/internal/")) and not is_internal_host(request.headers.get("host", "")):
+        # Second wall behind Caddy's 404: internal endpoints answer only to private names (Caddy calls
+        # http://app:8000), never to a public host name like the app domain or a shop.
         return PlainTextResponse("Not found", status_code=404)
     if request.method in UNSAFE and path.startswith("/api/"):
         origin = origin_of(request.headers.get("origin")) or origin_of(request.headers.get("referer"))
