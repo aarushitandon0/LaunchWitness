@@ -18,7 +18,7 @@ from app.models import AuditEvent, Business, CheckResult, CheckRun, Plan
 from app.monitor.scheduler import QUICK_MINUTES
 from app.routers.businesses import get_claude
 from app.routers.launch import IntegFor, integrations_for
-from app.safety.access import admin_flag, owned_business, require_admin
+from app.safety.access import ActorDep, owner_emails, require_admin, require_business_access
 from app.sites.hosts import is_public, site_url
 
 router = APIRouter(prefix="/api", tags=["report"])
@@ -76,13 +76,15 @@ def headline(plan: Plan | None, latest_plan: Plan | None, run: dict | None,
 
 
 @router.get("/businesses/{business_id}/report")
-def report(b: Annotated[Business, Depends(owned_business)], admin: Annotated[bool, Depends(admin_flag)],
+def report(b: Annotated[Business, Depends(require_business_access)], actor: ActorDep,
            settings: Annotated[Settings, Depends(get_settings)],
            session: Annotated[Session, Depends(get_session)],
            integ_for: Annotated[IntegFor, Depends(integrations_for)]) -> dict:
+    admin = actor.is_admin
     practice = b.practice or integ_for(b).fake  # results from the pretend world are always labelled
     plan = latest_launched_plan(session, b.id)
-    latest_plan = session.exec(select(Plan).where(Plan.business_id == b.id).order_by(Plan.id.desc())).first()
+    latest_plan = session.exec(select(Plan).where(Plan.business_id == b.id, Plan.practice == b.practice)
+                               .order_by(Plan.id.desc())).first()
     run_row = session.exec(select(CheckRun).where(CheckRun.business_id == b.id, CheckRun.trigger.in_(OWNER_RUNS))
                            .order_by(CheckRun.id.desc())).first()
     run = run_out(session, run_row) if run_row and plan else None
@@ -102,7 +104,7 @@ def report(b: Annotated[Business, Depends(owned_business)], admin: Annotated[boo
     site = (f"https://{plan.site_host}/" if plan and plan.mode == "full" and not b.practice
             else site_url(b.subdomain, settings) if b.subdomain else None)
     return {
-        "business": {"id": b.id, "name": b.name, "site_url": site, "has_owner_email": bool(b.owner_email),
+        "business": {"id": b.id, "name": b.name, "site_url": site, "has_owner_email": bool(owner_emails(session, b.id)),
                      "practice": b.practice, "public": is_public(b) and not b.paused},
         "plan": {"id": plan.id, "mode": plan.mode, "site_host": plan.site_host, "mailbox": plan.mailbox}
         if plan else ({"id": latest_plan.id, "mode": latest_plan.mode, "site_host": latest_plan.site_host,
@@ -121,7 +123,8 @@ def report(b: Annotated[Business, Depends(owned_business)], admin: Annotated[boo
 
 
 @router.post("/businesses/{business_id}/checks", status_code=202)
-def run_checks_now(background: BackgroundTasks, b: Annotated[Business, Depends(owned_business)],
+def run_checks_now(background: BackgroundTasks, actor: ActorDep,
+                   b: Annotated[Business, Depends(require_business_access)],
                    settings: Annotated[Settings, Depends(get_settings)],
                    session: Annotated[Session, Depends(get_session)],
                    claude: Annotated[Claude, Depends(get_claude)],
@@ -133,20 +136,15 @@ def run_checks_now(background: BackgroundTasks, b: Annotated[Business, Depends(o
         run = start_run(session, b.id, plan.id, "manual")
     except AlreadyChecking:
         raise HTTPException(status_code=409, detail="We're already checking. This takes a few seconds.") from None
-    audit.record(session, actor="owner", action="run_checks_now", target=plan.site_host, result="ok",
-                 business_id=b.id, detail=f"run #{run.id}")
-    background.add_task(run_checks, session.get_bind(), settings, integ_for(b), claude, plan.id,
+    audit.record(session, actor=actor.label, action="run_checks_now", target=plan.site_host, result="ok",
+                 business_id=b.id, user_id=actor.user_id, detail=f"run #{run.id}")
+    background.add_task(run_checks, session.get_bind(), settings, integ_for(plan), claude, plan.id,
                         trigger="manual", run_id=run.id)
     return {"ok": True, "run_id": run.id}
 
 
 class DemoFault(BaseModel):
     fault: Literal["", "dmarc", "mx"]
-
-
-@router.get("/admin/check", dependencies=[Depends(require_admin)])
-def admin_check() -> dict:
-    return {"admin": True}
 
 
 @router.put("/admin/businesses/{business_id}/demo-fault", dependencies=[Depends(require_admin)])
@@ -172,14 +170,14 @@ def delete_practice_business(business_id: int, session: Annotated[Session, Depen
     Real businesses are never deleted this way."""
     from sqlmodel import delete
 
-    from app.models import Alert, Approval, DnsBackup, Order
+    from app.models import Alert, Approval, DnsBackup, Membership, Order, ShopReport
 
     b = session.get(Business, business_id)
     if b is None:
         raise HTTPException(status_code=404, detail="We couldn't find that business.")
     if not b.practice:
         raise HTTPException(status_code=409, detail="Only practice businesses can be deleted here.")
-    for table in (Alert, CheckResult, CheckRun, Order, Approval, DnsBackup, AuditEvent):
+    for table in (Alert, CheckResult, CheckRun, Order, Approval, DnsBackup, AuditEvent, Membership, ShopReport):
         session.exec(delete(table).where(table.business_id == business_id))
     session.exec(delete(Plan).where(Plan.business_id == business_id))
     session.delete(b)

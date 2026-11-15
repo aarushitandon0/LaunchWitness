@@ -197,7 +197,7 @@ def test_admin_deletes_practice_business_only(client, engine):
     biz = meera(client)
     approve(client, plan(client, biz))
     url = f"/api/admin/practice-businesses/{biz['id']}"
-    assert client.delete(url).status_code == 403
+    assert client.delete(url).status_code == 401  # a guest isn't signed in (signed-in non-team: 403, see below)
     assert client.delete(url, headers=ADMIN).json() == {"ok": True}
     with Session(engine) as s:
         assert s.get(Business, biz["id"]) is None

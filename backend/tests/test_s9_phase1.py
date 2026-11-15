@@ -17,7 +17,7 @@ from app.models import AuditEvent, Business, CheckRun, Order, Plan, utcnow
 from app.routers.internal import is_allowed_tls_domain
 from app.sites.orders import order_recipients
 from app.startup import reconcile
-from tests.conftest import publish
+from tests.conftest import publish, sign_in
 from tests.test_m3_launch import approve, meera, plan
 from tests.test_m4_repair import ctx_for
 
@@ -25,13 +25,11 @@ HOST = {"host": "meera.localhost"}
 ORDER = {"qty_0": "1", "customer_name": "Asha Rao", "customer_phone": "98765 43210"}
 
 
-def launched_shop(client, engine, **save_changes) -> tuple[dict, dict]:
+def launched_shop(client, engine, owner_email: str | None = None) -> tuple[dict, dict]:
     """A sandbox-launched, public (live, not practice) shop at meera.localhost."""
+    if owner_email:
+        sign_in(client, owner_email)
     biz = meera(client)
-    if save_changes:
-        r = client.put(f"/api/businesses/{biz['id']}", json={"profile": biz["profile"], "subdomain": "meera",
-                                                              **save_changes})
-        assert r.status_code == 200, r.text
     p = approve(client, plan(client, biz))
     assert p["status"] == "done", p["steps"]
     publish(engine, biz["id"])
@@ -47,10 +45,24 @@ def test_b1_real_and_test_orders_share_recipients(client, engine, integ, setting
     assert r.status_code == 200, r.text
     real_mail = integ.mailer.sent[-1]
     assert "[TEST]" not in real_mail["subject"]
-    assert real_mail["to"] == test_mail["to"]
-    assert "meera@example.org" in real_mail["to"] and settings.smtp_user in real_mail["to"]
+    assert real_mail["to"] == test_mail["to"] == "meera@example.org"  # her verified sign-in address, nobody else
     with Session(engine) as s:
-        assert order_recipients(s, settings, s.get(Business, biz["id"])) == [settings.smtp_user, "meera@example.org"]
+        assert order_recipients(s, settings, s.get(Business, biz["id"])) == ["meera@example.org"]
+
+
+def test_b1_guest_practice_orders_stay_in_the_app_mailbox_and_team_shops_get_both(client, new_client, engine, settings):
+    biz = meera(client)  # guest: no owner yet
+    with Session(engine) as s:
+        assert order_recipients(s, settings, s.get(Business, biz["id"])) == [settings.smtp_user]
+    from app.models import Membership, User
+
+    with Session(engine) as s:  # a shop the team runs itself
+        admin = User(email="team@example.org", status="approved", role="admin")
+        s.add(admin)
+        s.commit()
+        s.add(Membership(user_id=admin.id, business_id=biz["id"]))
+        s.commit()
+        assert order_recipients(s, settings, s.get(Business, biz["id"])) == ["team@example.org", settings.smtp_user]
 
 
 # ---------- B2: public-shop gate ----------
@@ -88,7 +100,8 @@ def test_b2_owner_preview_needs_the_owner(client):
     biz = meera(client)
     r = client.get(f"/api/businesses/{biz['id']}/preview")
     assert r.status_code == 200 and "Eggless" in r.text and "Preview" in r.text
-    assert client.get(f"/api/businesses/{biz['id']}/preview", headers={"X-Owner-Key": "wrong"}).status_code in (403, 404)
+    client.cookies.clear()
+    assert client.get(f"/api/businesses/{biz['id']}/preview").status_code == 401
 
 
 # ---------- B3 + S2 + S5: mailer per business, rate limits, idempotency ----------

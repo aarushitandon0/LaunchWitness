@@ -19,7 +19,7 @@ from app import audit
 from app.agents.executor import Ctx
 from app.agents.planner import DKIM_PENDING
 from app.agents.reader import Profile
-from app.mail.providers import mx_hosts, provider_for
+from app.mail.providers import provider_for
 from app.models import CheckResult, utcnow
 from app.sites.orders import place_order
 

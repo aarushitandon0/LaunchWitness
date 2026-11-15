@@ -6,18 +6,17 @@ own domain in the DB) get that seller's pages; everything else gets the app.
 
 from contextlib import asynccontextmanager
 from pathlib import Path
-
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
-
 from sqlmodel import Session
 
 from app.config import REPO_ROOT, Settings, get_settings
 from app.db import get_session, init_db
-from app.routers import businesses, contact, health, internal, launch, report
+from app.routers import admin, auth, businesses, contact, health, internal, launch, report
+from app.safety.request_guard import request_guard
 from app.sites import routes as seller_routes
 
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
@@ -43,6 +42,10 @@ def start_monitor(settings: Settings):
     monitor = Monitor(engine, settings, lambda b: for_business(b, get_integrations(), get_practice_integrations()),
                       claude)
     monitor.start()
+    from app.tenancy import purge_old_guest_shops
+
+    monitor.scheduler.add_job(lambda: purge_old_guest_shops(engine, settings, get_practice_integrations()), "interval",
+                              hours=1, id="guest_cleanup", replace_existing=True, max_instances=1, coalesce=True)
     return monitor
 
 
@@ -54,6 +57,12 @@ async def lifespan(_app: FastAPI):
 
     reconcile(get_engine())  # close launches / check runs that lost their worker in a restart
     settings = get_settings()
+    from app.accounts import ensure_admin
+    from app.integrations import get_practice_integrations
+    from app.tenancy import purge_old_guest_shops
+
+    ensure_admin(get_engine(), settings)  # the ADMIN_EMAIL account exists and is the admin
+    purge_old_guest_shops(get_engine(), settings, get_practice_integrations())
     monitor = start_monitor(settings) if settings.monitor_enabled else None
     yield
     if monitor is not None:
@@ -62,8 +71,13 @@ async def lifespan(_app: FastAPI):
 
 def create_app(*, frontend_dist: Path = FRONTEND_DIST, replay_page: Path = REPLAY_PAGE,
                run_lifespan: bool = True) -> FastAPI:
-    app = FastAPI(title="LaunchWitness", lifespan=lifespan if run_lifespan else None)
+    # No /docs, /redoc or /openapi.json: the API is for our own pages, and the route list stays in route_table.py.
+    app = FastAPI(title="LaunchWitness", lifespan=lifespan if run_lifespan else None,
+                  docs_url=None, redoc_url=None, openapi_url=None)
+    app.middleware("http")(request_guard)
     app.include_router(health.router)
+    app.include_router(auth.router)
+    app.include_router(admin.router)
     app.include_router(internal.router)
     app.include_router(businesses.router)
     app.include_router(launch.router)

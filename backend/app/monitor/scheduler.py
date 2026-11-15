@@ -28,6 +28,7 @@ from app.agents.launch_check import AlreadyChecking, NotLaunched, latest_launche
 from app.config import Settings
 from app.integrations import Integrations
 from app.models import Alert, Business, CheckRun, utcnow
+from app.safety.access import owner_emails
 
 QUICK_MINUTES = 15
 RECHECK_SECONDS = 60
@@ -70,8 +71,10 @@ class Monitor:
     # ---------- jobs ----------
 
     def live_business_ids(self) -> list[int]:
+        """Shops to watch: live, not paused. Guest practice shops are short-lived and aren't watched."""
         with Session(self.engine) as s:
-            return list(s.exec(select(Business.id).where(Business.status == "live")).all())
+            return list(s.exec(select(Business.id).where(Business.status == "live", Business.paused == False,  # noqa: E712
+                                                         Business.guest_hash == "")).all())
 
     def run_quick(self) -> None:
         for bid in self.live_business_ids():
@@ -128,7 +131,7 @@ class Monitor:
             self.alert(business_id, "check_failed", f.check,
                        subject=f"Something needs attention on {plan.site_host}",
                        body=(f"Hello,\n\nOur regular check of your website found a problem we couldn't fix by ourselves:\n\n"
-                             f"  {f.plain}\n\nOpen your launch report (from your saved owner link) to see the details and "
+                             f"  {f.plain}\n\nSign in to LaunchWitness and open your shop's report to see the details, and "
                              f"press \"Run checks now\" after any change.\n\n— LaunchWitness"))
         return [f.check for f in still]
 
@@ -151,17 +154,18 @@ class Monitor:
                                                Alert.key == key, Alert.resolved_at == None)).first()  # noqa: E711
             if open_ is not None:
                 return False
-            if not b.owner_email:
+            to = ", ".join(owner_emails(s, business_id))
+            if not to:
                 audit.record(s, actor="monitor", action=f"alert_{kind}", target=key, result="skipped",
-                             business_id=business_id, detail="no personal email saved")
+                             business_id=business_id, detail="the shop has no signed-in owner")
                 return False
             try:
-                self.integ_for(b).mailer.send(to=b.owner_email, subject=subject, body=body)
+                self.integ_for(b).mailer.send(to=to, subject=subject, body=body)
             except Exception as e:
                 audit.record(s, actor="monitor", action=f"alert_{kind}", target=key, result="failed",
                              business_id=business_id, detail=type(e).__name__)
                 return False
-            s.add(Alert(business_id=business_id, kind=kind, key=key, sent_to=b.owner_email))
+            s.add(Alert(business_id=business_id, kind=kind, key=key, sent_to=to))
             s.commit()
             audit.record(s, actor="monitor", action=f"alert_{kind}", target=key, result="sent",
                          business_id=business_id, detail=subject)

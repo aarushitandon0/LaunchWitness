@@ -21,8 +21,8 @@ from app import audit
 from app.agents.planner import DKIM_PENDING
 from app.config import Settings
 from app.godaddy.client import PurchaseNotSupported
-from app.mail.providers import mx_hosts, provider_for
 from app.integrations import Integrations
+from app.mail.providers import mx_hosts, provider_for
 from app.models import Approval, Business, DnsBackup, Plan, utcnow
 from app.safety.spend_guard import PurchaseBlocked, authorize_purchase, mark_used
 

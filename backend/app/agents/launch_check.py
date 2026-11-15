@@ -44,8 +44,12 @@ class RunSummary:
 
 
 def latest_launched_plan(session: Session, business_id: int) -> Plan | None:
-    return session.exec(select(Plan).where(Plan.business_id == business_id, Plan.status == "done")
-                        .order_by(Plan.id.desc())).first()
+    """The finished launch that counts: for a real shop, never a practice plan."""
+    b = session.get(Business, business_id)
+    if b is None:
+        return None
+    return session.exec(select(Plan).where(Plan.business_id == business_id, Plan.status == "done",
+                                           Plan.practice == b.practice).order_by(Plan.id.desc())).first()
 
 
 def running_check(session: Session, business_id: int) -> CheckRun | None:

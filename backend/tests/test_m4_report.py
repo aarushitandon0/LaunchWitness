@@ -8,10 +8,9 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from app.integrations import fake_integrations
-from app.models import Alert, AuditEvent, Business, CheckRun, Plan
+from app.models import Alert, AuditEvent, Business, CheckRun
 from app.monitor.scheduler import Monitor
-from app.safety.access import hash_key
-from tests.conftest import ADMIN_TOKEN
+from tests.conftest import ADMIN_TOKEN, AppClient, set_user, sign_in
 from tests.test_m3_launch import SELLERS, approve, meera, plan
 
 DOMAIN = "meerascakes.in"
@@ -45,48 +44,29 @@ def events(engine, **where):
         return s.exec(q.order_by(AuditEvent.id)).all()
 
 
-# ---------- owner link (no accounts) ----------
+# ---------- access (the full matrix is in test_s9_phase2_access.py) ----------
 
-def test_owner_link_shown_once_and_only_hash_stored(client, engine):
+def test_guest_cookie_owns_the_practice_shop_and_nothing_secret_is_returned(client, engine):
     biz = meera(client)
-    key = biz["owner_key"]
-    assert len(key) >= 30 and biz["owner_link"].endswith(f"/#/b/{biz['id']}?key={key}")
+    assert "owner_key" not in biz and "owner_link" not in biz and biz["guest"] and biz["practice"]
     with Session(engine) as s:
         b = s.get(Business, biz["id"])
-        assert b.owner_key_hash == hash_key(key) and key not in b.model_dump_json()
-    assert "owner_key" not in client.get(f"/api/businesses/{biz['id']}").json()
-    assert all(key not in e.detail for e in events(engine))
+        cookie = client.cookies.get("lw_guest")
+        assert cookie and b.guest_hash and cookie not in b.model_dump_json()  # only a hash is stored
+    assert all(cookie not in e.detail for e in events(engine))
 
 
-@pytest.mark.parametrize("method,path", [
-    ("get", "/api/businesses/{id}"), ("put", "/api/businesses/{id}"), ("get", "/api/businesses/{id}/orders"),
-    ("get", "/api/businesses/{id}/names"), ("post", "/api/businesses/{id}/plans"),
-    ("get", "/api/businesses/{id}/plans"), ("get", "/api/businesses/{id}/report"),
-    ("post", "/api/businesses/{id}/checks"), ("get", "/api/plans/{pid}"), ("post", "/api/plans/{pid}/approve"),
-    ("post", "/api/plans/{pid}/resume"), ("post", "/api/plans/{pid}/practice-buy"),
-])
-def test_owner_routes_need_the_right_key(client, method, path):
+def test_admin_token_can_open_any_business(client, new_client):
     biz = meera(client)
-    p = plan(client, biz)
-    other = meera(client, subdomain="other")  # client now carries the OTHER business's key
-    url = path.format(id=biz["id"], pid=p["id"])
-    body = {"profile": biz["profile"], "subdomain": "meera"} if method == "put" else {"mode": "sandbox"}
-    for headers in ({"X-Owner-Key": ""}, {"X-Owner-Key": "wrong"}, {"X-Owner-Key": other["owner_key"]}):
-        r = getattr(client, method)(url, headers=headers, **({"json": body} if method != "get" else {}))
-        assert r.status_code == 403, (url, r.text)
-        assert "owner link" in r.json()["detail"]
-
-
-def test_admin_can_open_any_business_and_list(client):
-    biz = meera(client)
-    client.headers.pop("X-Owner-Key")
-    assert client.get("/api/businesses").status_code == 403
-    assert client.get(f"/api/businesses/{biz['id']}", headers=ADMIN).status_code == 200
-    assert [b["id"] for b in client.get("/api/businesses", headers=ADMIN).json()] == [biz["id"]]
+    cli = new_client()  # a command-line caller: no cookies, only the emergency admin token
+    assert cli.get(f"/api/businesses/{biz['id']}").status_code == 401
+    assert cli.get(f"/api/businesses/{biz['id']}", headers=ADMIN).status_code == 200
+    assert [b["id"] for b in cli.get("/api/admin/businesses", headers=ADMIN).json()] == [biz["id"]]
+    assert cli.get("/api/businesses").json() == []  # "my shops" is only ever the caller's own
 
 
 def test_default_admin_token_never_works(make_settings):
-    from app.safety.access import is_admin
+    from app.safety.access import is_admin_token as is_admin
     s = make_settings(admin_token="change-me")
     assert not is_admin(s, "change-me") and not is_admin(make_settings(admin_token="short"), "short")
     assert is_admin(make_settings(), ADMIN_TOKEN) and not is_admin(make_settings(), ADMIN_TOKEN + "x")
@@ -96,20 +76,16 @@ def test_public_site_needs_no_key(client, engine):
     from tests.conftest import publish
 
     publish(engine, meera(client)["id"])
-    client.headers.pop("X-Owner-Key")
+    client.cookies.clear()
     r = client.get("/", headers={"host": "meera.localhost"})
     assert r.status_code == 200 and "Meera" in r.text
 
 
-def test_personal_email_saved_and_checked(client):
+def test_orders_and_alerts_go_to_the_sign_in_address(client, engine):
+    sign_in(client, "meera@example.org")
     biz = meera(client)
-    url = f"/api/businesses/{biz['id']}"
-    r = client.put(url, json={"profile": biz["profile"], "subdomain": "meera", "owner_email": "not-an-email"})
-    assert r.status_code == 422 and "email" in r.json()["detail"]
-    r = client.put(url, json={"profile": biz["profile"], "subdomain": "meera", "owner_email": "meera@example.org"})
-    assert r.json()["owner_email"] == "meera@example.org"
-    r = client.put(url, json={"profile": biz["profile"], "subdomain": "meera"})  # omitted = unchanged
-    assert r.json()["owner_email"] == "meera@example.org"
+    assert biz["owner_email"] == "meera@example.org" and not biz["guest"]
+    assert report(client, biz)["business"]["has_owner_email"] is True
 
 
 # ---------- approval card ----------
@@ -217,12 +193,16 @@ def test_demo_fault_mx_is_also_repaired(client, integ):
     assert rep["ready"] and {r["check"] for r in rep["run"]["repairs"]} >= {"email_mx"}
 
 
-def test_demo_fault_is_admin_only_and_needs_full_launch(client, integ):
+def test_demo_fault_is_admin_only_and_needs_full_launch(client, new_client, integ):
     biz = meera(client)
     approve(client, plan(client, biz))
     url = f"/api/admin/businesses/{biz['id']}/demo-fault"
-    assert client.put(url, json={"fault": "dmarc"}).status_code == 403
-    assert client.put(url, json={"fault": "dmarc"}, headers={"X-Admin-Token": "change-me"}).status_code == 403
+    assert client.put(url, json={"fault": "dmarc"}).status_code == 401  # guest: not signed in
+    assert client.put(url, json={"fault": "dmarc"}, headers={"X-Admin-Token": "change-me"}).status_code == 401
+    seller = new_client()
+    sign_in(seller, "someone@example.org")
+    assert seller.put(url, json={"fault": "dmarc"}).status_code == 403  # signed in, but not the team
+    assert seller.delete(f"/api/admin/practice-businesses/{biz['id']}").status_code == 403
     r = client.put(url, json={"fault": "dmarc"}, headers=ADMIN)
     assert r.status_code == 409 and "own name" in r.json()["detail"]
     assert client.put(url, json={"fault": "spf"}, headers=ADMIN).status_code == 422
@@ -283,31 +263,69 @@ def two_worlds_client(make_settings, engine, mailer, claude, **settings_kw):
     app.dependency_overrides.update({get_settings: lambda: settings, get_session: _session,
                                      get_mailer: lambda: mailer, get_claude: lambda: claude,
                                      get_integrations: lambda: server, get_practice_integrations: lambda: practice})
-    return TestClient(app), server, practice
+    return AppClient(app), server, practice
 
 
-def test_public_visitor_on_real_server_is_always_practice(make_settings, engine, mailer, claude):
+def real_plan(c, biz) -> dict:
+    r = c.post(f"/api/businesses/{biz['id']}/plans", json={"mode": "sandbox", "real": True})
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+def test_guest_on_real_server_is_always_practice(make_settings, engine, mailer, claude):
     c, server, practice = two_worlds_client(make_settings, engine, mailer, claude)
     with c:
-        assert c.get("/api/practice-mode").json() == {"practice": True, "admin": False}
+        assert c.get("/api/auth/me").json()["practice_server"] is False
         biz = meera(c)
         assert biz["practice"]
+        assert c.post(f"/api/businesses/{biz['id']}/plans", json={"mode": "sandbox", "real": True}).status_code == 403
         p = approve(c, plan(c, biz))
         assert p["status"] == "done"
         assert server.godaddy.writes() == [] and server.godaddy.calls == []  # real world untouched
         assert practice.godaddy.writes()
         assert c.get(f"/api/plans/{p['id']}").json()["practice"]
+        assert c.get("/", headers={"host": "meera.localhost"}).status_code == 404  # never public
 
 
-def test_admin_on_real_server_uses_real_integrations(make_settings, engine, mailer, claude):
+def test_pending_user_practises_and_approved_user_launches_for_real(make_settings, engine, mailer, claude):
     c, server, practice = two_worlds_client(make_settings, engine, mailer, claude)
     with c:
-        c.headers.update(ADMIN)
-        assert c.get("/api/practice-mode").json() == {"practice": False, "admin": True}
+        sign_in(c, "meera@example.org")
         biz = meera(c)
-        assert not biz["practice"]
-        approve(c, plan(c, biz))
-        assert server.godaddy.writes() and not practice.godaddy.writes()
+        r = c.post(f"/api/businesses/{biz['id']}/plans", json={"mode": "sandbox", "real": True})
+        assert r.status_code == 403 and "waiting for approval" in r.json()["detail"]  # pending: practice only
+        approve(c, plan(c, biz))  # a practice launch works
+        assert practice.godaddy.writes() and not server.godaddy.writes()
+
+        set_user(engine, "meera@example.org", status="approved")
+        p = approve(c, real_plan(c, biz))
+        assert p["status"] == "done" and p["practice"] is False
+        assert server.godaddy.writes() == [("set_records", "localhost", "A", "meera")]
+        rep = report(c, biz)
+        assert rep["practice"] is False and rep["headline"] == "Your business is ready for customers"
+        assert rep["business"]["public"] is True
+        assert c.get("/", headers={"host": "meera.localhost"}).status_code == 200  # now public
+        assert c.get("/internal/tls-ask", params={"domain": "meera.localhost"}).status_code == 200
+        # a real shop can't go back to practice, and real launches are on our subdomains only
+        assert c.post(f"/api/businesses/{biz['id']}/plans", json={"mode": "sandbox"}).status_code == 409
+        r = c.post(f"/api/businesses/{biz['id']}/plans", json={"mode": "full", "domain": DOMAIN, "real": True})
+        assert r.status_code == 422 and "comes later" in r.json()["detail"]
+
+
+def test_practice_results_never_count_for_a_real_shop(make_settings, engine, mailer, claude):
+    c, server, practice = two_worlds_client(make_settings, engine, mailer, claude)
+    with c:
+        sign_in(c, "meera@example.org")
+        set_user(engine, "meera@example.org", status="approved")
+        biz = meera(c)
+        approve(c, plan(c, biz))  # practice launch: green in the pretend world
+        assert report(c, biz)["headline"] == "Practice run: passed (pretend GoDaddy)"
+        server.dns.hide.add(("meera.localhost", "A"))  # the real launch will stop at "wait for DNS"
+        p = approve(c, real_plan(c, biz))
+        assert p["status"] == "failed"
+        rep = report(c, biz)
+        assert rep["ready"] is False and rep["headline"] == "Your launch stopped before the end"
+        assert c.get("/", headers={"host": "meera.localhost"}).status_code == 404
 
 
 def test_practice_domain_never_served_or_certified_on_real_server(make_settings, engine, mailer, claude):
@@ -323,17 +341,6 @@ def test_practice_domain_never_served_or_certified_on_real_server(make_settings,
         assert "Meera" not in c.get("/", headers={"host": DOMAIN}).text
 
 
-def test_practice_domain_does_not_block_real_business(make_settings, engine, mailer, claude):
-    c, server, practice = two_worlds_client(make_settings, engine, mailer, claude)
-    with c:
-        full_launch(c, practice)  # a judge "launches" meerascakes.in in practice
-        c.headers.update(ADMIN)
-        server.godaddy.owned.add(DOMAIN)
-        biz = meera(c, subdomain="meera-real")
-        p = approve(c, plan(c, biz, "full", DOMAIN))
-        assert p["status"] == "done"
-
-
 # ---------- visitor limits ----------
 
 def test_describe_limit_per_visitor(client, make_settings):
@@ -346,6 +353,24 @@ def test_describe_limit_per_visitor(client, make_settings):
     other = {"X-Forwarded-For": "203.0.113.9, 198.51.100.7"}  # last entry = the client Caddy saw
     assert client.post("/api/businesses", data=data, headers=other).status_code == 201
     assert client.post("/api/businesses", data=data, headers=ADMIN).status_code == 201  # admin exempt
+
+
+def test_signed_in_user_limits_shops_and_describes_per_day(client, make_settings, engine):
+    from app.config import get_settings
+
+    client.app.dependency_overrides[get_settings] = lambda: make_settings(max_shops_per_user=2, user_describes_per_day=3)
+    sign_in(client, "meera@example.org")
+    s = json.loads((SELLERS / "meera_cakes.json").read_text())
+    data = {"description": s["description"], "price_list": s["price_list"]}
+    first = client.post("/api/businesses", data=data)
+    assert [first.status_code, client.post("/api/businesses", data=data).status_code] == [201, 201]
+    r = client.post("/api/businesses", data=data)
+    assert r.status_code == 409 and "most one account can have" in r.json()["detail"]
+    assert client.delete(f"/api/businesses/{first.json()['id']}").status_code == 200
+    assert client.post("/api/businesses", data=data).status_code == 201  # third describe today
+    assert client.delete(f"/api/businesses/{first.json()['id'] + 1}").status_code == 200
+    r = client.post("/api/businesses", data=data)  # deleting shops doesn't reset the daily count
+    assert r.status_code == 429 and "tomorrow" in r.json()["detail"]
 
 
 def test_launch_limit_per_visitor(client, make_settings):
@@ -366,9 +391,16 @@ def monitor(engine, settings, integ, claude):
 
 
 def set_email(engine, business_id, email="meera@example.org"):
+    """Give the shop a signed-in owner (alerts go to the owner's sign-in address)."""
+    from app.models import Membership, User
+
     with Session(engine) as s:
+        u = User(email=email, status="approved")
+        s.add(u)
+        s.commit()
+        s.add(Membership(user_id=u.id, business_id=business_id))
         b = s.get(Business, business_id)
-        b.owner_email = email
+        b.guest_hash = ""
         s.add(b)
         s.commit()
 
@@ -387,8 +419,11 @@ def test_monitor_jobs_registered_15min_and_daily(monitor):
     assert not monitor.scheduler.running
 
 
-def test_scheduler_is_off_when_disabled(monkeypatch, make_settings):
+def test_scheduler_is_off_when_disabled(monkeypatch, make_settings, engine):
+    import app.db as db
     import app.main as main
+
+    monkeypatch.setattr(db, "_engine", engine)  # the startup jobs must never touch a developer's real database
 
     monkeypatch.setattr(main, "get_settings", lambda: make_settings(monitor_enabled=False))
     monkeypatch.setattr(main, "init_db", lambda: None)
@@ -398,6 +433,7 @@ def test_scheduler_is_off_when_disabled(monkeypatch, make_settings):
 
 
 def test_quick_check_ok_schedules_nothing(client, integ, monitor):
+    sign_in(client, "meera@example.org")  # guest practice shops aren't watched
     biz = meera(client)
     approve(client, plan(client, biz))
     assert monitor.live_business_ids() == [biz["id"]]
@@ -487,9 +523,9 @@ def test_domain_expiry_steps_30_then_7(client, integ, engine, monitor):
 def test_cert_expiry_warning(client, integ, engine, monitor):
     from datetime import UTC, datetime, timedelta
 
+    sign_in(client, "meera@example.org")  # alerts go to the owner's sign-in address
     biz = meera(client)
     approve(client, plan(client, biz))
-    set_email(engine, biz["id"])
     integ.http.cert_end["meera.localhost"] = datetime.now(UTC) + timedelta(days=3, hours=1)
     monitor.run_daily()
     assert [(k, kind) for kind, k, to in alerts(engine)] == [("7d", "cert_expiry")]

@@ -15,11 +15,12 @@ from sqlmodel import Session
 
 from app.agents.claude_client import FixtureClaudeClient
 from app.config import Settings, get_settings
+from app.db import get_session, init_db, make_engine
 from app.integrations import Integrations, fake_integrations, get_integrations, get_practice_integrations
 from app.mail.smtp import FakeMailer, get_mailer
-from app.routers.businesses import get_claude
-from app.db import get_session, init_db, make_engine
 from app.main import create_app
+from app.routers.businesses import get_claude
+from app.safety.access import csrf_for
 
 ADMIN_TOKEN = "test-admin-token-0123456789"
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "testserver"}
@@ -92,6 +93,8 @@ def make_settings(clean_env):
         overrides.setdefault("admin_token", ADMIN_TOKEN)
         overrides.setdefault("visitor_describes_per_day", 1000)  # limit tests set these low explicitly
         overrides.setdefault("visitor_launches_per_day", 1000)
+        overrides.setdefault("signin_links_per_ip_per_hour", 1000)
+        overrides.setdefault("dev_mode", True)  # plain-http cookies + sign-in link returned instead of emailed
         return Settings(_env_file=None, **overrides)
 
     return _make
@@ -129,13 +132,19 @@ def publish_client(client, business_id: int) -> None:
 
 
 def publish(engine: Engine, business_id: int) -> None:
-    """Make a shop public the way a real (non-practice) launch does: live and not practice."""
-    from app.models import Business
+    """Make a shop public the way a real (non-practice) launch does: live, not practice, and its
+    launches count as real (practice results never count for a real shop)."""
+    from sqlmodel import select
+
+    from app.models import Business, Plan
 
     with Session(engine) as s:
         b = s.get(Business, business_id)
         b.status, b.practice = "live", False
         s.add(b)
+        for p in s.exec(select(Plan).where(Plan.business_id == business_id)).all():
+            p.practice = False
+            s.add(p)
         s.commit()
 
 
@@ -151,18 +160,82 @@ def integ(settings) -> Integrations:
 
 
 @pytest.fixture
-def client(settings, engine, mailer, claude, integ) -> Iterator[TestClient]:
-    app = create_app(run_lifespan=False)
+def app(settings, engine, mailer, claude, integ):
+    application = create_app(run_lifespan=False)
 
     def _session():
         with Session(engine) as s:
             yield s
 
-    app.dependency_overrides[get_settings] = lambda: settings
-    app.dependency_overrides[get_session] = _session
-    app.dependency_overrides[get_mailer] = lambda: mailer
-    app.dependency_overrides[get_claude] = lambda: claude
-    app.dependency_overrides[get_integrations] = lambda: integ
-    app.dependency_overrides[get_practice_integrations] = lambda: integ
-    with TestClient(app) as c:
-        yield c
+    application.dependency_overrides[get_settings] = lambda: settings
+    application.dependency_overrides[get_session] = _session
+    application.dependency_overrides[get_mailer] = lambda: mailer
+    application.dependency_overrides[get_claude] = lambda: claude
+    application.dependency_overrides[get_integrations] = lambda: integ
+    application.dependency_overrides[get_practice_integrations] = lambda: integ
+    return application
+
+
+ORIGIN = "http://localhost"  # = Settings.origin with the default APP_BASE_URL
+
+
+class AppClient(TestClient):
+    """A browser on the app's own pages: state-changing /api calls carry the app's Origin and, when a
+    session or guest cookie exists, the matching CSRF token. Pass a header explicitly (even "") to override."""
+
+    def request(self, method, url, **kw):
+        headers = dict(kw.pop("headers", None) or {})
+        if method.upper() in ("POST", "PUT", "PATCH", "DELETE") and str(url).startswith("/api/"):
+            low = {k.lower() for k in headers} | {k.lower() for k in self.headers}
+            if "origin" not in low:
+                headers["Origin"] = ORIGIN
+            cookie = self.cookies.get("lw_session") or self.cookies.get("lw_guest")
+            if cookie and "x-csrf-token" not in low:
+                headers["X-CSRF-Token"] = csrf_for(cookie)
+        return super().request(method, url, headers=headers, **kw)
+
+
+@pytest.fixture
+def new_client(app):
+    """Factory: each call is a separate browser (its own cookies) on the same app."""
+    made = []
+
+    def _make() -> AppClient:
+        c = AppClient(app)
+        c.__enter__()
+        made.append(c)
+        return c
+
+    yield _make
+    for c in made:
+        c.__exit__(None, None, None)
+
+
+@pytest.fixture
+def client(new_client) -> AppClient:
+    return new_client()
+
+
+def sign_in(client, email: str) -> dict:
+    """Ask for a link, then press "Sign in" on the confirm page (DEV_MODE returns the link instead of emailing it)."""
+    r = client.post("/api/auth/request-link", json={"email": email})
+    assert r.status_code == 200, r.text
+    token = r.json()["dev_link"].split("token=", 1)[1].split("&", 1)[0]
+    r = client.post("/api/auth/confirm", json={"token": token})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def set_user(engine: Engine, email: str, **fields) -> int:
+    """Change a user row directly (e.g. status="approved"), as the admin pages would."""
+    from sqlmodel import select
+
+    from app.models import User
+
+    with Session(engine) as s:
+        u = s.exec(select(User).where(User.email == email)).one()
+        for k, v in fields.items():
+            setattr(u, k, v)
+        s.add(u)
+        s.commit()
+        return u.id

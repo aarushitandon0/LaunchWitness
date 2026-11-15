@@ -18,10 +18,9 @@ SELLERS = Path(__file__).parent / "fixtures" / "sellers"
 def meera(client, subdomain="meera") -> dict:
     s = json.loads((SELLERS / "meera_cakes.json").read_text(encoding="utf-8"))
     biz = client.post("/api/businesses", data={"description": s["description"], "price_list": s["price_list"]}).json()
-    client.headers["X-Owner-Key"] = biz["owner_key"]
     r = client.put(f"/api/businesses/{biz['id']}", json={"profile": biz["profile"], "subdomain": subdomain})
     assert r.status_code == 200
-    return {**r.json(), "owner_key": biz["owner_key"], "owner_link": biz["owner_link"]}
+    return r.json()
 
 
 def plan(client, biz, mode="sandbox", domain=None) -> dict:
@@ -279,7 +278,6 @@ def test_owner_buys_manually_then_resume_adopts_and_finishes(client, integ, engi
 
 
 def test_fake_purchase_when_enabled_uses_and_consumes_approval(make_settings, engine, mailer, claude, integ):
-    from fastapi.testclient import TestClient
     from app.config import get_settings
     from app.db import get_session
     from app.integrations import get_integrations, get_practice_integrations
@@ -298,7 +296,9 @@ def test_fake_purchase_when_enabled_uses_and_consumes_approval(make_settings, en
                                      get_mailer: lambda: mailer, get_claude: lambda: claude,
                                      get_integrations: lambda: integ, get_practice_integrations: lambda: integ})
     integ.availability.prices = {"meerascakes.in": 8.99}
-    with TestClient(app) as c:
+    from tests.conftest import AppClient
+
+    with AppClient(app) as c:  # a browser: Origin + CSRF token on every change
         p = approve(c, plan(c, meera(c), "full", "meerascakes.in"))
     assert p["status"] == "done"
     assert ("purchase_domain", "meerascakes.in", 8.99) in integ.godaddy.calls
@@ -385,5 +385,6 @@ def test_only_stopped_plans_resume(client):
     assert client.post(f"/api/plans/{p['id']}/resume").status_code == 409
 
 
-def test_practice_mode_flag(client):
-    assert client.get("/api/practice-mode").json() == {"practice": True, "admin": False}
+def test_me_says_when_the_server_is_a_practice_server(client):
+    me = client.get("/api/auth/me").json()
+    assert me["practice_server"] is True and me["user"] is None and me["guest"] is False

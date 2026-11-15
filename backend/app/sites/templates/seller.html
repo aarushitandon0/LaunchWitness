@@ -386,6 +386,7 @@
     <div style="grid-column:1">
       <h1>Thank you{% if order %}, {{ order.customer_name }}{% endif %}!</h1>
       <p class="tagline">{{ p.name }} has your order and will contact you soon to confirm it.</p>
+      {% if order and order.ref %}<p class="hint">Your order reference: <strong>{{ order.ref }}</strong></p>{% endif %}
     </div>
   </div>
   {% if order %}
@@ -420,7 +421,7 @@
 <footer>
   <div class="wrap">
     <span>© {{ p.name }}{% if p.area %} · {{ p.area }}{% endif %}{% if p.fssai_number %} · FSSAI licence no. {{ p.fssai_number }}{% endif %}</span>
-    <span><a href="/privacy">Privacy</a> · Site by LaunchWitness</span>
+    <span><a href="/privacy">Privacy</a>{% if not preview %} · <a href="/report-shop" rel="nofollow">Report this shop</a>{% endif %} · Site by LaunchWitness</span>
   </div>
 </footer>
 {% if page == "home" %}

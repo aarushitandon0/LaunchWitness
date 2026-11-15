@@ -15,11 +15,11 @@ from datetime import datetime
 from sqlmodel import Session, select
 
 from app import audit
-from app.config import Settings
-from app.mail.providers import planned_dkim_name, provider_for
-from app.integrations import Integrations
-from app.models import Business, Plan
 from app.agents.namer import DOMAIN
+from app.config import Settings
+from app.integrations import Integrations
+from app.mail.providers import planned_dkim_name, provider_for
+from app.models import Business, Plan
 
 DKIM_PENDING = "(filled in after your mailbox is created)"
 DMARC = "v=DMARC1; p=quarantine; adkim=r; aspf=r"
@@ -64,7 +64,7 @@ def active_plan(session: Session, business_id: int) -> Plan | None:
 
 
 def build_plan(session: Session, settings: Settings, integ: Integrations, business: Business, *, mode: str,
-               domain: str | None = None) -> Plan:
+               domain: str | None = None, practice: bool = True) -> Plan:
     if active_plan(session, business.id) is not None:
         raise PlanError("A launch is already running for this business. Please wait for it to finish.")
     if not settings.server_ip:
@@ -75,11 +75,13 @@ def build_plan(session: Session, settings: Settings, integ: Integrations, busine
         plan = _full(session, settings, integ, business, (domain or "").strip().lower())
     else:
         raise PlanError("Unknown launch type.")
+    plan.practice = practice
     session.add(plan)
     session.commit()
     session.refresh(plan)
     audit.record(session, actor="planner", action="plan_created", target=plan.site_host, result="ok",
-                 business_id=business.id, detail=f"plan #{plan.id} {plan.mode}, ${plan.total_cost_usd:.2f}")
+                 business_id=business.id,
+                 detail=f"plan #{plan.id} {plan.mode}, {'practice' if practice else 'REAL'}, ${plan.total_cost_usd:.2f}")
     return plan
 
 

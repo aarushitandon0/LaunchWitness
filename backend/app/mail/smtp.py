@@ -22,7 +22,7 @@ TIMEOUT_S = 30
 
 
 class Mailer(Protocol):
-    def send(self, *, to: str, subject: str, body: str) -> str: ...
+    def send(self, *, to: str, subject: str, body: str, html: str | None = None) -> str: ...
 
 
 class SmtpMailer:
@@ -49,13 +49,15 @@ class SmtpMailer:
             raise
         return s
 
-    def send(self, *, to: str, subject: str, body: str) -> str:
+    def send(self, *, to: str, subject: str, body: str, html: str | None = None) -> str:
         msg = EmailMessage()
         msg["From"] = self.user
         msg["To"] = to
         msg["Subject"] = subject
         msg["Message-ID"] = make_msgid(domain=self.user.split("@")[-1])
         msg.set_content(body)
+        if html:
+            msg.add_alternative(html, subtype="html")
         with self._connect() as s:
             s.login(self.user, self._password.get_secret_value())
             s.send_message(msg)
@@ -66,9 +68,9 @@ class FakeMailer:
     def __init__(self):
         self.sent: list[dict] = []
 
-    def send(self, *, to: str, subject: str, body: str) -> str:
+    def send(self, *, to: str, subject: str, body: str, html: str | None = None) -> str:
         message_id = f"<fake-{len(self.sent) + 1}@launchwitness.test>"
-        self.sent.append({"to": to, "subject": subject, "body": body, "message_id": message_id})
+        self.sent.append({"to": to, "subject": subject, "body": body, "html": html, "message_id": message_id})
         return message_id
 
 

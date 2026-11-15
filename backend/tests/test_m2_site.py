@@ -8,8 +8,8 @@ import pytest
 from sqlmodel import Session, select
 
 from app.models import AuditEvent, Business, Order
-from tests.conftest import publish_client
 from app.sites.render import format_inr, group_products, upi_uri, whatsapp_link
+from tests.conftest import publish_client
 
 SELLERS = Path(__file__).parent / "fixtures" / "sellers"
 MEERA = "meera.localhost"
@@ -23,14 +23,12 @@ def create(client, name="meera_cakes", **files) -> dict:
     s = sample(name)
     r = client.post("/api/businesses", data={"description": s["description"], "price_list": s["price_list"]}, files=files or None)
     assert r.status_code == 201, r.text
-    client.headers["X-Owner-Key"] = r.json()["owner_key"]
     return r.json()
 
 
 def save(client, biz: dict, subdomain="meera", **changes) -> dict:
     profile = {**biz["profile"], **changes}
-    r = client.put(f"/api/businesses/{biz['id']}", json={"profile": profile, "subdomain": subdomain},
-                   headers={"X-Owner-Key": biz["owner_key"]} if "owner_key" in biz else None)
+    r = client.put(f"/api/businesses/{biz['id']}", json={"profile": profile, "subdomain": subdomain})
     assert r.status_code == 200, r.text
     publish_client(client, biz["id"])  # these tests are about the PUBLIC shop: live, not practice
     return r.json()

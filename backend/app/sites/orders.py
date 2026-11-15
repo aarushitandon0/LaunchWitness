@@ -2,6 +2,7 @@
 
 import json
 import re
+import secrets
 from datetime import timedelta
 
 from sqlmodel import Session, func, select
@@ -10,7 +11,8 @@ from app import audit
 from app.agents.reader import Profile
 from app.config import Settings
 from app.mail.smtp import Mailer
-from app.models import Business, Order, Plan, utcnow
+from app.models import Business, Order, utcnow
+from app.safety.access import owner_emails, run_by_team
 
 MAX_QTY = 50
 
@@ -56,8 +58,8 @@ def order_email(business: Business, profile: Profile, order: Order, items: list[
 
     test = "[TEST] " if order.is_test else ""
     code = f" [{order.nonce}]" if order.nonce else ""
-    subject = f"{test}New order for {profile.name} from {order.customer_name} (#{order.id}){code}"
-    lines = [f"New order #{order.id} for {profile.name}", "", f"Customer: {order.customer_name}",
+    subject = f"{test}New order for {profile.name} from {order.customer_name} ({order.ref}){code}"
+    lines = [f"New order {order.ref} for {profile.name}", "", f"Customer: {order.customer_name}",
              f"Phone: {order.customer_phone}", ""]
     if order.nonce:
         lines[1:1] = ["", "This is an automatic test order from LaunchWitness. No customer is waiting.",
@@ -73,15 +75,22 @@ def order_email(business: Business, profile: Profile, order: Order, items: list[
 
 def order_recipients(session: Session, settings: Settings, business: Business) -> list[str]:
     """Who gets this shop's order emails. ONE place decides it, for customers' orders and for the
-    launch check's test order alike: the mailbox of the shop's launch, plus the owner's own email."""
-    plan = session.exec(select(Plan).where(Plan.business_id == business.id, Plan.status == "done")
-                        .order_by(Plan.id.desc())).first()
-    out: list[str] = []
-    for address in ((plan.mailbox if plan else "") or settings.smtp_user, business.owner_email):
-        address = (address or "").strip()
-        if address and address.lower() not in {a.lower() for a in out}:
-            out.append(address)
+    checker's test order alike: the owner's verified sign-in address. That address was proven at
+    sign-in and is proven again by the test order. The app's own mailbox is added only for shops
+    we run ourselves, and stands in while a guest practice shop has no owner yet."""
+    out = owner_emails(session, business.id)
+    if not out or run_by_team(session, business.id):
+        if settings.smtp_user.lower() not in {a.lower() for a in out}:
+            out.append(settings.smtp_user)
     return out
+
+
+REF_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"  # no 0/O/1/I
+
+
+def new_ref() -> str:
+    """Public order reference: random, so it reveals no count and can't be guessed."""
+    return "LW-" + "".join(secrets.choice(REF_ALPHABET) for _ in range(8))
 
 
 TOO_MANY = ("This shop has had a lot of orders from here in a short time. Please try again in a few minutes, "
@@ -119,7 +128,7 @@ def existing_order(session: Session, business: Business, token: str) -> Order | 
 
 def order_view(order: Order) -> dict:
     return {"customer_name": order.customer_name, "customer_phone": order.customer_phone, "note": order.note,
-            "items": json.loads(order.items_json), "total_inr": order.total_inr}
+            "items": json.loads(order.items_json), "total_inr": order.total_inr, "ref": order.ref}
 
 
 def place_order(session: Session, mailer: Mailer, settings: Settings, *, business: Business, profile: Profile,
@@ -128,7 +137,7 @@ def place_order(session: Session, mailer: Mailer, settings: Settings, *, busines
     customer's order both come through here, so a passing test order proves the real path."""
     order = Order(business_id=business.id, customer_name=data["customer_name"], customer_phone=data["customer_phone"],
                   items_json=json.dumps(data["items"], ensure_ascii=False), total_inr=data["total_inr"],
-                  note=data["note"], is_test=is_test, nonce=nonce, visitor=visitor,
+                  note=data["note"], is_test=is_test, nonce=nonce, visitor=visitor, ref=new_ref(),
                   client_token=token if TOKEN.match(token) else "")
     session.add(order)
     session.commit()

@@ -8,7 +8,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -24,7 +24,25 @@ class Settings(BaseSettings):
     # --- App ---
     app_domain: str = "localhost"
     app_base_url: str = "http://localhost"
+    # The app's own origin (scheme://host[:port]) for CSRF checks. Empty = taken from APP_BASE_URL.
+    app_origin: str = ""
+    # Emergency / command-line admin only (X-Admin-Token header). People sign in as admin with ADMIN_EMAIL.
     admin_token: SecretStr = SecretStr("change-me")
+    # This address is the admin: created at startup, approved, role admin. Signs in by email link like everyone.
+    admin_email: str = ""
+    # LOCAL DEVELOPMENT ONLY. Uses plain-http cookie names/flags and shows the sign-in link on screen
+    # instead of emailing it. The app refuses to start with this on an https APP_BASE_URL.
+    dev_mode: bool = False
+    # Accounts and limits
+    session_days: int = 14
+    signin_links_per_email_per_day: int = 5
+    signin_links_per_ip_per_hour: int = 10
+    max_shops_per_user: int = 3
+    user_describes_per_day: int = 5  # each "describe" is one Claude call: this is the per-user daily Claude cap
+    # Every live shop needs its own HTTPS certificate, and the certificate authority allows about
+    # 50 new ones a week per domain. This cap (and admin approval) keeps us under it.
+    max_live_shops: int = 40
+    shop_reports_per_visitor_per_day: int = 3
     # Public IP of the VPS; seller sites' A records point here.
     server_ip: str = "127.0.0.1"
     # true = GoDaddy, availability, mailbox, DNS checks and HTTP probes are in-memory
@@ -77,6 +95,29 @@ class Settings(BaseSettings):
 
     # --- Database ---
     database_url: str = "sqlite:///./data/launchwitness.db"
+
+
+    @model_validator(mode="after")
+    def _dev_mode_never_in_production(self):
+        if self.dev_mode and self.app_base_url.lower().startswith("https://"):
+            raise ValueError("DEV_MODE=true is for local http development only; remove it on an https server.")
+        return self
+
+    @property
+    def origin(self) -> str:
+        """scheme://host[:port] of the app, used to check Origin / Referer on state-changing requests."""
+        from urllib.parse import urlsplit
+
+        u = urlsplit(self.app_origin or self.app_base_url)
+        return f"{u.scheme}://{u.netloc}".lower()
+
+    @property
+    def session_cookie(self) -> str:
+        return "lw_session" if self.dev_mode else "__Host-lw_session"
+
+    @property
+    def guest_cookie(self) -> str:
+        return "lw_guest" if self.dev_mode else "__Host-lw_guest"
 
 
 @lru_cache
