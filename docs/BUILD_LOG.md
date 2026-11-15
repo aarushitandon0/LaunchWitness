@@ -116,3 +116,11 @@ One entry per Claude Code session, newest last. This is what judges read to unde
 - Result: 477 passed, 2 skipped; ruff, tsc and build clean. Real network paths (SafeWeb, AuthoritativeResolver, IMAP) are unit-tested with stubs only: unproven until the VPS. Live Claude spend: $0.
 - Next: Phase 4 (investigating Doctor), Phase 5 (design), Phase 6 (verification + VPS handover).
 
+
+### Session 10 — 2026-11-16 (IST) — Deployable and safe for real users, before the VPS (Opus)
+- Goal: make Wednesday's VPS deploy boring: run the full stack in Docker exactly as on the VPS, then data safety, the watchdog features, verification and a cold-start VPS guide.
+- Asked Claude to: audit `deploy/` against the code, run the stack the production way locally (HTTPS, `DEV_MODE=false`, fakes, a mail catch-all) and prove cookies, guards, rate limits, restarts; SQLite done properly + tested backups; a startup self-check; legal pages; Renewals, zone hygiene, a dangling-CNAME finding; Playwright e2e + SECURITY.md + a secret scan of the history; `docs/NEXT_SESSION_VPS.md`.
+- Claude built: `deploy/docker-compose.local.yml` + `deploy/README.md` (14 mismatches found and fixed or documented), Caddyfile.prod hardening, `app/singleton.py`, SQLite pragmas, `app/backup.py` + `backup_db.sh`/`restore_db.sh`, `app/selfcheck.py`, fixture-mode hold, `Legal.tsx`, `app/renewals.py` + team alerts, `app/zone_hygiene.py` + team page section, dangling CNAME, `e2e/` (4 flows), `test_s10_*.py`, `scripts/secret_scan.sh`, `docs/SECURITY.md`, `docs/NEXT_SESSION_VPS.md`.
+- What checking caught: `foreign_keys=ON` exposed the admin demo delete leaving proof rows behind (fixed); the old restore would have replayed a stale WAL into a restored DB; the stack check's own token would have used up the admin's daily sign-in links on the VPS; a `.env` value with spaces before its comment could hide a leaked password from the leak check; the local compose loaded the real `.env` into a local container; a naive XSS assertion flagged escaped text (switched to an HTML parser); Git Bash path conversion broke the backup scripts on Windows.
+- Result: 523 passed, 2 skipped; ruff, tsc and build clean; e2e 4/4 on the Docker stack and on the dev server; `check_m1.sh --local` all PASS; secret scan of repo + history clean. Live Claude spend: $0.
+- Next: the VPS (Wed Nov 18) with `docs/NEXT_SESSION_VPS.md`.
