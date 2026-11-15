@@ -241,3 +241,16 @@ def test_fixture_mode_on_a_practice_server_does_not_hold(client, engine):
     approve(client, plan(client, biz))  # practice server + fixture: the normal path
     with Session(engine) as s:
         assert s.get(Business, biz["id"]).review == ""
+
+
+# ---------- uploads (SECURITY.md) ----------
+
+def test_photo_upload_type_and_size_are_limited(client):
+    from app.agents.reader import MAX_IMAGE_BYTES
+
+    r = client.post("/api/businesses", data={"description": "cakes"},
+                    files={"photo": ("x.svg", b"<svg onload=alert(1)>", "image/svg+xml")})
+    assert r.status_code in (400, 422) and "JPG, PNG or WebP" in r.text
+    big = b"\xff\xd8\xff" + b"0" * (MAX_IMAGE_BYTES + 10)
+    r = client.post("/api/businesses", data={"description": "cakes"}, files={"photo": ("x.jpg", big, "image/jpeg")})
+    assert r.status_code in (400, 413, 422) and "under 5 MB" in r.text
