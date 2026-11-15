@@ -14,7 +14,7 @@ the owner's "Yes, I got it"), repairs what breaks, and keeps checking. GoDaddy h
 |---|---|
 | `d02a430` | S9F Phase 1 (Fable): claims made true (audit B1–B9, S2, S5–S8, app-zone write guard) |
 | `77d8153` (merge) | Phase 1 + **Phase 2: accounts and multi-tenancy** (`c8bdbb3`, `0392cc6`, `50bb7a2`, `1a85b1b`) |
-| merge of `s9f-p3-proof` | **Phase 3: order proof chain + check any address** (`edc46ba` backend, then frontend + docs) |
+| `39eb6ff` (merge) | **Phase 3: order proof chain + check any address** (`edc46ba`, `50c3d8a`) |
 
 Tests on main: **477 passed, 2 skipped** (`cd backend && ../.venv/Scripts/python -m pytest -q`). Ruff (`backend/pyproject.toml`
 pins E4/E7/E9/F/I), `npx tsc --noEmit` and `npm run build` clean. Backup of Fable's unfinished work: `git stash list` →
