@@ -24,6 +24,8 @@ info() { printf '        %s\n' "$1"; }
 
 LOCAL=false
 [ "${1:-}" = "--local" ] && LOCAL=true
+# A temp file whose path both bash and native Windows tools (docker.exe, curl.exe) read the same way.
+tmpf() { local f; f="$(mktemp)"; cygpath -m "$f" 2>/dev/null || echo "$f"; }
 
 # Read one value from .env without printing it (no `source`: values may contain spaces/symbols).
 envval() { grep -E "^$1=" .env 2>/dev/null | tail -n1 | cut -d= -f2- | sed -e 's/[[:space:]]#.*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"; }
@@ -32,7 +34,7 @@ if $LOCAL; then
   COMPOSE=(docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml -f deploy/docker-compose.local.yml)
   APP_DOMAIN=launchwitness.localhost
   SERVER_IP=127.0.0.1
-  CA="$(mktemp)"
+  CA="$(tmpf)"
   "${COMPOSE[@]}" cp caddy:/data/caddy/pki/authorities/local/root.crt "$CA" >/dev/null 2>&1 \
     || { echo "FAIL: can't read Caddy's local CA (is the local stack up? see deploy/README.md)"; exit 1; }
   CURL=(curl -sS --max-time 20 --cacert "$CA")
@@ -177,7 +179,7 @@ PY
 )"
 TOKEN="$(echo "$TOKEN" | tail -n1 | tr -d '\r')"
 if [ -n "$TOKEN" ]; then
-  hdrs="$(mktemp)"
+  hdrs="$(tmpf)"
   resp="$("${CURL[@]}" -D "$hdrs" -H 'Content-Type: application/json' -H "Origin: $BASE" \
     --data-binary @- "$BASE/api/auth/confirm" <<<"{\"token\":\"$TOKEN\"}")"
   unset TOKEN
