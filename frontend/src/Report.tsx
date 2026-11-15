@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
+import { ShopLink } from "./ShopLink";
 import { useEffect, useState } from "react";
 import { api, ApiError, CheckRow, keys, Report } from "./api";
 import { Cross, Dot, EASE, Spinner, Tick, TypeIn, useCalm } from "./motion";
@@ -301,6 +302,11 @@ export function ReportPage({ businessId }: { businessId: number }) {
           </motion.h1>
         </AnimatePresence>
       </motion.div>
+      {rep.practice && !waiting && (
+        <p className="practice" role="note">
+          Practice run. These results come from a pretend GoDaddy and a pretend inbox, not the real internet.
+        </p>
+      )}
       {rep.left.length > 0 && !waiting && (
         <ul className="left">
           {rep.left.map((l, i) => (
@@ -315,10 +321,8 @@ export function ReportPage({ businessId }: { businessId: number }) {
             {waiting ? "Checking…" : busy ? "Starting…" : "Run checks now"}
           </button>
         )}
-        {rep.ready && !waiting && rep.business.site_url && (
-          <a className="btn btn-ghost" href={rep.business.site_url} target="_blank" rel="noreferrer">
-            Open my website
-          </a>
+        {launched && !waiting && (
+          <ShopLink businessId={businessId} siteUrl={rep.business.site_url} isPublic={rep.business.public} />
         )}
         {!launched && (
           <a className="btn btn-primary" href={`#/b/${businessId}/launch`}>
@@ -362,6 +366,22 @@ export function ReportPage({ businessId }: { businessId: number }) {
             </div>
           </li>
         </ul>
+      )}
+
+      {rep.launch && !waiting && (
+        <details className="launch-steps">
+          <summary>
+            Launch steps: {rep.launch.steps.filter((s) => s.status === "done").length} of {rep.launch.steps.length} finished
+          </summary>
+          <ol className="tech">
+            {rep.launch.steps.map((s, i) => (
+              <li key={i}>
+                {s.title}: {s.status === "done" ? "finished" : s.status}
+                {s.message && s.status !== "done" ? ` (${s.message})` : ""}
+              </li>
+            ))}
+          </ol>
+        </details>
       )}
 
       {run && !waiting && run.repairs.length > 0 && (

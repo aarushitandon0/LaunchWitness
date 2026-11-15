@@ -206,6 +206,7 @@
 </style>
 </head>
 <body>
+{% if preview %}<div role="note" style="background:#1f2937;color:#fff;text-align:center;padding:8px 12px;font-size:14px">Preview: only you can see this page. It isn't public.</div>{% endif %}
 {%- macro icon(name) -%}
 {%- if name == "pin" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.1-7-11.5a7 7 0 0 1 14 0C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
 {%- elif name == "clock" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
@@ -369,8 +370,10 @@
         <input id="customer_phone" name="customer_phone" required inputmode="tel" maxlength="20" autocomplete="tel" placeholder="98765 43210" value="{{ form.get('customer_phone', '') }}">
       </div>
       <div class="hp" aria-hidden="true"><label for="website">Leave empty</label><input id="website" name="website" tabindex="-1" autocomplete="off"></div>
+      <input type="hidden" name="order_token" value="{{ order_token }}">
       <p class="hint">We use these details only to handle your order. <a href="/privacy">Privacy</a></p>
-      <button class="btn btn-primary btn-block" type="submit">Send order</button>
+      {% if preview %}<p class="hint" role="note">This is a preview. Customers can order once your shop is live.</p>{% endif %}
+      <button class="btn btn-primary btn-block" type="submit"{% if preview %} disabled{% endif %}>Send order</button>
     </aside>
   </form>
 </main>

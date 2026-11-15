@@ -49,6 +49,10 @@ def start_monitor(settings: Settings):
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
+    from app.db import get_engine
+    from app.startup import reconcile
+
+    reconcile(get_engine())  # close launches / check runs that lost their worker in a restart
     settings = get_settings()
     monitor = start_monitor(settings) if settings.monitor_enabled else None
     yield

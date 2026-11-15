@@ -6,7 +6,7 @@ Read this file fully at the start of every session. It is the source of truth fo
 
 LaunchWitness (working name) — GoDaddy Inclusive Innovation Hackathon 2026, Round 2 (build Nov 13–20, 2026).
 
-> Describe your business. LaunchWitness launches it on GoDaddy and proves everything works before your first customer arrives.
+> Describe your business. LaunchWitness puts it online on GoDaddy, proves a real order reaches you, fixes what breaks, and keeps checking.
 
 A small seller types a few lines + a price list. LaunchWitness builds her site from one fixed template, buys/points her domain, sets up her email, then **proves** it all works (HTTPS, DNS, email records, a real test order arriving in her inbox), repairs or undoes anything that fails during launch, and keeps lightly checking afterwards.
 

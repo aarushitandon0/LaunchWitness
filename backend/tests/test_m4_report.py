@@ -92,8 +92,10 @@ def test_default_admin_token_never_works(make_settings):
     assert is_admin(make_settings(), ADMIN_TOKEN) and not is_admin(make_settings(), ADMIN_TOKEN + "x")
 
 
-def test_public_site_needs_no_key(client):
-    meera(client)
+def test_public_site_needs_no_key(client, engine):
+    from tests.conftest import publish
+
+    publish(engine, meera(client)["id"])
     client.headers.pop("X-Owner-Key")
     r = client.get("/", headers={"host": "meera.localhost"})
     assert r.status_code == 200 and "Meera" in r.text
@@ -128,10 +130,10 @@ def test_ac1_sandbox_launch_report_all_green_with_times(client, integ):
     p = approve(client, plan(client, biz))
     assert p["status"] == "done"
     rep = report(client, biz)
-    assert rep["ready"] and rep["headline"] == "Your business is ready for customers" and rep["left"] == []
+    assert rep["ready"] and rep["headline"] == "Practice run: passed (pretend GoDaddy)" and rep["left"] == []
     run = rep["run"]
     assert run["trigger"] == "launch" and run["status"] == "done" and run["passed"]
-    assert [c["check"] for c in run["checks"]] == ["site_points", "https", "test_order", "launch_clean"]
+    assert [c["check"] for c in run["checks"]] == ["site_points", "https", "email_mx", "email_spf", "email_dkim", "email_dmarc", "test_order"]
     for c in run["checks"]:
         assert c["passed"] and c["at"].endswith("Z") and c["title"] and c["plain"]
     assert rep["monitoring"]["cert_days_left"] in (79, 80) and rep["monitoring"]["domain_days_left"] is None
@@ -155,7 +157,7 @@ def test_practice_buy_then_full_launch_green(client, integ, engine):
     biz = full_launch(client, integ)
     rep = report(client, biz)
     assert rep["ready"], rep["left"]
-    assert len(rep["run"]["checks"]) == 8
+    assert len(rep["run"]["checks"]) == 7
     assert rep["business"]["site_url"] == "http://meera.localhost/"  # never the pretend (maybe real) domain
     assert not [c for c in integ.godaddy.calls if c[0] == "purchase_domain"]  # nothing "bought", even in the fake
     (ev,) = events(engine, action="practice_buy")

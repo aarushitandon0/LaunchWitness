@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { ShopLink } from "./ShopLink";
 import { useEffect, useRef, useState } from "react";
 import {
   api,
@@ -460,16 +461,7 @@ export function PlanView({
             See your launch report →
           </a>
         )}
-        {finished && plan.site_url && (
-          <a
-            className="btn btn-ghost"
-            href={plan.site_url}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Open my website
-          </a>
-        )}
+        {finished && <ShopLink businessId={businessId} siteUrl={plan.site_url} isPublic={plan.public} />}
         <a className="btn btn-ghost" href={`#/b/${plan.business_id}`}>
           Back to your details
         </a>

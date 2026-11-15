@@ -10,7 +10,7 @@ from app import audit
 from app.agents.checker import Outcome, run_check
 from app.agents.claude_client import Claude, ClaudeBadJson, ClaudeError
 from app.agents.executor import Ctx, StepFailed
-from app.agents.playbook import FIXES_FOR, PLAYBOOK, apply_fix
+from app.agents.playbook import PLAYBOOK, apply_fix, fixes_for
 
 MAX_ATTEMPTS = 3
 DIAGNOSIS_SCHEMA = {
@@ -46,19 +46,19 @@ class RepairResult:
     final: Outcome | None = None
 
 
-def doctor_user(failed: Outcome) -> str:
-    allowed = ", ".join(sorted(FIXES_FOR.get(failed.check, set()))) or "(none)"
+def doctor_user(failed: Outcome, mode: str = "full") -> str:
+    allowed = ", ".join(sorted(fixes_for(failed.check, mode))) or "(none)"
     return (f"Failed check: {failed.check}\nWhat we saw: {failed.plain}\nTechnical detail: {failed.detail}\n"
             f"Fixes allowed for this check: {allowed}")
 
 
 def diagnose(claude: Claude, ctx: Ctx, failed: Outcome) -> Diagnosis:
-    user = doctor_user(failed)
+    user = doctor_user(failed, ctx.plan.mode)
     data = claude.ask_json(fixture=f"doctor_{failed.check}", tier="cheap", system=SYSTEM, user=user,
                            schema=DIAGNOSIS_SCHEMA, max_tokens=200)
     explanation = str(data.get("plain_explanation", "")).strip()[:300]
     fix_id = str(data.get("fix_id", "")).strip()
-    if fix_id not in PLAYBOOK or fix_id not in FIXES_FOR.get(failed.check, set()):
+    if fix_id not in PLAYBOOK or fix_id not in fixes_for(failed.check, ctx.plan.mode):
         audit.record(ctx.session, actor="doctor", action="diagnose", target=failed.check, result="refused",
                      business_id=ctx.business.id, detail=f"fix_id {fix_id!r} not allowed for {failed.check}")
         raise DoctorRefused(fix_id)

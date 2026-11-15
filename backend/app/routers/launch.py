@@ -21,12 +21,12 @@ from app.agents.planner import PlanError, active_plan, build_plan, plan_out
 from app.agents.reader import Profile
 from app.config import Settings, get_settings
 from app.db import get_session
-from app.agents.launch_check import run_checks
+from app.agents.launch_check import AlreadyChecking, run_checks
 from app.integrations import Integrations, for_business, get_integrations, get_practice_integrations
 from app.models import Approval, Business, Plan, utcnow
 from app.routers.businesses import get_claude
 from app.safety.access import admin_flag, launches_today, owned_business, owned_plan, visitor_id
-from app.sites.hosts import site_url
+from app.sites.hosts import is_public, site_url
 
 router = APIRouter(prefix="/api", tags=["launch"])
 IntegFor = Callable[[Business], Integrations]
@@ -102,6 +102,7 @@ def read_plan(plan: Annotated[Plan, Depends(owned_plan)], settings: Annotated[Se
     out = card_out(plan, settings)
     b = session.get(Business, plan.business_id)
     out["practice"] = b.practice
+    out["public"] = is_public(b) and not b.paused
     out["site_url"] = (f"https://{plan.site_host}/" if plan.mode == "full" and not b.practice
                        else site_url(b.subdomain, settings) if b and b.subdomain else None)
     out["approvals"] = [{"action": a.action, "target": a.target, "amount_usd": a.amount_usd,
@@ -118,7 +119,10 @@ def launch_then_check(engine: Engine, settings: Settings, integ: Integrations, c
     """Run the plan; when it finishes, prove it works (checks + Doctor repairs)."""
     status = run_plan(engine, settings, integ, plan_id)
     if status == "done":
-        run_checks(engine, settings, integ, claude, plan_id, trigger="launch")
+        try:
+            run_checks(engine, settings, integ, claude, plan_id, trigger="launch")
+        except AlreadyChecking:  # a check for this shop is already running; its result is the proof
+            pass
     return status
 
 

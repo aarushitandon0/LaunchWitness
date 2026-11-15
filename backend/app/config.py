@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     visitor_describes_per_day: int = 5
     visitor_launches_per_day: int = 3
     visitor_contacts_per_day: int = 5
+    # Order form limits on every public shop (test orders from the checker don't count).
+    orders_per_visitor_per_hour: int = 5
+    orders_per_shop_per_day: int = 200
     # Light monitoring (APScheduler). Off in tests; the scheduler only starts with the app.
     monitor_enabled: bool = True
 
@@ -61,6 +64,8 @@ class Settings(BaseSettings):
     email_plan_estimate_usd: float = 23.88  # GoDaddy Professional Email Pro Light, 1-yr term ($1.99/mo); monthly term is $5.99/mo
 
     # --- Mail ---
+    # Which email service the mailbox is on: decides the mail settings we expect to see (app/mail/providers.py).
+    mail_provider: Literal["secureserver", "titan"] = "secureserver"
     smtp_host: str = "smtpout.secureserver.net"
     smtp_port: int = 465
     smtp_user: str = "hello@example.com"

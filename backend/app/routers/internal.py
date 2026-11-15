@@ -13,13 +13,14 @@ router = APIRouter(prefix="/internal", tags=["internal"])
 
 
 def is_allowed_tls_domain(domain: str, settings: Settings, session: Session) -> bool:
-    """True only for the app domain, a seller subdomain in the DB, or a seller domain in the DB."""
+    """True only for the app domain and for shops that are live, real (not practice) and not paused."""
     d = domain.strip().lower().rstrip(".")
     if not HOSTNAME.match(d):
         return False
     if d == settings.app_domain.lower().rstrip("."):
         return True
-    return business_for_host(d, settings, session) is not None
+    b = business_for_host(d, settings, session)  # only live, non-practice shops
+    return b is not None and not b.paused
 
 
 @router.get("/tls-ask")

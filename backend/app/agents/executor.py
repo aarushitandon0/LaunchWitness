@@ -21,6 +21,7 @@ from app import audit
 from app.agents.planner import DKIM_PENDING
 from app.config import Settings
 from app.godaddy.client import PurchaseNotSupported
+from app.mail.providers import mx_hosts, provider_for
 from app.integrations import Integrations
 from app.models import Approval, Business, DnsBackup, Plan, utcnow
 from app.safety.spend_guard import PurchaseBlocked, authorize_purchase, mark_used
@@ -89,12 +90,43 @@ def latest_backup(session: Session, plan: Plan) -> DnsBackup | None:
     return session.exec(select(DnsBackup).where(DnsBackup.plan_id == plan.id).order_by(DnsBackup.id.desc())).first()
 
 
+OTHER_MAIL = ("This name already gets its email through another service, and it works. We left its email "
+              "settings exactly as they are, so nothing was changed.")
+
+
+def mail_write_decision(ctx: Ctx, ch: dict, records: list[dict]) -> str:
+    """Read the LIVE zone before writing a mail setting. "write" | "keep" (theirs is fine, skip),
+    or raise: working mail of another service is never replaced (by a launch or by the Doctor)."""
+    if ch["type"] not in ("MX", "TXT"):
+        return "write"
+    live = [r for r in ctx.integ.godaddy.get_records(ch["zone"]) if r["type"] == ch["type"] and r["name"] == ch["name"]]
+    if not live:
+        return "write"
+    provider = provider_for(ctx.settings)
+    if ch["type"] == "MX":
+        if mx_hosts(live) == mx_hosts(records):
+            return "keep"
+        if mx_hosts(live) <= {h for _p, h in provider.mx}:
+            return "write"  # ours, but incomplete
+        raise StepFailed(OTHER_MAIL, f"live MX {sorted(mx_hosts(live))} is not {provider.key}")
+    if ch["name"] == "@":
+        spf = [str(r.get("data", "")) for r in live if str(r.get("data", "")).lower().startswith("v=spf1")]
+        if spf and not any(provider.spf_include in v for v in spf):
+            raise StepFailed(OTHER_MAIL, f"live SPF {spf} does not include {provider.spf_include}")
+        return "write"
+    return "keep" if {str(r.get("data", "")) for r in live} != {str(r.get("data", "")) for r in records} else "write"
+
+
 def write_change(ctx: Ctx, ch: dict, after: list[dict] | None = None) -> None:
     assert_can_write(ctx, ch["zone"], ch["name"])
     if latest_backup(ctx.session, ctx.plan) is None:
         raise StepFailed("Stopped: we couldn't save a copy of your settings first, so nothing was changed.",
                          "no DnsBackup for this plan")
     records = after if after is not None else ch["after"]
+    if mail_write_decision(ctx, ch, records) == "keep":
+        audit.record(ctx.session, actor="executor", action="dns_write", target=f"{ch['type']} {ch['name']} @ {ch['zone']}",
+                     result="kept", business_id=ctx.business.id, detail="a working value is already there; left as it is")
+        return
     ctx.integ.godaddy.set_records(ch["zone"], ch["type"], ch["name"], records)
     audit.record(ctx.session, actor="executor", action="dns_write", target=f"{ch['type']} {ch['name']} @ {ch['zone']}",
                  result="ok", business_id=ctx.business.id, detail=json.dumps([r.get("data") for r in records])[:500])

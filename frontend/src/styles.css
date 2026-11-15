@@ -404,3 +404,10 @@ input[type="checkbox"] { accent-color: var(--ink); width: 18px; height: 18px; }
 
 /* Shown when live Claude is resting and a saved sample was used (session 6). */
 .assistant-note { background: var(--warning-soft); color: #6d4a06; border-radius: var(--r-sm); padding: 0.7rem 0.95rem; }
+
+/* Private shop preview (drafts and practice shops are never public) */
+.preview-overlay { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; background: var(--ink, #111); }
+.preview-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; color: #fff; font-size: 0.9rem; }
+.preview-bar .btn { color: #fff; border-color: rgba(255, 255, 255, 0.4); }
+.preview-overlay iframe { flex: 1; width: 100%; border: 0; background: #fff; }
+.launch-steps { margin-top: 1rem; }

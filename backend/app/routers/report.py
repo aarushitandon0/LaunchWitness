@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 from app import audit
 from app.agents.checker import TITLES
 from app.agents.claude_client import Claude
-from app.agents.launch_check import latest_launched_plan, run_checks, running_check
+from app.agents.launch_check import AlreadyChecking, latest_launched_plan, run_checks, start_run
 from app.config import Settings, get_settings
 from app.db import get_session
 from app.models import AuditEvent, Business, CheckResult, CheckRun, Plan
@@ -19,7 +19,7 @@ from app.monitor.scheduler import QUICK_MINUTES
 from app.routers.businesses import get_claude
 from app.routers.launch import IntegFor, integrations_for
 from app.safety.access import admin_flag, owned_business, require_admin
-from app.sites.hosts import site_url
+from app.sites.hosts import is_public, site_url
 
 router = APIRouter(prefix="/api", tags=["report"])
 OWNER_RUNS = ("launch", "manual")
@@ -45,7 +45,19 @@ def run_out(session: Session, run: CheckRun) -> dict:
             "checks": list(checks.values()), "repairs": repairs, "info": json.loads(run.info_json)}
 
 
-def headline(plan: Plan | None, latest_plan: Plan | None, run: dict | None) -> tuple[bool, str, list[str]]:
+PRACTICE_PASSED = "Practice run: passed (pretend GoDaddy)"
+
+
+def launch_out(plan: Plan | None) -> dict | None:
+    """The launch steps, shown apart from the checks (a finished launch is not proof that it works)."""
+    if plan is None:
+        return None
+    return {"status": plan.status, "steps": [{"title": s["title"], "status": s["status"], "message": s["message"],
+                                              "finished_at": s["finished_at"]} for s in json.loads(plan.steps_json)]}
+
+
+def headline(plan: Plan | None, latest_plan: Plan | None, run: dict | None,
+             practice: bool = False) -> tuple[bool, str, list[str]]:
     if plan is None:
         if latest_plan is None:
             return False, "Your business isn't launched yet", ["Choose where your website lives and approve the launch."]
@@ -58,20 +70,23 @@ def headline(plan: Plan | None, latest_plan: Plan | None, run: dict | None) -> t
         return False, "Checking everything for you…", []
     left = [c["plain"] for c in run["checks"] if not c["passed"]]
     if not left and run["passed"]:
-        return True, "Your business is ready for customers", []
+        # Never an unlabelled "ready" from the pretend world.
+        return True, PRACTICE_PASSED if practice else "Your business is ready for customers", []
     return False, "Almost there: a few things still need attention", left or ["We couldn't finish the checks."]
 
 
 @router.get("/businesses/{business_id}/report")
 def report(b: Annotated[Business, Depends(owned_business)], admin: Annotated[bool, Depends(admin_flag)],
            settings: Annotated[Settings, Depends(get_settings)],
-           session: Annotated[Session, Depends(get_session)]) -> dict:
+           session: Annotated[Session, Depends(get_session)],
+           integ_for: Annotated[IntegFor, Depends(integrations_for)]) -> dict:
+    practice = b.practice or integ_for(b).fake  # results from the pretend world are always labelled
     plan = latest_launched_plan(session, b.id)
     latest_plan = session.exec(select(Plan).where(Plan.business_id == b.id).order_by(Plan.id.desc())).first()
     run_row = session.exec(select(CheckRun).where(CheckRun.business_id == b.id, CheckRun.trigger.in_(OWNER_RUNS))
                            .order_by(CheckRun.id.desc())).first()
     run = run_out(session, run_row) if run_row and plan else None
-    ready, title, left = headline(plan, latest_plan, run)
+    ready, title, left = headline(plan, latest_plan, run, practice)
 
     def last(trigger: str) -> dict | None:
         r = session.exec(select(CheckRun).where(CheckRun.business_id == b.id, CheckRun.trigger == trigger,
@@ -88,11 +103,13 @@ def report(b: Annotated[Business, Depends(owned_business)], admin: Annotated[boo
             else site_url(b.subdomain, settings) if b.subdomain else None)
     return {
         "business": {"id": b.id, "name": b.name, "site_url": site, "has_owner_email": bool(b.owner_email),
-                     "practice": b.practice},
+                     "practice": b.practice, "public": is_public(b) and not b.paused},
         "plan": {"id": plan.id, "mode": plan.mode, "site_host": plan.site_host, "mailbox": plan.mailbox}
         if plan else ({"id": latest_plan.id, "mode": latest_plan.mode, "site_host": latest_plan.site_host,
                        "mailbox": latest_plan.mailbox} if latest_plan else None),
+        "practice": practice,
         "ready": ready, "headline": title, "left": left, "run": run,
+        "launch": launch_out(plan or latest_plan),
         "monitoring": {"enabled": settings.monitor_enabled, "every_minutes": QUICK_MINUTES,
                        "last_quick": last("monitor_quick"), "last_daily": last("monitor_daily"),
                        "cert_days_left": info.get("cert_days_left"), "domain_days_left": info.get("domain_days_left")},
@@ -112,12 +129,10 @@ def run_checks_now(background: BackgroundTasks, b: Annotated[Business, Depends(o
     plan = latest_launched_plan(session, b.id)
     if plan is None:
         raise HTTPException(status_code=409, detail="Your business isn't launched yet, so there's nothing to check.")
-    if running_check(session, b.id) is not None:
-        raise HTTPException(status_code=409, detail="We're already checking. This takes a few seconds.")
-    run = CheckRun(business_id=b.id, plan_id=plan.id, trigger="manual")
-    session.add(run)
-    session.commit()
-    session.refresh(run)
+    try:
+        run = start_run(session, b.id, plan.id, "manual")
+    except AlreadyChecking:
+        raise HTTPException(status_code=409, detail="We're already checking. This takes a few seconds.") from None
     audit.record(session, actor="owner", action="run_checks_now", target=plan.site_host, result="ok",
                  business_id=b.id, detail=f"run #{run.id}")
     background.add_task(run_checks, session.get_bind(), settings, integ_for(b), claude, plan.id,
@@ -141,8 +156,8 @@ def set_demo_fault(business_id: int, body: DemoFault, session: Annotated[Session
         raise HTTPException(status_code=404, detail="We couldn't find that business.")
     plan = latest_launched_plan(session, b.id)
     if body.fault and (plan is None or plan.mode != "full"):
-        raise HTTPException(status_code=409, detail="The demo fault needs a launch on the shop's own name "
-                            "(free addresses have no email settings to break).")
+        raise HTTPException(status_code=409, detail="The demo fault needs a practice launch on the shop's own name "
+                            "(a shop's free address has no email settings of its own to break).")
     b.demo_fault = body.fault
     session.add(b)
     session.commit()

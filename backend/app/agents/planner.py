@@ -16,7 +16,7 @@ from sqlmodel import Session, select
 
 from app import audit
 from app.config import Settings
-from app.godaddy.email import TITAN_MX, TITAN_SPF
+from app.mail.providers import planned_dkim_name, provider_for
 from app.integrations import Integrations
 from app.models import Business, Plan
 from app.agents.namer import DOMAIN
@@ -97,7 +97,7 @@ def _sandbox(session: Session, settings: Settings, integ: Integrations, business
         step("point", "point_site", f"Point {host} to your website",
              f"Set A {sub}.{zone} → {settings.server_ip} (TTL {TTL})."),
         step("mailbox", "use_app_mailbox", "Send your orders to the LaunchWitness inbox",
-             f"Practice launch: order emails go to {settings.smtp_user}."),
+             f"Order emails are sent from {settings.smtp_user} to you."),
         step("wait", "wait_dns", "Wait until the internet sees the change",
              f"Ask GoDaddy's nameservers for {host} until it answers {settings.server_ip}."),
         step("live", "go_live", "Turn your website on",
@@ -127,15 +127,17 @@ def _full(session: Session, settings: Settings, integ: Integrations, business: B
 
     current = integ.godaddy.get_records(domain) if owned else []
     mailbox = f"orders@{domain}"
+    provider = provider_for(settings)
+    dkim_name = planned_dkim_name(provider)
     other_txt = [{"data": r["data"]} for r in current
                  if r["type"] == "TXT" and r["name"] == "@" and not r["data"].lower().startswith("v=spf1")]
     changes = [
         change(domain, "A", "@", current, [{"data": settings.server_ip}], f"Point {domain} to your website"),
-        change(domain, "MX", "@", current, [{"data": host, "priority": prio} for prio, host in TITAN_MX],
+        change(domain, "MX", "@", current, [{"data": host, "priority": prio} for prio, host in provider.mx],
                f"Deliver email for {domain} to your mailbox"),
-        change(domain, "TXT", "@", current, other_txt + [{"data": TITAN_SPF}],
+        change(domain, "TXT", "@", current, other_txt + [{"data": provider.spf}],
                "Allow your mailbox to send email for you (so it doesn't land in spam)"),
-        change(domain, "TXT", "titan1._domainkey", current, [{"data": DKIM_PENDING}],
+        change(domain, "TXT", dkim_name, current, [{"data": DKIM_PENDING}],
                "Sign your emails so customers can trust they're from you", deferred=True),
         change(domain, "TXT", "_dmarc", current, [{"data": DMARC}],
                "Tell email services to treat fake emails in your name as spam"),
@@ -151,7 +153,7 @@ def _full(session: Session, settings: Settings, integ: Integrations, business: B
         step("mailbox", "setup_mailbox", f"Create your email address {mailbox}",
              "Create or adopt the mailbox, then check every 10 seconds until it's ready (retries if busy)."),
         step("email", "email_records", "Set up your email settings",
-             "Set MX, SPF (TXT @), DKIM (TXT titan1._domainkey, value from the mailbox service) and DMARC."),
+             f"Set MX, SPF (TXT @), DKIM (TXT {dkim_name}, value from the mailbox service) and DMARC ({provider.label})."),
         step("wait", "wait_dns", "Wait until the internet sees the changes",
              f"Ask GoDaddy's nameservers for {domain} until it answers {settings.server_ip}."),
         step("live", "go_live", "Turn your website on",

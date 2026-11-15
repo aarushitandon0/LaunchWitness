@@ -26,6 +26,7 @@ class Business(SQLModel, table=True):
     practice: bool = True
     owner_key_hash: str = ""  # sha256 of the secret owner link token (the token itself is never stored)
     visitor: str = ""  # hashed client IP that created it (daily limit)
+    paused: bool = False  # team pause: the public shop shows a neutral "paused" page and takes no orders
     demo_fault: str = ""  # admin demo switch, consumed by the next check run: "" | "dmarc" | "mx"
     created_at: datetime = Field(default_factory=utcnow)
 
@@ -130,6 +131,9 @@ class Order(SQLModel, table=True):
     total_inr: int = 0
     note: str = ""
     is_test: bool = False  # placed by the launch check, not a customer
+    nonce: str = ""  # test orders: random code in the email subject + body, so an old email can never pass
+    visitor: str = Field(default="", index=True)  # hashed client IP (order rate limit); never the IP itself
+    client_token: str = Field(default="", index=True)  # hidden form field: a double submit makes one order
     email_status: str = "pending"  # pending | sent | failed
     email_message_id: str = ""
     created_at: datetime = Field(default_factory=utcnow)

@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { ShopLink } from "./ShopLink";
 import { api, ApiError, Business, inr, keys, Order, Product, Profile } from "./api";
 import { ErrorBox } from "./Describe";
 
@@ -272,11 +273,7 @@ export default function Review({ id }: { id: number }) {
         <button className="btn btn-primary" type="submit" disabled={saving}>
           {saving ? "Saving…" : "Save"}
         </button>
-        {biz.site_url && (
-          <a className="btn btn-ghost" href={biz.site_url} target="_blank" rel="noreferrer">
-            View my website
-          </a>
-        )}
+        <ShopLink businessId={id} siteUrl={biz.site_url} isPublic={biz.public} label="View my shop" />
         {!dirty && biz.status !== "live" && (
           <a className="btn btn-primary" href={`#/b/${id}/launch`}>
             Launch my website →

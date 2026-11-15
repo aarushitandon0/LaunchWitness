@@ -116,8 +116,27 @@ def session(engine) -> Iterator[Session]:
 
 
 @pytest.fixture
-def mailer() -> FakeMailer:
-    return FakeMailer()
+def mailer(integ) -> FakeMailer:
+    """The pretend world's mailer (shop orders, alerts) is also the app's own mailer in tests."""
+    return integ.mailer
+
+
+def publish_client(client, business_id: int) -> None:
+    """`publish` for tests that only hold the TestClient."""
+    gen = client.app.dependency_overrides[get_session]()
+    publish(next(gen).get_bind(), business_id)
+    gen.close()
+
+
+def publish(engine: Engine, business_id: int) -> None:
+    """Make a shop public the way a real (non-practice) launch does: live and not practice."""
+    from app.models import Business
+
+    with Session(engine) as s:
+        b = s.get(Business, business_id)
+        b.status, b.practice = "live", False
+        s.add(b)
+        s.commit()
 
 
 @pytest.fixture

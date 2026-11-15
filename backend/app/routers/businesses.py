@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
@@ -17,7 +18,8 @@ from app.db import get_engine, get_session
 from app.models import Business, Order
 from app.safety.access import (admin_flag, describes_today, hash_key, new_owner_key, owned_business, owner_link,
                                require_admin, visitor_id)
-from app.sites.hosts import RESERVED_SUBDOMAINS, SUBDOMAIN, site_url
+from app.sites.hosts import is_public, site_url, slug_problem
+from app.sites.render import render_site
 
 router = APIRouter(prefix="/api", tags=["businesses"])
 SELLERS = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "sellers"
@@ -30,13 +32,16 @@ def get_claude(settings: Annotated[Settings, Depends(get_settings)]) -> Claude:
 
 def slugify(name: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", name.lower().replace("'", "")).strip("-")
-    return s[:30].strip("-") or "shop"
+    s = s[:30].strip("-")
+    return s if len(s) >= 3 else "shop"
 
 
 def unique_subdomain(session: Session, base: str) -> str:
+    if slug_problem(base) is not None:  # reserved or brand-like: start from a neutral name
+        base = "shop"
     candidate, n = base, 2
-    while candidate in RESERVED_SUBDOMAINS or session.exec(select(Business.id).where(Business.subdomain == candidate)).first():
-        candidate, n = f"{base[:27]}-{n}", n + 1
+    while slug_problem(candidate) is not None or session.exec(select(Business.id).where(Business.subdomain == candidate)).first():
+        candidate, n = f"{base[:26]}-{n}", n + 1
     return candidate
 
 
@@ -47,6 +52,7 @@ def business_out(b: Business, settings: Settings) -> dict:
         "site_url": site_url(b.subdomain, settings) if b.subdomain else None,
         "status": b.status,
         "practice": b.practice,
+        "public": is_public(b) and not b.paused,  # false = only the owner sees it, through the preview
         "owner_email": b.owner_email,
         "profile": json.loads(b.profile_json),
     }
@@ -152,10 +158,11 @@ def update_business(body: ProfileUpdate, b: Annotated[Business, Depends(owned_bu
     if email and not EMAIL.match(email):
         raise HTTPException(status_code=422, detail="That email address doesn't look right. Please check it.")
     sub = body.subdomain.strip().lower()
-    if not SUBDOMAIN.match(sub):
-        raise HTTPException(status_code=422, detail="Site address can use only letters, numbers and dashes (2–42 characters).")
-    if sub in RESERVED_SUBDOMAINS:
-        raise HTTPException(status_code=422, detail="That site address is reserved. Please pick another.")
+    problem = slug_problem(sub) if sub != b.subdomain else None
+    if problem:
+        raise HTTPException(status_code=422, detail=problem)
+    if sub != b.subdomain and is_public(b):
+        raise HTTPException(status_code=409, detail="Your shop is live at this address, so it can't be changed here.")
     taken = session.exec(select(Business.id).where(Business.subdomain == sub, Business.id != b.id)).first()
     if taken:
         raise HTTPException(status_code=409, detail="That site address is already taken. Please pick another.")
@@ -171,6 +178,14 @@ def update_business(body: ProfileUpdate, b: Annotated[Business, Depends(owned_bu
     audit.record(session, actor="owner", action="profile_saved", target=f"business:{b.id}", result="ok",
                  business_id=b.id, detail=f"subdomain {old_sub} -> {sub}" if old_sub != sub else "")
     return business_out(b, settings)
+
+
+@router.get("/businesses/{business_id}/preview", response_class=HTMLResponse)
+def preview(b: Annotated[Business, Depends(owned_business)], page: str = "home") -> HTMLResponse:
+    """The owner's private look at their shop (drafts and practice shops are never public)."""
+    profile = Profile.model_validate_json(b.profile_json)
+    return HTMLResponse(render_site(profile, page="privacy" if page == "privacy" else "home", preview=True),
+                        headers={"X-Robots-Tag": "noindex", "Cache-Control": "no-store"})
 
 
 @router.get("/businesses/{business_id}/orders")

@@ -36,6 +36,7 @@ export type Business = {
   site_url: string | null;
   status: string;
   practice: boolean;
+  public: boolean; // false = only the owner sees it (preview)
   owner_email: string;
   profile: Profile;
   owner_key?: string; // only in the response that created the business
@@ -92,6 +93,7 @@ export type Plan = {
   changes: DnsChange[];
   site_url: string | null;
   practice: boolean;
+  public: boolean;
   email_plan_estimate_usd: number | null;
   approvals: { action: string; target: string; amount_usd: number; approved_by: string; used: boolean }[];
 };
@@ -120,7 +122,9 @@ export type Repair = {
 export type AuditRow = { at: string; actor: string; action: string; target: string; result: string; detail: string };
 
 export type Report = {
-  business: { id: number; name: string; site_url: string | null; has_owner_email: boolean; practice: boolean };
+  business: { id: number; name: string; site_url: string | null; has_owner_email: boolean; practice: boolean; public: boolean };
+  practice: boolean; // results come from the pretend world: always labelled
+  launch: { status: string; steps: { title: string; status: string; message: string; finished_at: string | null }[] } | null;
   plan: { id: number; mode: "sandbox" | "full"; site_host: string; mailbox: string } | null;
   ready: boolean;
   headline: string;
@@ -264,6 +268,11 @@ export const api = {
     ),
   contact: (name: string, email: string, message: string, website: string) =>
     request<{ ok: boolean; message: string }>("/api/contact", json({ name, email, message, website })),
+  preview: async (id: number): Promise<string> => {
+    const r = await fetch(`/api/businesses/${id}/preview`, { headers: authHeaders(id) }).catch(() => null);
+    if (!r || !r.ok) throw new ApiError("We couldn't load the preview. Please try again.", r?.status ?? 0);
+    return r.text();
+  },
   report: (id: number) => request<Report>(`/api/businesses/${id}/report`, undefined, id),
   runChecks: (id: number) => request<{ ok: boolean; run_id: number }>(`/api/businesses/${id}/checks`, { method: "POST" }, id),
   adminCheck: (token: string) =>

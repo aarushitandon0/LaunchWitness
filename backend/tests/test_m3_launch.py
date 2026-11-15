@@ -10,6 +10,7 @@ from app.agents.executor import Ctx, DomainRefused, StepFailed, assert_can_write
 from app.agents.namer import clean_names, rank
 from app.godaddy.availability import Quote
 from app.models import Approval, AuditEvent, Business, DnsBackup, Plan
+from tests.conftest import publish
 
 SELLERS = Path(__file__).parent / "fixtures" / "sellers"
 
@@ -97,7 +98,7 @@ def test_full_plan_lists_every_setting_and_cost(client, integ):
     assert p["total_cost_usd"] == 8.99
     assert p["steps"][0]["title"] == "Buy meerascakes.in ($8.99 for the first year)"
     assert [(c["type"], c["name"]) for c in p["changes"]] == [
-        ("A", "@"), ("MX", "@"), ("TXT", "@"), ("TXT", "titan1._domainkey"), ("TXT", "_dmarc")]
+        ("A", "@"), ("MX", "@"), ("TXT", "@"), ("TXT", "mail._domainkey"), ("TXT", "_dmarc")]
     assert all(c["say"] and "MX" not in c["say"] for c in p["changes"])  # plain words for the seller
 
 
@@ -107,7 +108,7 @@ def test_full_plan_keeps_other_txt_records(client, integ):
                                              {"type": "TXT", "name": "@", "data": "v=spf1 -all"}]
     p = plan(client, meera(client), "full", "meerascakes.in")
     txt = next(c for c in p["changes"] if (c["type"], c["name"]) == ("TXT", "@"))
-    assert txt["after_text"] == ["google-site-verification=abc", "v=spf1 include:spf.titan.email ~all"]
+    assert txt["after_text"] == ["google-site-verification=abc", "v=spf1 include:secureserver.net -all"]
     assert p["total_cost_usd"] == 0 and p["steps"][0]["title"].startswith("Use meerascakes.in")
 
 
@@ -134,7 +135,12 @@ def test_sandbox_launch_end_to_end(client, integ, engine, settings):
     assert [e.action for e in step_events] == ["step_backup_dns", "step_point_site", "step_use_app_mailbox",
                                                 "step_wait_dns", "step_go_live"]
     assert all(e.result == "ok" for e in step_events)
-    # The live site and tls-ask both know the host now.
+    # A practice launch is never public: no page, no certificate. The owner sees the preview.
+    assert client.get("/", headers={"host": "meera.localhost"}).status_code == 404
+    assert client.get("/internal/tls-ask", params={"domain": "meera.localhost"}).status_code == 404
+    assert "Meera" in client.get(f"/api/businesses/{biz['id']}/preview").text
+    # Once the shop is real (not practice), the live site and tls-ask both know the host.
+    publish(engine, biz["id"])
     assert "Meera" in client.get("/", headers={"host": "meera.localhost"}).text
     assert client.get("/internal/tls-ask", params={"domain": "meera.localhost"}).status_code == 200
 
@@ -266,7 +272,7 @@ def test_owner_buys_manually_then_resume_adopts_and_finishes(client, integ, engi
     assert p["steps"][0]["message"].startswith("meerascakes.in is in your GoDaddy account")
     zone = {(r["type"], r["name"]): r for r in integ.godaddy.zones["meerascakes.in"]}
     assert zone[("A", "@")]["data"] == settings.server_ip
-    assert zone[("TXT", "titan1._domainkey")]["data"].startswith("v=DKIM1; k=rsa; p=FAKE")
+    assert zone[("TXT", "mail._domainkey")]["data"].startswith("v=DKIM1; k=rsa; p=FAKE")
     assert zone[("TXT", "_dmarc")]["data"].startswith("v=DMARC1")
     assert ("create", "orders@meerascakes.in") in integ.mailbox.calls
     assert not any(c[0] == "purchase_domain" for c in integ.godaddy.calls)

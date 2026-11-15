@@ -1,4 +1,4 @@
-"""Business mailbox (Titan via GoDaddy), behind one interface.
+"""Business mailbox (GoDaddy email), behind one interface.
 
 Step rules (SPEC §9): create or adopt, poll until ready, retry on failure, never undo.
 The real provider is a stub to fill in (see PROGRESS.md: Real integration TODO).
@@ -8,9 +8,7 @@ import hashlib
 from dataclasses import dataclass
 from typing import Protocol
 
-# Titan mail records. TODO(real): confirm exact values for GoDaddy-sold Titan.
-TITAN_MX = [(10, "mx1.titan.email"), (20, "mx2.titan.email")]
-TITAN_SPF = "v=spf1 include:spf.titan.email ~all"
+# Mail record values live in app/mail/providers.py (one table per email service).
 
 
 @dataclass(frozen=True)
@@ -29,7 +27,9 @@ class MailboxProvider(Protocol):
 
 
 class FakeMailboxProvider:
-    def __init__(self, ready_after_polls: int = 1, fail_creates: int = 0, existing: set[str] | None = None):
+    def __init__(self, ready_after_polls: int = 1, fail_creates: int = 0, existing: set[str] | None = None,
+                 dkim_name: str = "mail._domainkey"):
+        self.dkim_name = dkim_name
         self.ready_after_polls = ready_after_polls
         self.fail_creates = fail_creates
         self.boxes: dict[str, int] = {a: 10**6 for a in (existing or ())}  # address -> polls seen
@@ -54,7 +54,7 @@ class FakeMailboxProvider:
         return "ready" if self.boxes[address] > self.ready_after_polls else "pending"
 
     def dkim(self, domain: str) -> tuple[str, str]:
-        return "titan1._domainkey", f"v=DKIM1; k=rsa; p=FAKE{hashlib.sha256(domain.encode()).hexdigest()[:24]}"
+        return self.dkim_name, f"v=DKIM1; k=rsa; p=FAKE{hashlib.sha256(domain.encode()).hexdigest()[:24]}"
 
 
 class TitanMailboxProvider:

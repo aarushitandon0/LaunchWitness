@@ -1,8 +1,8 @@
 """The ONLY repairs the Doctor may choose (SPEC §5, §9). Code applies them.
 
 Every fix reuses the executor's guarded writes (backup exists, domain in DB,
-one type+name at a time). No fix spends money. `FIXES_FOR` limits which fixes
-make sense for which failed check.
+one type+name at a time). No fix spends money. `fixes_for(check, mode)` limits which
+fixes make sense for which failed check in which kind of launch.
 """
 
 from collections.abc import Callable
@@ -63,16 +63,30 @@ PLAYBOOK: dict[str, Callable[[Ctx], str]] = {
     "repoint_site": repoint_site,
 }
 
-FIXES_FOR: dict[str, set[str]] = {
-    "site_points": {"repoint_site", "restore_backup"},
-    "https": {"retry_certificate", "repoint_site"},
-    "email_mx": {"readd_mx"},
-    "email_spf": {"readd_email_auth"},
-    "email_dkim": {"readd_email_auth"},
-    "email_dmarc": {"readd_email_auth"},
-    "test_order": {"readd_mx", "readd_email_auth"},
-    "launch_clean": {"restore_backup"},
+# Which fixes make sense for which failed check, per launch mode.
+# "sandbox" = a shop on <name>.<APP_DOMAIN>: the only setting that is the shop's own is its A
+# record. Mail settings there belong to the app's domain and are never written by code, and a
+# missing test order has no safe automatic fix, so those checks get no fix (and no Doctor call).
+# "full" = a launch on the seller's own domain (practice only for now).
+FIXES_FOR: dict[str, dict[str, set[str]]] = {
+    "sandbox": {
+        "site_points": {"repoint_site"},
+        "https": {"retry_certificate", "repoint_site"},
+    },
+    "full": {
+        "site_points": {"repoint_site", "restore_backup"},
+        "https": {"retry_certificate", "repoint_site"},
+        "email_mx": {"readd_mx"},
+        "email_spf": {"readd_email_auth"},
+        "email_dkim": {"readd_email_auth"},
+        "email_dmarc": {"readd_email_auth"},
+        "test_order": {"readd_mx", "readd_email_auth"},
+    },
 }
+
+
+def fixes_for(check: str, mode: str) -> set[str]:
+    return set(FIXES_FOR.get(mode, {}).get(check, set()))
 
 
 def apply_fix(ctx: Ctx, fix_id: str) -> str:

@@ -26,6 +26,22 @@ class PurchaseNotSupported(RuntimeError):
     pass
 
 
+class AppZoneWriteRefused(RuntimeError):
+    """A write to the app's own domain that is not an A record for one shop name."""
+
+
+def assert_zone_write(app_domain: str, domain: str, rtype: str, name: str) -> None:
+    """Hard guard, inside the client itself: on the app's own domain (which also carries the app's
+    website and email), code may only write an A record for one shop name. Never @, *, www, a
+    reserved name, MX, TXT, CNAME or any mail record, whatever the caller asks for."""
+    from app.sites.hosts import slug_problem
+
+    if domain.lower().rstrip(".") != app_domain.lower().rstrip("."):
+        return
+    if rtype.upper() != "A" or slug_problem(name) is not None:
+        raise AppZoneWriteRefused(f"refused {rtype} {name} on {domain}: only A records for shop names may be written")
+
+
 class GoDaddy(Protocol):
     env: str
 
@@ -43,6 +59,7 @@ class GoDaddyClient:
 
     def __init__(self, settings: Settings, transport: httpx.BaseTransport | None = None):
         self.env = settings.godaddy_env
+        self.app_domain = settings.app_domain
         if self.env == "prod":
             key, secret = settings.godaddy_api_key, settings.godaddy_api_secret
         else:
@@ -64,12 +81,12 @@ class GoDaddyClient:
         return r.json()
 
     def is_owned(self, domain: str) -> bool:
-        """True if the domain is in this GoDaddy account. TODO(real): verify against prod account."""
+        """True only if the domain is in this GoDaddy account AND its status is ACTIVE."""
         r = self._http.get(f"/v1/domains/{domain}")
         if r.status_code == 404:
             return False
         r.raise_for_status()
-        return r.json().get("status", "").upper() in ("ACTIVE", "PENDING_DNS_ACTIVE", "")
+        return str(r.json().get("status", "")).upper() == "ACTIVE"
 
     def get_records(self, domain: str) -> list[DnsRecord]:
         r = self._http.get(f"/v1/domains/{domain}/records")
@@ -78,11 +95,13 @@ class GoDaddyClient:
 
     def set_records(self, domain: str, rtype: str, name: str, records: list[DnsRecord]) -> None:
         """Replace all records of one type+name (PUT /v1/domains/{d}/records/{type}/{name})."""
+        assert_zone_write(self.app_domain, domain, rtype, name)
         body = [{k: v for k, v in rec.items() if k not in ("type", "name")} for rec in records]
         r = self._http.put(f"/v1/domains/{domain}/records/{rtype}/{name}", json=body)
         r.raise_for_status()
 
     def delete_records(self, domain: str, rtype: str, name: str) -> None:
+        assert_zone_write(self.app_domain, domain, rtype, name)
         r = self._http.delete(f"/v1/domains/{domain}/records/{rtype}/{name}")
         if r.status_code != 404:
             r.raise_for_status()
@@ -103,8 +122,10 @@ class GoDaddyClient:
 class FakeGoDaddyClient:
     """In-memory stand-in for tests and practice mode."""
 
-    def __init__(self, available: dict[str, float] | None = None, env: str = "ote", owned: set[str] | None = None):
+    def __init__(self, available: dict[str, float] | None = None, env: str = "ote", owned: set[str] | None = None,
+                 app_domain: str = ""):
         self.env = env
+        self.app_domain = app_domain  # same write guard as the real client
         self.available = dict(available or {})  # domain -> price in USD
         self.owned: set[str] = set(owned or ())
         self.zones: dict[str, list[DnsRecord]] = {}
@@ -133,12 +154,14 @@ class FakeGoDaddyClient:
         return [dict(r) for r in self.zones.get(domain, [])]
 
     def set_records(self, domain: str, rtype: str, name: str, records: list[DnsRecord]) -> None:
+        assert_zone_write(self.app_domain, domain, rtype, name)
         self.calls.append(("set_records", domain, rtype, name))
         self._maybe_fail("set_records")
         keep = [r for r in self.zones.get(domain, []) if not (r["type"] == rtype and r["name"] == name)]
         self.zones[domain] = keep + [{**dict(r), "type": rtype, "name": name} for r in records]
 
     def delete_records(self, domain: str, rtype: str, name: str) -> None:
+        assert_zone_write(self.app_domain, domain, rtype, name)
         self.calls.append(("delete_records", domain, rtype, name))
         self.zones[domain] = [r for r in self.zones.get(domain, []) if not (r["type"] == rtype and r["name"] == name)]
 

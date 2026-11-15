@@ -1,6 +1,6 @@
 # LaunchWitness
 
-> **Airo builds your website. LaunchWitness proves it can take a customer's order, fixes it when it can't, and keeps watching after launch.**
+> **Describe your business. LaunchWitness puts it online on GoDaddy, proves a real order reaches you, fixes what breaks, and keeps checking.**
 
 **Is your shop actually ready for customers?** Built for the GoDaddy Inclusive Innovation Hackathon 2026 (working name).
 

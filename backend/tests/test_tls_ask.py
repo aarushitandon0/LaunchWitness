@@ -13,8 +13,12 @@ def prod_client(make_settings, engine):
     """App configured with a real-looking app domain and two sellers in the DB."""
     s = make_settings(app_domain="launchwitness.com")
     with Session(engine) as db:
-        db.add(Business(name="Meera's Home Cakes", subdomain="meera", domain="meerascakes.in"))
-        db.add(Business(name="Annapurna Tiffin", subdomain="annapurna"))
+        db.add(Business(name="Meera's Home Cakes", subdomain="meera", domain="meerascakes.in", status="live",
+                        practice=False))
+        db.add(Business(name="Annapurna Tiffin", subdomain="annapurna", status="live", practice=False))
+        db.add(Business(name="Draft Shop", subdomain="draftshop", practice=False))
+        db.add(Business(name="Practice Shop", subdomain="practiceshop", status="live"))
+        db.add(Business(name="Paused Shop", subdomain="pausedshop", status="live", practice=False, paused=True))
         db.commit()
     app = create_app(run_lifespan=False)
 
@@ -45,6 +49,9 @@ def test_allows_known_domains(prod_client, domain):
 @pytest.mark.parametrize("domain", [
     "evil.com",
     "unknown.launchwitness.com",            # subdomain not in DB
+    "draftshop.launchwitness.com",          # not launched
+    "practiceshop.launchwitness.com",       # practice shops are never public
+    "pausedshop.launchwitness.com",         # paused by the team
     "a.meera.launchwitness.com",            # nested subdomain
     "www.meerascakes.in",                  # only exact seller domains for now
     "meerascakes.in.evil.com",

@@ -2,13 +2,16 @@
 
 Checks: site points to the server (asked of the AUTHORITATIVE nameservers via
 `integ.dns`), site opens over HTTPS with a valid certificate, email settings
-(MX, SPF, DKIM, DMARC — full launches only; sandbox uses the app mailbox), a
-real test order arrives, and the launch finished cleanly. Each result is stored
-as a CheckResult row and an AuditEvent.
+(MX, SPF, DKIM, DMARC of the domain the order mailbox is on, compared with the
+mail provider table; read-only), and a real test order arrives. Each result is
+stored as a CheckResult row and an AuditEvent. Launch steps are not a check:
+the report shows them separately.
 """
 
 import json
+import secrets
 from dataclasses import dataclass
+from datetime import timedelta
 
 from sqlmodel import Session
 
@@ -16,8 +19,8 @@ from app import audit
 from app.agents.executor import Ctx
 from app.agents.planner import DKIM_PENDING
 from app.agents.reader import Profile
-from app.godaddy.email import TITAN_MX
-from app.models import CheckResult
+from app.mail.providers import mx_hosts, provider_for
+from app.models import CheckResult, utcnow
 from app.sites.orders import place_order
 
 
@@ -50,62 +53,85 @@ def check_https(ctx: Ctx) -> Outcome:
     return Outcome("https", ok, plain, f"status={r.status} cert_valid={r.cert_valid} {r.error}".strip())
 
 
+def mail_zone(ctx: Ctx) -> str:
+    """The domain whose mail settings matter for this shop's orders: the seller's own domain on
+    an own-name launch, else the domain the order mailbox is on (the app's)."""
+    return ctx.plan.zone if ctx.plan.mode == "full" else ctx.plan.mailbox.rsplit("@", 1)[-1].lower()
+
+
 def check_email_mx(ctx: Ctx) -> Outcome:
-    got = ctx.integ.dns.resolve(ctx.plan.zone, "MX")
-    hosts = {v.split()[-1].rstrip(".") for v in got}
-    ok = all(h in hosts for _, h in TITAN_MX)
+    zone, provider = mail_zone(ctx), provider_for(ctx.settings)
+    got = ctx.integ.dns.resolve(zone, "MX")
+    hosts = {v.split()[-1].rstrip(".").lower() for v in got}
+    ok = all(h in hosts for _, h in provider.mx)
     return Outcome("email_mx", ok, "Emails to your address reach your mailbox." if ok else
-                   "Emails sent to your address can't reach your mailbox.", f"MX = {got or 'nothing'}")
+                   "Emails sent to your address can't reach your mailbox.",
+                   f"MX {zone} = {got or 'nothing'}; expected {provider.label}")
 
 
 def check_email_spf(ctx: Ctx) -> Outcome:
-    got = _txt(ctx.integ.dns.resolve(ctx.plan.zone, "TXT"))
-    ok = any(v.startswith("v=spf1") and "include:spf.titan.email" in v for v in got)
+    zone, provider = mail_zone(ctx), provider_for(ctx.settings)
+    got = _txt(ctx.integ.dns.resolve(zone, "TXT"))
+    ok = any(v.startswith("v=spf1") and provider.spf_include in v for v in got)
     return Outcome("email_spf", ok, "Your mailbox is allowed to send email for you." if ok else
-                   "Your emails may land in spam: the sending permission is missing.", f"TXT @ = {got or 'nothing'}")
+                   "Your emails may land in spam: the sending permission is missing.",
+                   f"TXT {zone} = {got or 'nothing'}; expected {provider.spf_include}")
+
+
+def dkim_names(ctx: Ctx, zone: str) -> list[str]:
+    """Signing record names: the ones this launch planned, else whatever the live zone has."""
+    names = [c["name"] for c in ctx.changes if c["name"].endswith("._domainkey")]
+    if not names:
+        try:
+            names = sorted({r["name"] for r in ctx.integ.godaddy.get_records(zone) if r["name"].endswith("._domainkey")})
+        except Exception:  # can't list the zone (not ours): fall back to the provider's usual names
+            names = []
+    return names or [f"{sel}._domainkey" for sel in provider_for(ctx.settings).dkim_selectors]
 
 
 def check_email_dkim(ctx: Ctx) -> Outcome:
-    name = next((c["name"] for c in ctx.changes if c["name"].endswith("._domainkey")), "titan1._domainkey")
-    got = _txt(ctx.integ.dns.resolve(f"{name}.{ctx.plan.zone}", "TXT"))
-    ok = any(v.startswith("v=DKIM1") and "p=" in v for v in got)
+    zone = mail_zone(ctx)
+    names, seen = dkim_names(ctx, zone), {}
+    for name in names:
+        txt = _txt(ctx.integ.dns.resolve(f"{name}.{zone}", "TXT"))
+        seen[name] = (any(v.startswith("v=DKIM1") and "p=" in v for v in txt)
+                      or bool(ctx.integ.dns.resolve(f"{name}.{zone}", "CNAME")))
+    ok = bool(seen) and all(seen.values())
     return Outcome("email_dkim", ok, "Your emails are signed so customers can trust them." if ok else
-                   "Your emails aren't signed, so they may land in spam.", f"TXT {name} = {got or 'nothing'}")
+                   "Your emails aren't signed, so they may land in spam.",
+                   f"signing records on {zone}: {seen or 'none found'}")
 
 
 def check_email_dmarc(ctx: Ctx) -> Outcome:
-    got = _txt(ctx.integ.dns.resolve(f"_dmarc.{ctx.plan.zone}", "TXT"))
+    zone = mail_zone(ctx)
+    got = _txt(ctx.integ.dns.resolve(f"_dmarc.{zone}", "TXT"))
     ok = any(v.startswith("v=DMARC1") for v in got)
     return Outcome("email_dmarc", ok, "Fake emails in your name will be treated as spam." if ok else
-                   "Order emails could land in spam: a protection setting is missing.", f"TXT _dmarc = {got or 'nothing'}")
+                   "Order emails could land in spam: a protection setting is missing.",
+                   f"TXT _dmarc.{zone} = {got or 'nothing'}")
 
 
 def check_test_order(ctx: Ctx) -> Outcome:
-    """Place a real order through the seller's order code, then look for it in the demo inbox."""
+    """Place a test order through the same code and to the same people as a customer's order,
+    then look in the inbox we can read for THIS run's random code (never an older email)."""
     profile = Profile.model_validate_json(ctx.business.profile_json)
     first = next((x for x in profile.products if not x.addon), profile.products[0])
     data = {"customer_name": "LaunchWitness test", "customer_phone": "0000000000",
             "note": "Automatic test order from your launch check. No action needed.",
             "items": [{"name": first.name, "qty": 1, "price_inr": first.price_inr}], "total_inr": first.price_inr}
-    order = place_order(ctx.session, ctx.integ.mailer, business=ctx.business, profile=profile, data=data,
-                        mail_to=ctx.plan.mailbox, is_test=True)
+    started, nonce = utcnow(), secrets.token_hex(8)
+    order = place_order(ctx.session, ctx.integ.mailer, ctx.settings, business=ctx.business, profile=profile,
+                        data=data, is_test=True, nonce=nonce)
     if order.email_status != "sent":
         return Outcome("test_order", False, "We couldn't send a test order email.", f"order #{order.id} email failed")
     for i in range(3):
-        if ctx.integ.inbox.find(subject_contains=f"(#{order.id})"):
-            return Outcome("test_order", True, "A test order arrived in your inbox.", f"order #{order.id} found")
+        if ctx.integ.inbox.find(subject_contains=nonce, since=started - timedelta(minutes=2)):
+            return Outcome("test_order", True, "A test order arrived in your inbox.",
+                           f"order #{order.id} code {nonce} found")
         if i < 2:
             ctx.integ.sleep(20)
     return Outcome("test_order", False, "A test order was sent but hasn't arrived in your inbox.",
-                   f"order #{order.id} not found in {ctx.plan.mailbox}")
-
-
-def check_launch_clean(ctx: Ctx) -> Outcome:
-    steps = json.loads(ctx.plan.steps_json)
-    bad = [s["title"] for s in steps if s["status"] not in ("done", "skipped")]
-    ok = ctx.plan.status == "done" and not bad
-    return Outcome("launch_clean", ok, "Every launch step finished." if ok else
-                   "Some launch steps didn't finish.", f"plan {ctx.plan.status}; unfinished: {bad}")
+                   f"order #{order.id} code {nonce} not found in {ctx.plan.mailbox}")
 
 
 def check_settings_match(ctx: Ctx) -> Outcome:
@@ -134,12 +160,9 @@ CHECKS = {
     "email_dkim": check_email_dkim,
     "email_dmarc": check_email_dmarc,
     "test_order": check_test_order,
-    "launch_clean": check_launch_clean,
     "settings_match": check_settings_match,  # monitoring only
 }
-LAUNCH_CHECKS = ["site_points", "https", "email_mx", "email_spf", "email_dkim", "email_dmarc", "test_order",
-                 "launch_clean"]
-SANDBOX_CHECKS = ["site_points", "https", "test_order", "launch_clean"]
+LAUNCH_CHECKS = ["site_points", "https", "email_mx", "email_spf", "email_dkim", "email_dmarc", "test_order"]
 TITLES = {
     "site_points": "Your address leads to your website",
     "https": "Your website opens securely",
@@ -148,13 +171,12 @@ TITLES = {
     "email_dkim": "Your emails are signed",
     "email_dmarc": "Protection against fake emails in your name",
     "test_order": "A test order reached your inbox",
-    "launch_clean": "Every launch step finished",
     "settings_match": "Your settings are unchanged since launch",
 }
 
 
 def checks_for(ctx: Ctx) -> list[str]:
-    return list(LAUNCH_CHECKS) if ctx.plan.mode == "full" else list(SANDBOX_CHECKS)
+    return list(LAUNCH_CHECKS)  # the same proof for every launch; only the allowed fixes differ by mode
 
 
 def run_check(ctx: Ctx, name: str, attempt: int = 0) -> Outcome:

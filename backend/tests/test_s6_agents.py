@@ -22,7 +22,9 @@ from app.agents.doctor import SYSTEM as DOCTOR_SYSTEM
 from app.agents.doctor import DoctorRefused, diagnose, doctor_user
 from app.agents.namer import SYSTEM as NAMER_SYSTEM
 from app.agents.namer import clean_names
-from app.agents.playbook import FIXES_FOR, PLAYBOOK
+from app.agents.playbook import FIXES_FOR as FIXES_BY_MODE, PLAYBOOK
+
+FIXES_FOR = FIXES_BY_MODE["full"]  # own-domain launches have a fix for every check
 from app.agents.reader import SYSTEM as READER_SYSTEM
 from app.agents.reader import Profile, build_user_content
 from app.models import AuditEvent

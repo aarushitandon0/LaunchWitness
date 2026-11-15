@@ -18,6 +18,7 @@ from app.godaddy.availability import AvailabilityChecker, FakeAvailabilityChecke
 from app.godaddy.client import FakeGoDaddyClient, GoDaddy, GoDaddyClient
 from app.godaddy.email import FakeMailboxProvider, MailboxProvider, TitanMailboxProvider
 from app.mail.imap import FakeInboxReader, ImapInboxReader, InboxReader
+from app.mail.providers import planned_dkim_name, provider_for
 from app.mail.smtp import FakeMailer, Mailer, SmtpMailer
 
 
@@ -49,12 +50,21 @@ class Integrations:
 
 
 def fake_integrations(settings: Settings, sleep: Callable[[float], None] | None = None) -> Integrations:
-    gd = FakeGoDaddyClient(owned={settings.app_domain})
+    gd = FakeGoDaddyClient(owned={settings.app_domain}, app_domain=settings.app_domain)
+    provider = provider_for(settings)
+    # The pretend world starts like the real one: the domain the app's mailbox is on already has
+    # working mail settings (GoDaddy set them when the mailbox was bought). Checks only read them.
+    mail_zone = settings.smtp_user.rsplit("@", 1)[-1].lower()
+    gd.zones.setdefault(mail_zone, []).extend(
+        [{"type": "MX", "name": "@", "data": host, "priority": prio, "ttl": 3600} for prio, host in provider.mx]
+        + [{"type": "TXT", "name": "@", "data": provider.spf, "ttl": 3600},
+           {"type": "TXT", "name": planned_dkim_name(provider), "data": "v=DKIM1; k=rsa; p=PRETENDKEY", "ttl": 3600},
+           {"type": "TXT", "name": "_dmarc", "data": "v=DMARC1; p=quarantine", "ttl": 3600}])
     inbox = FakeInboxReader()
     return Integrations(
         godaddy=gd,
         availability=FakeAvailabilityChecker(),
-        mailbox=FakeMailboxProvider(existing={settings.smtp_user}),
+        mailbox=FakeMailboxProvider(existing={settings.smtp_user}, dkim_name=planned_dkim_name(provider)),
         dns=ZoneBackedResolver(gd),
         http=FakeHttpProbe(settings),
         mailer=DeliveringFakeMailer(inbox, settings.smtp_user),

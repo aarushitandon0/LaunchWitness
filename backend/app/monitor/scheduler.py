@@ -24,7 +24,7 @@ from sqlmodel import Session, select
 
 from app import audit
 from app.agents.claude_client import Claude
-from app.agents.launch_check import NotLaunched, latest_launched_plan, run_checks
+from app.agents.launch_check import AlreadyChecking, NotLaunched, latest_launched_plan, run_checks
 from app.config import Settings
 from app.integrations import Integrations
 from app.models import Alert, Business, CheckRun, utcnow
@@ -32,13 +32,13 @@ from app.models import Alert, Business, CheckRun, utcnow
 QUICK_MINUTES = 15
 RECHECK_SECONDS = 60
 QUICK_CHECKS = ["site_points", "https"]
-EMAIL_CHECKS = ["email_mx", "email_spf", "email_dkim", "email_dmarc"]
+EMAIL_CHECKS = ["email_mx", "email_spf", "email_dkim", "email_dmarc"]  # read-only on shops under the app's domain
 DOMAIN_WARN_DAYS = (30, 7, 1)
 CERT_WARN_DAYS = (7, 1)
 
 
 def daily_checks(mode: str) -> list[str]:
-    return QUICK_CHECKS + (EMAIL_CHECKS if mode == "full" else []) + ["settings_match"]
+    return QUICK_CHECKS + EMAIL_CHECKS + ["settings_match"]
 
 
 class Monitor:
@@ -100,7 +100,7 @@ class Monitor:
         try:
             summary = run_checks(self.engine, self.settings, self.integ_for(b), self.claude, plan.id,
                                  trigger=f"monitor_{kind}", names=names, fix=False)
-        except NotLaunched:
+        except (NotLaunched, AlreadyChecking):  # e.g. the owner just pressed "Run checks now": skip this round
             return []
         failing = [f.check for f in summary.failed]
         if failing:
@@ -117,8 +117,11 @@ class Monitor:
         if found is None:
             return []
         b, plan = found
-        summary = run_checks(self.engine, self.settings, self.integ_for(b), self.claude, plan.id,
-                             trigger="monitor_recheck", names=names, fix=True)
+        try:
+            summary = run_checks(self.engine, self.settings, self.integ_for(b), self.claude, plan.id,
+                                 trigger="monitor_recheck", names=names, fix=True)
+        except (NotLaunched, AlreadyChecking):
+            return []
         still = summary.failed
         self.resolve(business_id, [n for n in names if n not in {f.check for f in still}])
         for f in still:
