@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     max_spend_usd: float = 15.0
     # Shown on the approval card only ("Email plan, bought separately on GoDaddy").
     # PLACEHOLDER: check against the real GoDaddy cart. Not covered by the spend guard.
-    email_plan_estimate_usd: float = 24.0
+    email_plan_estimate_usd: float = 23.88  # GoDaddy Professional Email Pro Light, 1-yr term ($1.99/mo); monthly term is $5.99/mo
 
     # --- Mail ---
     smtp_host: str = "smtpout.secureserver.net"

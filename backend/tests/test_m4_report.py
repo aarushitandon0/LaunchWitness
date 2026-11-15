@@ -117,7 +117,7 @@ def test_card_shows_email_plan_as_separate_estimate(client, integ, settings):
     biz = meera(client)
     full = plan(client, biz, "full", DOMAIN)
     assert full["total_cost_usd"] == 8.99  # spend guard covers only the domain
-    assert full["email_plan_estimate_usd"] == settings.email_plan_estimate_usd == 24.0
+    assert full["email_plan_estimate_usd"] == settings.email_plan_estimate_usd == 23.88
     assert plan(client, biz)["email_plan_estimate_usd"] is None
 
 

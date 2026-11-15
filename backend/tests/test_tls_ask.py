@@ -11,7 +11,7 @@ from app.models import Business
 @pytest.fixture
 def prod_client(make_settings, engine):
     """App configured with a real-looking app domain and two sellers in the DB."""
-    s = make_settings(app_domain="launchwitness.in")
+    s = make_settings(app_domain="launchwitness.com")
     with Session(engine) as db:
         db.add(Business(name="Meera's Home Cakes", subdomain="meera", domain="meerascakes.in"))
         db.add(Business(name="Annapurna Tiffin", subdomain="annapurna"))
@@ -32,10 +32,10 @@ def ask(c, domain):
 
 
 @pytest.mark.parametrize("domain", [
-    "launchwitness.in",
-    "LaunchWitness.in.",
-    "meera.launchwitness.in",
-    "annapurna.launchwitness.in",
+    "launchwitness.com",
+    "LaunchWitness.com.",
+    "meera.launchwitness.com",
+    "annapurna.launchwitness.com",
     "meerascakes.in",
 ])
 def test_allows_known_domains(prod_client, domain):
@@ -44,11 +44,11 @@ def test_allows_known_domains(prod_client, domain):
 
 @pytest.mark.parametrize("domain", [
     "evil.com",
-    "unknown.launchwitness.in",            # subdomain not in DB
-    "a.meera.launchwitness.in",            # nested subdomain
+    "unknown.launchwitness.com",            # subdomain not in DB
+    "a.meera.launchwitness.com",            # nested subdomain
     "www.meerascakes.in",                  # only exact seller domains for now
     "meerascakes.in.evil.com",
-    "notlaunchwitness.in",
+    "notlaunchwitness.com",
     "",
     "bad domain",
     "../etc/passwd",
