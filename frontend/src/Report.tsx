@@ -1,33 +1,14 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ShopLink } from "./ShopLink";
 import { useEffect, useState } from "react";
-import { api, ApiError, CheckRow, keys, Report } from "./api";
+import { api, ApiError, CheckRow, Report } from "./api";
 import { Cross, Dot, EASE, Spinner, Tick, TypeIn, useCalm } from "./motion";
-import { goTo } from "./App";
 import { ErrorBox } from "./Describe";
 
 const time = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
 
-// ---------- owner link, shown once right after "Make my website" ----------
-
-const NEW_LINK = (id: number) => `lw-new-link-${id}`;
-
-export function rememberNewLink(id: number, link: string) {
-  try {
-    window.sessionStorage.setItem(NEW_LINK(id), link);
-  } catch {
-    /* ignore */
-  }
-}
-
-function takeNewLink(id: number): string | null {
-  try {
-    return window.sessionStorage.getItem(NEW_LINK(id));
-  } catch {
-    return null;
-  }
-}
+// ---------- the assistant note, shown once on the next page ----------
 
 const NOTE = (id: number) => `lw-note-${id}`;
 
@@ -39,7 +20,7 @@ export function rememberNote(id: number, note: string) {
   }
 }
 
-function takeNote(id: number): string | null {
+export function takeNote(id: number): string | null {
   try {
     const n = window.sessionStorage.getItem(NOTE(id));
     window.sessionStorage.removeItem(NOTE(id));
@@ -47,71 +28,6 @@ function takeNote(id: number): string | null {
   } catch {
     return null;
   }
-}
-
-export function OwnerLinkPage({ businessId }: { businessId: number }) {
-  const [link] = useState(() => takeNewLink(businessId));
-  const [note] = useState(() => takeNote(businessId));
-  const [copied, setCopied] = useState(false);
-
-  const done = () => {
-    try {
-      window.sessionStorage.removeItem(NEW_LINK(businessId)); // shown once
-    } catch {
-      /* ignore */
-    }
-    goTo(`#/b/${businessId}`);
-  };
-
-  if (!link) {
-    return (
-      <>
-        <h1>Your private link</h1>
-        <p>For your safety we only show your private link once, right after you describe your business.</p>
-        <a className="btn btn-primary" href={`#/b/${businessId}`}>
-          Continue
-        </a>
-      </>
-    );
-  }
-  return (
-    <>
-      <p className="eyebrow">Before you go on</p>
-      <h1>Save your private link</h1>
-      {note && (
-        <p className="card assistant-note" role="status">
-          {note}
-        </p>
-      )}
-      <p className="tagline">
-        This link is the key to your shop. Anyone who has it can change your website, so keep it to yourself. We can't
-        send it again, so save it now: copy it into a note, or send it to yourself on WhatsApp or email.
-      </p>
-      <section className="card">
-        <label className="field">
-          <span>Your private link</span>
-          <input readOnly value={link} onFocus={(e) => e.target.select()} aria-label="Your private link" />
-        </label>
-        <div className="actions">
-          <button
-            className="btn btn-primary"
-            onClick={() =>
-              navigator.clipboard
-                ?.writeText(link)
-                .then(() => setCopied(true))
-                .catch(() => setCopied(false))
-            }
-          >
-            {copied ? "Copied" : "Copy link"}
-          </button>
-          <button className="btn btn-ghost" onClick={done}>
-            I've saved it, continue →
-          </button>
-        </div>
-        <p className="muted">On this phone or computer you're already signed in, so you won't need the link here.</p>
-      </section>
-    </>
-  );
 }
 
 // ---------- launch report ----------
@@ -530,52 +446,5 @@ function DemoSwitch({ businessId, rep, onChange }: { businessId: number; rep: Re
       )}
       {error && <ErrorBox error={error} />}
     </section>
-  );
-}
-
-// ---------- admin sign-in (this browser only) ----------
-
-export function AdminPage() {
-  const [token, setToken] = useState("");
-  const [on, setOn] = useState(!!keys.admin());
-  const [error, setError] = useState<ApiError | null>(null);
-  const signIn = () =>
-    api
-      .adminCheck(token.trim())
-      .then(() => {
-        keys.setAdmin(token.trim());
-        setOn(true);
-        setError(null);
-      })
-      .catch(setError);
-  return (
-    <>
-      <h1>Team access</h1>
-      {on ? (
-        <>
-          <p>This browser has team access: the demo switch shows on launch reports.</p>
-          <button
-            className="btn btn-ghost"
-            onClick={() => {
-              keys.setAdmin(null);
-              setOn(false);
-            }}
-          >
-            Remove team access
-          </button>
-        </>
-      ) : (
-        <section className="card">
-          <label className="field">
-            <span>Team token</span>
-            <input type="password" value={token} onChange={(e) => setToken(e.target.value)} autoComplete="off" />
-          </label>
-          {error && <ErrorBox error={error} />}
-          <button className="btn btn-primary" disabled={!token.trim()} onClick={signIn}>
-            Sign in
-          </button>
-        </section>
-      )}
-    </>
   );
 }

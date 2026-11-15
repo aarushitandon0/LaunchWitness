@@ -32,19 +32,72 @@ export type Profile = {
 
 export type Business = {
   id: number;
+  name: string;
   subdomain: string;
   site_url: string | null;
   status: string;
   practice: boolean;
   public: boolean; // false = only the owner sees it (preview)
-  owner_email: string;
+  guest: boolean; // made without signing in: practice only, removed after 24 hours
+  paused: boolean;
+  review: string; // "" | "ok" | "held" | "cleared"
+  review_reason: string;
+  owner_email: string; // the sign-in address orders and alerts go to ("" for a guest shop)
   profile: Profile;
-  owner_key?: string; // only in the response that created the business
-  owner_link?: string;
+  csrf?: string; // only when this reply also started a new guest workspace
   assistant_note?: string | null; // set when live Claude was resting and a saved sample was used
 };
 
-export type BusinessSummary = { id: number; name: string; subdomain: string | null; site_url: string | null };
+export type BusinessSummary = Business;
+
+export type Me = {
+  user: { email: string; status: "pending" | "approved" | "suspended" | "deleted"; role: string; status_reason: string } | null;
+  guest: boolean;
+  csrf: string | null;
+  practice_server: boolean; // true: every launch here runs against the pretend GoDaddy
+  limits: { shops: number };
+  kept_shops?: number;
+};
+
+export type AdminUser = {
+  id: number;
+  email: string;
+  status: string;
+  role: string;
+  status_reason: string;
+  created_at: string | null;
+  last_login_at: string | null;
+  shops: string[];
+};
+
+export type AdminShop = {
+  id: number;
+  name: string;
+  subdomain: string | null;
+  status: string;
+  practice: boolean;
+  public: boolean;
+  paused: boolean;
+  paused_reason: string;
+  review: string;
+  review_reason: string;
+  guest: boolean;
+  owners: string[];
+  site_url: string | null;
+  created_at: string | null;
+};
+
+export type ShopReportRow = {
+  id: number;
+  business_id: number;
+  shop: string;
+  subdomain: string | null;
+  paused: boolean;
+  reason: string;
+  note: string;
+  status: string;
+  created_at: string | null;
+};
 
 export type Sample = { id: string; owner_name: string; city: string; description: string; price_list: string };
 
@@ -152,56 +205,47 @@ export type Report = {
   demo_fault: string | null;
 };
 
-// ---- secret owner keys (one per business) and the admin token, kept in this browser only ----
+// ---- who is signed in. The cookies are HttpOnly; the CSRF token comes from /api/auth/me ----
+// (or from the reply that started a guest workspace) and is sent back on every change.
 
-const store = {
-  get(k: string): string | null {
-    try {
-      return window.localStorage.getItem(k);
-    } catch {
-      return null;
+let csrf: string | null = null;
+let meCache: Promise<Me> | null = null;
+const listeners = new Set<(me: Me) => void>();
+
+export const session = {
+  /** The current account (cached; `refresh` asks the server again). */
+  me(refresh = false): Promise<Me> {
+    if (!meCache || refresh) {
+      const p = request<Me>("/api/auth/me").then((m) => {
+        csrf = m.csrf;
+        listeners.forEach((f) => f(m));
+        return m;
+      });
+      p.catch(() => {
+        if (meCache === p) meCache = null;
+      });
+      meCache = p;
     }
+    return meCache;
   },
-  set(k: string, v: string | null) {
-    try {
-      if (v === null) window.localStorage.removeItem(k);
-      else window.localStorage.setItem(k, v);
-    } catch {
-      /* private window: keys live only in this tab's memory */
-    }
+  set(m: Me) {
+    csrf = m.csrf;
+    meCache = Promise.resolve(m);
+    listeners.forEach((f) => f(m));
+  },
+  onChange(f: (me: Me) => void) {
+    listeners.add(f);
+    return () => {
+      listeners.delete(f);
+    };
   },
 };
 
-export const keys = {
-  owner: (id: number) => store.get(`lw-owner-${id}`),
-  setOwner: (id: number, key: string, name?: string) => {
-    store.set(`lw-owner-${id}`, key);
-    const mine = keys.mine().filter((b) => b.id !== id);
-    store.set("lw-mine", JSON.stringify([{ id, name: name ?? `Business ${id}` }, ...mine]));
-  },
-  mine: (): { id: number; name: string }[] => {
-    try {
-      return JSON.parse(store.get("lw-mine") ?? "[]");
-    } catch {
-      return [];
-    }
-  },
-  admin: () => store.get("lw-admin"),
-  setAdmin: (t: string | null) => store.set("lw-admin", t),
-};
+const UNSAFE = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
-function authHeaders(businessId?: number): Record<string, string> {
-  const h: Record<string, string> = {};
-  const owner = businessId !== undefined ? keys.owner(businessId) : null;
-  if (owner) h["X-Owner-Key"] = owner;
-  const admin = keys.admin();
-  if (admin) h["X-Admin-Token"] = admin;
-  return h;
-}
-
-const json = (body: unknown, businessId?: number): RequestInit => ({
-  method: "POST",
-  headers: { "Content-Type": "application/json", ...authHeaders(businessId) },
+const json = (body: unknown, method = "POST"): RequestInit => ({
+  method,
+  headers: { "Content-Type": "application/json" },
   body: JSON.stringify(body),
 });
 
@@ -215,13 +259,31 @@ export class ApiError extends Error {
 /** Friendly note from the last API response when the assistant fell back to a saved sample (else null). */
 export let lastAssistantNote: string | null = null;
 
-async function request<T>(path: string, init?: RequestInit, businessId?: number): Promise<T> {
-  let r: Response;
+/** Pages that work without signing in. A 401 anywhere else sends the person to sign in. */
+const OPEN_PAGES = /^#\/(try|signin.*|check)?$/;
+
+function toSignIn() {
+  const here = window.location.hash || "#/";
+  if (OPEN_PAGES.test(here.split("?")[0])) return;
+  window.location.hash = `#/signin?next=${encodeURIComponent(here.slice(2))}`;
+}
+
+async function send(path: string, init?: RequestInit): Promise<Response> {
+  const method = (init?.method ?? "GET").toUpperCase();
+  const headers: Record<string, string> = { ...((init?.headers as Record<string, string>) ?? {}) };
+  if (UNSAFE.has(method) && path.startsWith("/api/")) {
+    if (csrf === null) await session.me().catch(() => null);
+    if (csrf) headers["X-CSRF-Token"] = csrf;
+  }
   try {
-    r = await fetch(path, { ...init, headers: { ...authHeaders(businessId), ...(init?.headers ?? {}) } });
+    return await fetch(path, { ...init, headers, credentials: "same-origin" });
   } catch {
     throw new ApiError("We couldn't reach LaunchWitness. Please check your internet and try again.", 0);
   }
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const r = await send(path, init);
   lastAssistantNote = r.headers.get("X-Assistant-Note");
   const body = await r.json().catch(() => null);
   if (!r.ok) {
@@ -232,6 +294,7 @@ async function request<T>(path: string, init?: RequestInit, businessId?: number)
         : r.status === 422
           ? "Some details need fixing. Please check the highlighted fields."
           : "Something went wrong on our side. Please try again.";
+    if (r.status === 401 && path !== "/api/auth/me") toSignIn();
     throw new ApiError(message, r.status, detail);
   }
   return body as T;
@@ -240,48 +303,80 @@ async function request<T>(path: string, init?: RequestInit, businessId?: number)
 export const api = {
   health: () => request<{ ok: boolean; env: string }>("/api/health"),
   samples: () => request<Sample[]>("/api/samples"),
-  list: () => request<BusinessSummary[]>("/api/businesses"), // admin only
-  get: (id: number) => request<Business>(`/api/businesses/${id}`, undefined, id),
-  orders: (id: number) => request<Order[]>(`/api/businesses/${id}/orders`, undefined, id),
-  create: (description: string, priceList: string, photo: File | null) => {
+  // ---- account ----
+  me: () => session.me(true),
+  requestLink: (email: string, next?: string) =>
+    request<{ ok: boolean; message: string; dev_link?: string }>("/api/auth/request-link", json({ email, next: next ?? null })),
+  confirm: async (token: string) => {
+    const m = await request<Me>("/api/auth/confirm", json({ token }));
+    session.set(m);
+    return m;
+  },
+  logout: async () => {
+    await request<{ ok: boolean }>("/api/auth/logout", { method: "POST" });
+    return session.me(true);
+  },
+  logoutAll: async () => {
+    const r = await request<{ ok: boolean; ended: number }>("/api/auth/logout-all", { method: "POST" });
+    await session.me(true);
+    return r;
+  },
+  deleteRequest: () =>
+    request<{ ok: boolean; message: string; dev_link?: string }>("/api/account/delete-request", { method: "POST" }),
+  deleteAccount: async (token: string) => {
+    const r = await request<{ ok: boolean }>("/api/account/delete", json({ token }));
+    await session.me(true);
+    return r;
+  },
+  // ---- shops (only ever the caller's own) ----
+  list: () => request<BusinessSummary[]>("/api/businesses"),
+  get: (id: number) => request<Business>(`/api/businesses/${id}`),
+  orders: (id: number) => request<Order[]>(`/api/businesses/${id}/orders`),
+  create: async (description: string, priceList: string, photo: File | null) => {
     const form = new FormData();
     form.set("description", description);
     form.set("price_list", priceList);
     if (photo) form.set("photo", photo);
-    return request<Business>("/api/businesses", { method: "POST", body: form });
+    const b = await request<Business>("/api/businesses", { method: "POST", body: form });
+    if (b.csrf) await session.me(true); // a new guest workspace began: pick up its token
+    return b;
   },
-  practiceMode: () => request<{ practice: boolean; admin: boolean }>("/api/practice-mode"),
-  names: (id: number) => request<NameIdea[]>(`/api/businesses/${id}/names`, undefined, id),
-  plan: (bid: number, id: number) => request<Plan>(`/api/plans/${id}`, undefined, bid),
-  createPlan: (businessId: number, mode: "sandbox" | "full", domain?: string) =>
-    request<Plan>(`/api/businesses/${businessId}/plans`, json({ mode, domain: domain ?? null }, businessId), businessId),
-  approve: (bid: number, planId: number, approvedBy: string) =>
-    request<{ ok: boolean }>(`/api/plans/${planId}/approve`, json({ approved_by: approvedBy || "owner" }, bid), bid),
-  resume: (bid: number, planId: number) => request<{ ok: boolean }>(`/api/plans/${planId}/resume`, { method: "POST" }, bid),
-  practiceBuy: (bid: number, planId: number) =>
-    request<{ ok: boolean }>(`/api/plans/${planId}/practice-buy`, { method: "POST" }, bid),
-  save: (id: number, profile: Profile, subdomain: string, ownerEmail: string) =>
-    request<Business>(
-      `/api/businesses/${id}`,
-      { ...json({ profile, subdomain, owner_email: ownerEmail }, id), method: "PUT" },
-      id,
-    ),
+  remove: (id: number) => request<{ ok: boolean }>(`/api/businesses/${id}`, { method: "DELETE" }),
+  names: (id: number) => request<NameIdea[]>(`/api/businesses/${id}/names`),
+  plan: (_bid: number, id: number) => request<Plan>(`/api/plans/${id}`),
+  createPlan: (businessId: number, mode: "sandbox" | "full", domain?: string, real = false) =>
+    request<Plan>(`/api/businesses/${businessId}/plans`, json({ mode, domain: domain ?? null, real })),
+  approve: (_bid: number, planId: number, approvedBy: string) =>
+    request<{ ok: boolean }>(`/api/plans/${planId}/approve`, json({ approved_by: approvedBy || "owner" })),
+  resume: (_bid: number, planId: number) => request<{ ok: boolean }>(`/api/plans/${planId}/resume`, { method: "POST" }),
+  practiceBuy: (_bid: number, planId: number) =>
+    request<{ ok: boolean }>(`/api/plans/${planId}/practice-buy`, { method: "POST" }),
+  save: (id: number, profile: Profile, subdomain: string) =>
+    request<Business>(`/api/businesses/${id}`, json({ profile, subdomain }, "PUT")),
   contact: (name: string, email: string, message: string, website: string) =>
     request<{ ok: boolean; message: string }>("/api/contact", json({ name, email, message, website })),
   preview: async (id: number): Promise<string> => {
-    const r = await fetch(`/api/businesses/${id}/preview`, { headers: authHeaders(id) }).catch(() => null);
+    const r = await send(`/api/businesses/${id}/preview`).catch(() => null);
     if (!r || !r.ok) throw new ApiError("We couldn't load the preview. Please try again.", r?.status ?? 0);
     return r.text();
   },
-  report: (id: number) => request<Report>(`/api/businesses/${id}/report`, undefined, id),
-  runChecks: (id: number) => request<{ ok: boolean; run_id: number }>(`/api/businesses/${id}/checks`, { method: "POST" }, id),
-  adminCheck: (token: string) =>
-    request<{ admin: boolean }>("/api/admin/check", { headers: { "X-Admin-Token": token } }),
+  report: (id: number) => request<Report>(`/api/businesses/${id}/report`),
+  runChecks: (id: number) => request<{ ok: boolean; run_id: number }>(`/api/businesses/${id}/checks`, { method: "POST" }),
+  // ---- team ----
+  admin: {
+    users: (status?: string) => request<AdminUser[]>(`/api/admin/users${status ? `?status=${status}` : ""}`),
+    approve: (id: number) => request<AdminUser>(`/api/admin/users/${id}/approve`, { method: "POST" }),
+    reject: (id: number, reason: string) => request<AdminUser>(`/api/admin/users/${id}/reject`, json({ reason })),
+    suspend: (id: number, reason: string) => request<AdminUser>(`/api/admin/users/${id}/suspend`, json({ reason })),
+    shops: () => request<AdminShop[]>("/api/admin/businesses"),
+    pause: (id: number, reason: string) => request<{ ok: boolean }>(`/api/admin/businesses/${id}/pause`, json({ reason })),
+    unpause: (id: number) => request<{ ok: boolean }>(`/api/admin/businesses/${id}/unpause`, { method: "POST" }),
+    clearReview: (id: number) => request<{ ok: boolean }>(`/api/admin/businesses/${id}/clear-review`, { method: "POST" }),
+    reports: () => request<ShopReportRow[]>("/api/admin/reports"),
+    closeReport: (id: number, reason: string) => request<{ ok: boolean }>(`/api/admin/reports/${id}/close`, json({ reason })),
+  },
   setDemoFault: (id: number, fault: "" | "dmarc" | "mx") =>
-    request<{ ok: boolean; demo_fault: string }>(`/api/admin/businesses/${id}/demo-fault`, {
-      ...json({ fault }),
-      method: "PUT",
-    }),
+    request<{ ok: boolean; demo_fault: string }>(`/api/admin/businesses/${id}/demo-fault`, json({ fault }, "PUT")),
 };
 
 export const inr = (n: number) => "₹" + new Intl.NumberFormat("en-IN").format(n);

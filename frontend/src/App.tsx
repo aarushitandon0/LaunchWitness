@@ -1,40 +1,54 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import { api, keys } from "./api";
+import { api } from "./api";
 import { EASE, useCalm } from "./motion";
 import Describe from "./Describe";
 import Landing from "./Landing";
 import Review from "./Review";
 import { LaunchChoice, PlanView } from "./Launch";
-import { AdminPage, OwnerLinkPage, ReportPage } from "./Report";
+import { ReportPage } from "./Report";
+import { AdminPage } from "./Admin";
+import {
+  AccountPage,
+  ConfirmSignInPage,
+  DeleteAccountPage,
+  GuestNote,
+  MyShopsPage,
+  PendingNote,
+  SignInPage,
+  useMe,
+} from "./Account";
 
 type Route =
   | { page: "home" }
   | { page: "describe" }
   | { page: "admin" }
-  | { page: "saved"; businessId: number }
+  | { page: "signin" }
+  | { page: "confirm" }
+  | { page: "shops" }
+  | { page: "account" }
+  | { page: "delete-account" }
   | { page: "review"; businessId: number }
   | { page: "launch"; businessId: number }
   | { page: "report"; businessId: number }
   | { page: "plan"; businessId: number; planId: number };
 
-/** Tiny hash router: #/ (landing) · #/try (describe) · #/admin · #/b/<id>[?key=…] · #/b/<id>/saved · #/b/<id>/launch · #/b/<id>/plan/<pid> · #/b/<id>/report */
+/** Tiny hash router: #/ (landing) · #/try (describe) · #/signin · #/signin/confirm?token= · #/shops · #/account ·
+ * #/account/delete?token= · #/admin · #/b/<id> · #/b/<id>/launch · #/b/<id>/plan/<pid> · #/b/<id>/report */
 function useRoute(): Route {
   const parse = (): Route => {
-    let h = window.location.hash;
-    // Owner link: remember the key in this browser, then drop it from the address bar.
-    const k = h.match(/^#\/b\/(\d+)\?key=([A-Za-z0-9_-]+)/);
-    if (k) {
-      keys.setOwner(Number(k[1]), k[2]);
-      h = `#/b/${k[1]}`;
-      window.history.replaceState(null, "", h);
-    }
+    const h = window.location.hash;
     if (h.startsWith("#/admin")) return { page: "admin" };
+    if (h.startsWith("#/signin/confirm")) return { page: "confirm" };
+    if (h.startsWith("#/signin")) return { page: "signin" };
+    if (h.startsWith("#/shops")) return { page: "shops" };
+    if (h.startsWith("#/account/delete")) return { page: "delete-account" };
+    if (h.startsWith("#/account")) return { page: "account" };
     if (h.startsWith("#/try")) return { page: "describe" };
     let m = h.match(/^#\/b\/(\d+)\/plan\/(\d+)/);
     if (m) return { page: "plan", businessId: Number(m[1]), planId: Number(m[2]) };
-    m = h.match(/^#\/b\/(\d+)\/(launch|report|saved)/);
-    if (m) return { page: m[2] as "launch" | "report" | "saved", businessId: Number(m[1]) };
+    m = h.match(/^#\/b\/(\d+)\/(launch|report)/);
+    if (m) return { page: m[2] as "launch" | "report", businessId: Number(m[1]) };
     m = h.match(/^#\/b\/(\d+)/);
     if (m) return { page: "review", businessId: Number(m[1]) };
     return { page: "home" };
@@ -69,6 +83,7 @@ export function LogoMark() {
 }
 
 function TopBar({ page }: { page: Route["page"] }) {
+  const me = useMe();
   const current = (p: boolean) => (p ? ({ "aria-current": "page" } as const) : {});
   return (
     <header className="topbar">
@@ -83,10 +98,31 @@ function TopBar({ page }: { page: Route["page"] }) {
         <a href="#/try" {...current(page === "describe")}>
           Describe
         </a>
+        {(me?.user || me?.guest) && (
+          <a href="#/shops" {...current(page === "shops")}>
+            My shops
+          </a>
+        )}
+        {me?.user?.role === "admin" && (
+          <a href="#/admin" {...current(page === "admin")}>
+            Team
+          </a>
+        )}
         <a href="/build">Build log</a>
         {page === "home" && <a href="#contact">Contact</a>}
       </nav>
       <div className="topbar-end">
+        {me?.user ? (
+          <a className="topbar-link" href="#/account" {...current(page === "account")}>
+            Account
+          </a>
+        ) : (
+          page !== "signin" && (
+            <a className="topbar-link" href="#/signin">
+              Sign in
+            </a>
+          )
+        )}
         {page !== "describe" && (
           <a className="pill-cta" href="#/try">
             Try it
@@ -100,10 +136,9 @@ function TopBar({ page }: { page: Route["page"] }) {
 export default function App() {
   const route = useRoute();
   const calm = useCalm();
-  const [practice, setPractice] = useState(false);
-  useEffect(() => {
-    api.practiceMode().then((p) => setPractice(p.practice)).catch(() => setPractice(false));
-  }, []);
+  const me = useMe();
+  const practice = !!me?.practice_server;
+  const shopPage = "businessId" in route;
   const home = route.page === "home";
   const enter = calm ? { opacity: 0 } : { opacity: 0, y: 14 };
   const leave = calm ? { opacity: 0 } : { opacity: 0, y: -8 };
@@ -129,9 +164,12 @@ export default function App() {
               <main className="page">
                 {practice && (
                   <p className="practice" role="note">
-                    Practice mode: launches run against a pretend GoDaddy. Nothing is bought and no real settings change.
+                    Practice server: every launch here runs against a pretend GoDaddy. Nothing is bought and no real
+                    settings change.
                   </p>
                 )}
+                {shopPage && me && !me.user && <GuestNote />}
+                {shopPage && me?.user?.status === "pending" && <PendingNote />}
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.div
                     key={routeKey(route)}
@@ -147,8 +185,12 @@ export default function App() {
                       <PlanView key={route.planId} businessId={route.businessId} planId={route.planId} />
                     )}
                     {route.page === "report" && <ReportPage key={route.businessId} businessId={route.businessId} />}
-                    {route.page === "saved" && <OwnerLinkPage key={route.businessId} businessId={route.businessId} />}
                     {route.page === "admin" && <AdminPage />}
+                    {route.page === "signin" && <SignInPage />}
+                    {route.page === "confirm" && <ConfirmSignInPage />}
+                    {route.page === "shops" && <MyShopsPage />}
+                    {route.page === "account" && <AccountPage />}
+                    {route.page === "delete-account" && <DeleteAccountPage />}
                   </motion.div>
                 </AnimatePresence>
               </main>

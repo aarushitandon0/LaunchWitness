@@ -411,3 +411,13 @@ input[type="checkbox"] { accent-color: var(--ink); width: 18px; height: 18px; }
 .preview-bar .btn { color: #fff; border-color: rgba(255, 255, 255, 0.4); }
 .preview-overlay iframe { flex: 1; width: 100%; border: 0; background: #fff; }
 .launch-steps { margin-top: 1rem; }
+
+/* ---- accounts (S9F) ---- */
+.topbar-link { color: var(--on-ink); font-weight: var(--fw-medium); font-size: var(--fs-sm); text-decoration: none; padding: 0 0.4rem; }
+.topbar-link:hover, .topbar-link[aria-current="page"] { text-decoration: underline; }
+.names.shops li, .names.admin-list li { align-items: flex-start; }
+.admin-list .actions { display: flex; flex-wrap: wrap; gap: var(--s-2); justify-content: flex-end; margin: 0; }
+@media (max-width: 520px) {
+  .names.admin-list li { flex-direction: column; }
+  .admin-list .actions { justify-content: flex-start; }
+}

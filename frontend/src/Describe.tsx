@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
-import { api, ApiError, keys, Sample } from "./api";
+import { api, ApiError, Sample } from "./api";
 import { goTo } from "./App";
-import { rememberNewLink, rememberNote } from "./Report";
+import { rememberNote } from "./Report";
 
 export default function Describe() {
   const [description, setDescription] = useState("");
@@ -10,7 +10,6 @@ export default function Describe() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [samples, setSamples] = useState<Sample[]>([]);
-  const existing = keys.mine(); // businesses whose owner link was opened in this browser
 
   useEffect(() => {
     api.samples().then(setSamples).catch(() => setSamples([]));
@@ -22,10 +21,8 @@ export default function Describe() {
     setError(null);
     try {
       const b = await api.create(description, priceList, photo);
-      if (b.owner_key) keys.setOwner(b.id, b.owner_key, b.profile.name);
-      if (b.owner_link) rememberNewLink(b.id, b.owner_link);
       if (b.assistant_note) rememberNote(b.id, b.assistant_note);
-      goTo(`#/b/${b.id}/saved`);
+      goTo(`#/b/${b.id}`);
     } catch (err) {
       setError(err instanceof ApiError ? err : new ApiError(String(err), 0));
     } finally {
@@ -92,21 +89,9 @@ export default function Describe() {
         </button>
       </form>
 
-      {existing.length > 0 && (
-        <section className="existing">
-          <h2>Your businesses on this device</h2>
-          <ul>
-            {existing.map((b) => (
-              <li key={b.id}>
-                <a href={`#/b/${b.id}`}>{b.name}</a>
-                <a className="muted" href={`#/b/${b.id}/report`}>
-                  launch report
-                </a>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <p className="muted">
+        Already made one? <a href="#/shops">See your shops</a>.
+      </p>
     </>
   );
 }

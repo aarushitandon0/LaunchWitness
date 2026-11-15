@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ShopLink } from "./ShopLink";
-import { api, ApiError, Business, inr, keys, Order, Product, Profile } from "./api";
+import { api, ApiError, Business, inr, Order, Product, Profile } from "./api";
 import { ErrorBox } from "./Describe";
+import { takeNote } from "./Report";
 
 type TextKey = {
   [K in keyof Profile]: Profile[K] extends string ? (K extends "kind" | "not_supported_reason" ? never : K) : never;
@@ -37,13 +38,13 @@ export default function Review({ id }: { id: number }) {
   const [biz, setBiz] = useState<Business | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [subdomain, setSubdomain] = useState("");
-  const [ownerEmail, setOwnerEmail] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadError, setLoadError] = useState<ApiError | null>(null);
   const [saveError, setSaveError] = useState<ApiError | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [note] = useState(() => takeNote(id));
 
   useEffect(() => {
     api
@@ -52,9 +53,6 @@ export default function Review({ id }: { id: number }) {
         setBiz(b);
         setProfile(b.profile);
         setSubdomain(b.subdomain);
-        setOwnerEmail(b.owner_email);
-        const k = keys.owner(id);
-        if (k) keys.setOwner(id, k, b.profile.name);
       })
       .catch(setLoadError);
     api.orders(id).then(setOrders).catch(() => setOrders([]));
@@ -77,11 +75,10 @@ export default function Review({ id }: { id: number }) {
     setSaveError(null);
     try {
       const cleaned = { ...profile, products: profile.products.filter((p) => p.name.trim()) };
-      const b = await api.save(id, cleaned, subdomain, ownerEmail.trim());
+      const b = await api.save(id, cleaned, subdomain);
       setBiz(b);
       setProfile(b.profile);
       setSubdomain(b.subdomain);
-      setOwnerEmail(b.owner_email);
       setSavedAt(new Date());
       setDirty(false);
     } catch (err) {
@@ -98,6 +95,11 @@ export default function Review({ id }: { id: number }) {
       <p className="eyebrow">Step 2 of 5 · check</p>
       <h1>Check your details</h1>
       <p className="tagline">This is what we understood. Fix anything that's wrong, then save — your website updates straight away.</p>
+      {note && (
+        <p className="muted assistant-note" role="status">
+          {note}
+        </p>
+      )}
 
       <section className="card">
         {FIELDS.map((f) => (
@@ -247,26 +249,11 @@ export default function Review({ id }: { id: number }) {
         </label>
       </section>
 
-      <h2>Your personal email</h2>
-      <section className="card">
-        <label className="field">
-          <span>Email for warnings</span>
-          <input
-            type="email"
-            value={ownerEmail}
-            onChange={(e) => {
-              setOwnerEmail(e.target.value);
-              setDirty(true);
-            }}
-            placeholder="you@gmail.com"
-            maxLength={254}
-          />
-          <small>
-            Only for warnings about your website, for example if it stops opening or your name needs renewing. It isn't
-            shown on your website.
-          </small>
-        </label>
-      </section>
+      <p className="muted" role="note">
+        {biz.owner_email
+          ? <>Orders and warnings go to your sign-in address, <strong>{biz.owner_email}</strong>.</>
+          : <>This is a practice shop. <a href="#/signin">Sign in</a> to keep it; orders then go to your sign-in address.</>}
+      </p>
 
       {saveError && <ErrorBox error={saveError} />}
       <div className="actions">
