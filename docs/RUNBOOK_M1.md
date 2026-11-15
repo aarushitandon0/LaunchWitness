@@ -6,6 +6,10 @@ Replace `<APP_DOMAIN>` (= `launchwitness.com`) and `<VPS_IP>` everywhere.
 
 Rules that still apply (CLAUDE.md): secrets live **only** in the server's `.env`; purchases are made by you on godaddy.com with the hackathon credit; never paste a password into chat, a commit or a file other than `.env`.
 
+> **S10 (2026-11-16): for Wednesday's deploy follow `docs/NEXT_SESSION_VPS.md` first; it supersedes the order below.** The
+> decisions since this runbook was written: **no wildcard record** (each live shop gets its own A record, written by the app
+> through the guarded client), admin = whoever signs in as `ADMIN_EMAIL`, and the stack check is `bash scripts/check_m1.sh`.
+
 > **About `gddy`:** the exact `gddy` sub-commands below are marked *confirm with `gddy tree`*. They were written without access to your CLI version. Run `gddy tree` (or `gddy <command> --help`) first and adjust. Each step also has a REST API or godaddy.com fallback that does the same thing.
 
 ---
@@ -20,7 +24,7 @@ Already in the GoDaddy account. **Buy nothing else**: $2.37 credit left (expires
 | Mailbox `hello@launchwitness.com` | Bought: GoDaddy Professional Email **Pro Light** (secureserver.net backend, not Titan), **1 month**. $5.99/mo monthly; $23.88/yr on a 1-yr term (`EMAIL_PLAN_ESTIMATE_USD=23.88`). **Expires ~Dec 15; auto-renew will lapse** (no card). |
 | Mail DNS | Set by GoDaddy: MX `smtp.secureserver.net` / `mailstore1.secureserver.net`, SPF `include:secureserver.net -all`, DKIM ×2, DMARC `p=quarantine`. Leave them alone. |
 | Docker VPS | **Free, arrives Wed Nov 18. Do NOT buy one.** |
-| Demo seller domain | Not bought. The demo shop is `meerasbakes.launchwitness.com` via the wildcard record (step 6). |
+| Demo seller domain | Not bought. The demo shop is `meerasbakes.launchwitness.com`: its own A record, written by the app at launch (no wildcard). |
 
 `A @` still points at GoDaddy's parked WebsiteBuilder page. Don't change any DNS until the VPS exists (step 6).
 
@@ -77,34 +81,17 @@ cd ~/LaunchWitness && git log --oneline -1
 
 **✔ Check:** `ls ~/LaunchWitness/deploy` shows `Dockerfile docker-compose.yml docker-compose.prod.yml Caddyfile Caddyfile.prod`.
 
-## 4. Point DNS at the VPS (A record + wildcard)
+## 4. Point DNS at the VPS (ONE hand-made A record, no wildcard)
 
-Two A records on `<APP_DOMAIN>`: `@` → `<VPS_IP>` (the app) and `*` → `<VPS_IP>` (free seller addresses like `meera.<APP_DOMAIN>`).
+Only `@` → `<VPS_IP>` is made by hand (plus `www` → `<VPS_IP>` if you want it). **Do not add a `*` wildcard**: each live
+shop gets its own A record, written by the app at launch through the guarded GoDaddy client (shop A records only),
+and removed when the shop is taken down. The daily zone-hygiene job flags anything else.
 
-With `gddy` (*confirm with `gddy tree`*; the shape is "add/replace a DNS record"):
+Fallback (the simplest): godaddy.com → *Domain* → *DNS* → edit the existing **A `@`** record (it points at the
+parked page today) → Value `<VPS_IP>`, TTL 600. Leave MX / TXT / CNAME records alone (they carry the mailbox).
 
-```bash
-gddy tree | grep -i -A3 dns                         # find the record command
-gddy dns records set <APP_DOMAIN> A @ <VPS_IP>     # confirm syntax
-gddy dns records set <APP_DOMAIN> A '*' <VPS_IP>   # confirm syntax
-```
-
-Same thing with the GoDaddy REST API (production keys from developer.godaddy.com; keep them in your shell only):
-
-```bash
-read -rs GD_KEY && read -rs GD_SECRET              # type them, nothing is echoed
-for name in @ '*'; do
-  curl -sS -X PUT "https://api.godaddy.com/v1/domains/<APP_DOMAIN>/records/A/$name" \
-    -H "Authorization: sso-key $GD_KEY:$GD_SECRET" -H 'Content-Type: application/json' \
-    -d '[{"data":"<VPS_IP>","ttl":600}]' && echo " set A $name"
-done
-unset GD_KEY GD_SECRET
-```
-
-Fallback: godaddy.com → *Domain* → *DNS* → *Add record* → Type **A**, Name `@`, Value `<VPS_IP>`; again with Name `*`.
-
-**✔ Check (wait up to an hour):**
-`dig +short <APP_DOMAIN> @ns01.domaincontrol.com` and `dig +short test123.<APP_DOMAIN> @ns01.domaincontrol.com` both print `<VPS_IP>` (use the NS names your zone shows: `dig +short NS <APP_DOMAIN>`).
+**✔ Check (wait up to an hour):** `dig +short <APP_DOMAIN> @ns01.domaincontrol.com` prints `<VPS_IP>` (use the NS
+names your zone shows: `dig +short NS <APP_DOMAIN>`), and `dig +short test123.<APP_DOMAIN>` prints **nothing**.
 
 ## 5. Create `.env` on the server only
 
@@ -163,10 +150,10 @@ docker compose --env-file .env -f deploy/docker-compose.yml -f deploy/docker-com
 ```bash
 # (vps)
 bash scripts/backup_db.sh                      # first backup now
-( crontab -l 2>/dev/null; echo '15 3 * * * cd ~/LaunchWitness && bash scripts/backup_db.sh >> backups/backup.log 2>&1' ) | crontab -
+( crontab -l 2>/dev/null; echo '15 3 * * * cd $HOME/LaunchWitness && bash scripts/backup_db.sh >> backups/backup.log 2>&1' ) | crontab -
 ```
 
-**✔ Check:** `ls -l backups/` shows `launchwitness-<time>.db` (mode `-rw-------`). Restore, if ever needed: `bash scripts/backup_db.sh --restore backups/launchwitness-<time>.db`.
+**✔ Check:** `ls -l backups/daily/` shows `launchwitness-<time>.db` (mode `-rw-------`); 7 daily + 4 weekly are kept. Restore, if ever needed: `bash scripts/restore_db.sh backups/daily/launchwitness-<time>.db`.
 
 ## 8. Create the mailbox `hello@<APP_DOMAIN>`
 
@@ -186,7 +173,7 @@ Put the address and password in `.env` (`SMTP_USER`, `SMTP_PASSWORD`, `IMAP_USER
 lwc up -d
 ```
 
-**✔ Check:** you can log in at the Titan webmail with `hello@<APP_DOMAIN>`, and `dig +short MX <APP_DOMAIN>` shows the Titan mail servers.
+**✔ Check:** you can log in at GoDaddy webmail (email.secureserver.net) with `hello@<APP_DOMAIN>`, and `dig +short MX <APP_DOMAIN>` shows `smtp.secureserver.net` / `mailstore1.secureserver.net`.
 
 ## 9. Test email + run the M1 check
 
@@ -197,7 +184,7 @@ lwc up -d
 EXTERNAL_SUBJECT="M1 external test" bash scripts/check_m1.sh
 ```
 
-It checks HTTPS (valid certificate), DNS for the app domain and the wildcard, `/internal/*` blocked, SMTP + IMAP login, your external email, a contact-form message arriving in the inbox, and that the SMTP password is in no tracked file or commit.
+It checks HTTPS (valid certificate, HSTS), DNS for the app domain and each live shop (and that no wildcard exists), `/internal/*` blocked, the session cookie's flags, the ADMIN_EMAIL user, one app process, SMTP + IMAP login, your external email, a contact-form message arriving in the inbox, and that the SMTP password is in no tracked file or commit.
 
 **✔ Check:** the last line says `M1: all checks passed.` Also tick the four M1 AC boxes in `docs/BUILD_PLAN.md` / `docs/PROGRESS.md`.
 
@@ -207,7 +194,7 @@ Public visitors' businesses are **always practice**, whatever you set here. `USE
 
 1. Finish rows 6 → 2 → 3 → 7 → 5 → 9 of the table below (enough for a real **free-address (sandbox)** launch).
 2. In `.env`: `USE_FAKES=false` (keep `GODADDY_ENV=ote` until you have tested on the app domain, then `prod`). `lwc up -d`.
-3. In your browser: `https://<APP_DOMAIN>/#/admin` → paste `ADMIN_TOKEN`. Businesses you now create are real; the yellow "Practice mode" banner disappears for you only.
+3. In your browser: sign in at `https://<APP_DOMAIN>/#/signin` with the `ADMIN_EMAIL` address (the team page is `#/admin`). Approved accounts can now launch for real.
 4. Do a sandbox launch for Meera.
 
 **✔ Check:** the launch report says "Your business is ready for customers", and `https://meera.<APP_DOMAIN>` opens with a padlock on your phone (M3 AC1).

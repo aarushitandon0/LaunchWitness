@@ -21,10 +21,14 @@ COPY --from=web /web/dist /app/frontend/dist
 # The /build page (replay/build.html, made by scripts/build-replay.sh). Raw transcripts are
 # excluded by .dockerignore; if build.html is missing, /build shows "coming soon".
 COPY replay/ /app/replay/
-RUN useradd --create-home --uid 10001 lw && mkdir -p /app/backend/data && chown lw /app/backend/data
+RUN useradd --create-home --uid 10001 lw && mkdir -p /app/backend/data && chown lw /app/backend/data     && chmod 700 /app/backend/data
 USER lw
 EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=5 \
   CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health').status==200 else 1)"
-# Only Caddy can reach this port (it is not published), so trusting forwarded headers is safe.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+# EXACTLY ONE worker. The monitor (APScheduler) runs inside this process and SQLite has one writer:
+# 4 workers would mean 4 copies of every alert and daily test order. The app refuses to start a second
+# process on the same database (app/singleton.py), so don't add --workers or scale this service.
+# Only Caddy can reach port 8000 (compose doesn't publish it), so trusting forwarded headers is safe;
+# Caddy replaces any X-Forwarded-For a client sends, and the app's rate limits read the last entry.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1",      "--proxy-headers", "--forwarded-allow-ips", "*", "--timeout-graceful-shutdown", "10"]

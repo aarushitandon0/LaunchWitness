@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
-# M1 acceptance check. Run ON THE VPS, from the repo, with the stack running:
+# Stack acceptance check. Two places, same checks:
 #
-#   bash scripts/check_m1.sh
-#   EXTERNAL_SUBJECT="hello from my gmail" bash scripts/check_m1.sh   # also look for your external test email
+#   bash scripts/check_m1.sh            # ON THE VPS, from the repo, stack running (reads .env, never prints secrets)
+#   bash scripts/check_m1.sh --local    # this computer: the production-like Docker stack (deploy/README.md)
+#   EXTERNAL_SUBJECT="hello from my gmail" bash scripts/check_m1.sh   # VPS: also look for your external test email
 #
-# Prints PASS / FAIL for each M1 criterion (docs/BUILD_PLAN.md):
-#   1. https://<APP_DOMAIN> loads with a valid certificate (+ DNS: app domain and wildcard point here)
-#   2. the mailbox is reachable (SMTP + IMAP login with the .env password, inside the app container)
-#      and, if EXTERNAL_SUBJECT is set, the external test email is in the inbox
-#   3. a contact-form submission arrives in the mailbox (found over IMAP by a unique marker)
-#   4. the SMTP password is only in the server .env: not tracked, not in any file or commit
-# Secrets are never printed. Exit code = number of failures.
+# Checks: DNS (VPS: `A @` and each live shop's own A record; there is NO wildcard), HTTPS + certificate + HSTS +
+# http->https, /api/health and its warnings (mailbox expiry), /internal/* blocked from outside on every host but
+# working inside the network, the shop-host guard, the session cookie's flags over https, the ADMIN_EMAIL user,
+# exactly one app process, the mailbox (SMTP/IMAP; local: Mailpit), a contact-form message arriving, and that
+# the SMTP password is in no tracked file or commit. Exit code = number of failures.
 
 set -uo pipefail
 
@@ -19,51 +18,204 @@ cd "$REPO"
 FAILS=0
 pass() { printf '  \033[32mPASS\033[0m  %s\n' "$1"; }
 fail() { printf '  \033[31mFAIL\033[0m  %s\n' "$1"; FAILS=$((FAILS + 1)); }
+warn() { printf '  \033[33mWARN\033[0m  %s\n' "$1"; }
 info() { printf '        %s\n' "$1"; }
+
+LOCAL=false
+[ "${1:-}" = "--local" ] && LOCAL=true
 
 # Read one value from .env without printing it (no `source`: values may contain spaces/symbols).
 envval() { grep -E "^$1=" .env 2>/dev/null | tail -n1 | cut -d= -f2- | sed -e 's/[[:space:]]#.*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"; }
 
-if [ ! -f .env ]; then
-  echo "FAIL: no .env in $REPO (see docs/RUNBOOK_M1.md step 5)"; exit 1
-fi
-APP_DOMAIN="$(envval APP_DOMAIN)"
-SERVER_IP="$(envval SERVER_IP)"
-COMPOSE=(docker compose --env-file .env -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml)
-echo "M1 check for https://$APP_DOMAIN (server $SERVER_IP)"
-
-# ---------- 1. HTTPS + DNS ----------
-echo "1. Website over HTTPS"
-if [ -z "$APP_DOMAIN" ] || [ "$APP_DOMAIN" = "localhost" ]; then
-  fail "APP_DOMAIN is not set to your real domain in .env"
+if $LOCAL; then
+  COMPOSE=(docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml -f deploy/docker-compose.local.yml)
+  APP_DOMAIN=launchwitness.localhost
+  SERVER_IP=127.0.0.1
+  CA="$(mktemp)"
+  "${COMPOSE[@]}" cp caddy:/data/caddy/pki/authorities/local/root.crt "$CA" >/dev/null 2>&1 \
+    || { echo "FAIL: can't read Caddy's local CA (is the local stack up? see deploy/README.md)"; exit 1; }
+  CURL=(curl -sS --max-time 20 --cacert "$CA")
+  curl --version | grep -qi schannel && CURL+=(--ssl-no-revoke)  # Windows curl: no revocation list for a local CA
 else
-  for host in "$APP_DOMAIN" "m1-check-$RANDOM.$APP_DOMAIN"; do
-    ip="$(getent ahostsv4 "$host" | awk 'NR==1{print $1}')"
-    label="$host"; [ "$host" != "$APP_DOMAIN" ] && label="wildcard *.$APP_DOMAIN"
-    if [ -n "$ip" ] && [ "$ip" = "$SERVER_IP" ]; then pass "DNS: $label -> $ip"
-    else fail "DNS: $label -> ${ip:-nothing} (want $SERVER_IP; DNS can take up to an hour)"; fi
-  done
-  if body="$(curl -sS --max-time 15 "https://$APP_DOMAIN/api/health" 2>&1)" && echo "$body" | grep -q '"ok":true'; then
-    pass "https://$APP_DOMAIN loads with a valid certificate"
-    end="$(echo | openssl s_client -connect "$APP_DOMAIN:443" -servername "$APP_DOMAIN" 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)"
-    [ -n "$end" ] && info "certificate valid until $end"
-  else
-    fail "https://$APP_DOMAIN/api/health: ${body:0:200}"
-  fi
-  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$APP_DOMAIN/internal/tls-ask?domain=x")"
-  [ "$code" = "404" ] && pass "/internal/* is not reachable from outside" || fail "/internal/* answered $code (want 404)"
+  [ -f .env ] || { echo "FAIL: no .env in $REPO (see docs/NEXT_SESSION_VPS.md)"; exit 1; }
+  COMPOSE=(docker compose --env-file .env -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml)
+  APP_DOMAIN="$(envval APP_DOMAIN)"
+  SERVER_IP="$(envval SERVER_IP)"
+  CURL=(curl -sS --max-time 20)
 fi
-
-# Run Python inside the app container (it has the .env values; nothing is printed but results).
-inapp() { "${COMPOSE[@]}" exec -T app python - "$@"; }
+BASE="https://$APP_DOMAIN"
+echo "Stack check for $BASE (server $SERVER_IP)$($LOCAL && echo ', LOCAL stack')"
 
 if [ -z "$("${COMPOSE[@]}" ps -q app 2>/dev/null)" ]; then
-  fail "the app container isn't running (docker compose ... up -d)"; echo "$FAILS failure(s)"; exit "$FAILS"
+  fail "the app container isn't running"; echo "$FAILS failure(s)"; exit "$FAILS"
+fi
+inapp() { "${COMPOSE[@]}" exec -T app python - "$@"; }
+
+# ---------- 1. DNS ----------
+echo "1. Addresses (DNS)"
+if $LOCAL; then
+  info "(local: *.localhost always means this computer; skipped)"
+elif [ -z "$APP_DOMAIN" ] || [ "$APP_DOMAIN" = "localhost" ]; then
+  fail "APP_DOMAIN is not set to your real domain in .env"
+else
+  ip="$(getent ahostsv4 "$APP_DOMAIN" | awk 'NR==1{print $1}')"
+  [ -n "$ip" ] && [ "$ip" = "$SERVER_IP" ] && pass "DNS: $APP_DOMAIN -> $ip" \
+    || fail "DNS: $APP_DOMAIN -> ${ip:-nothing} (want $SERVER_IP; DNS can take up to an hour)"
+  if command -v dig >/dev/null; then
+    ns="$(dig +short NS "$APP_DOMAIN" | head -n1)"
+    auth="$(dig +short A "$APP_DOMAIN" @"${ns:-ns01.domaincontrol.com}" | head -n1)"
+    [ "$auth" = "$SERVER_IP" ] && pass "authoritative answer from ${ns%?}: $auth" || fail "authoritative answer from ${ns:-?}: ${auth:-nothing}"
+  fi
+fi
+SHOPS="$(inapp <<'PY' 2>/dev/null
+from sqlmodel import Session, select
+from app.db import get_engine
+from app.models import Business
+with Session(get_engine()) as s:
+    for b in s.exec(select(Business).where(Business.status == "live", Business.practice == False, Business.paused == False)).all():  # noqa: E712
+        if b.subdomain:
+            print(b.subdomain)
+PY
+)"
+SHOP="$(echo "$SHOPS" | head -n1 | tr -d '\r')"
+info "live real shops: $(echo "$SHOPS" | grep -c . || true)"
+if ! $LOCAL; then
+  for s in $SHOPS; do
+    ip="$(getent ahostsv4 "$s.$APP_DOMAIN" | awk 'NR==1{print $1}')"
+    [ "$ip" = "$SERVER_IP" ] && pass "DNS: $s.$APP_DOMAIN -> $ip (its own A record)" || fail "DNS: $s.$APP_DOMAIN -> ${ip:-nothing}"
+  done
+  nope="$(getent ahostsv4 "lw-no-such-shop-$RANDOM.$APP_DOMAIN" | awk 'NR==1{print $1}')"
+  [ -z "$nope" ] && pass "no wildcard: an unused name doesn't resolve" || warn "an unused name resolves to $nope (a wildcard record exists? we decided per-shop records only)"
 fi
 
-# ---------- 2. Mailbox reachable ----------
-echo "2. Mailbox"
-out="$(inapp "${EXTERNAL_SUBJECT:-}" <<'PY' 2>&1
+# ---------- 2. HTTPS ----------
+echo "2. Website over HTTPS"
+if body="$("${CURL[@]}" "$BASE/api/health" 2>&1)" && echo "$body" | grep -q '"ok":true'; then
+  pass "$BASE/api/health with a valid certificate"
+  echo "$body" | grep -q '"warnings"' && warn "health warnings: $(echo "$body" | sed -e 's/.*"warnings":\[//' -e 's/\].*//')" \
+    || pass "health: no warnings"
+else
+  fail "$BASE/api/health: ${body:0:200}"
+fi
+hsts="$("${CURL[@]}" -o /dev/null -D - "$BASE/" 2>/dev/null | tr -d '\r' | grep -i '^strict-transport-security:')"
+[ -n "$hsts" ] && pass "HSTS on the app ($hsts)" || fail "no Strict-Transport-Security header on $BASE"
+redir="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 10 "http://$APP_DOMAIN/")"
+case "$redir" in 30[178]\ https://*) pass "http -> https ($redir)";; *) fail "http://$APP_DOMAIN/ answered '$redir' (want a redirect to https)";; esac
+if ! $LOCAL; then
+  end="$(echo | openssl s_client -connect "$APP_DOMAIN:443" -servername "$APP_DOMAIN" 2>/dev/null | openssl x509 -noout -enddate -issuer 2>/dev/null | tr '\n' ' ')"
+  [ -n "$end" ] && info "certificate: $end"
+fi
+
+# ---------- 3. /internal and the shop-host guard ----------
+echo "3. Internal endpoints and shop hosts"
+bad=""
+for p in "/internal/tls-ask?domain=$APP_DOMAIN" "/internal" "/INTERNAL/tls-ask?domain=x" "/internal%2ftls-ask?domain=$APP_DOMAIN" "//internal/tls-ask?domain=$APP_DOMAIN"; do
+  code="$("${CURL[@]}" -o /dev/null -w '%{http_code}' "$BASE$p")"
+  [ "$code" = "404" ] || bad="$bad $p=$code"
+done
+[ -z "$bad" ] && pass "/internal/* answers 404 from outside (5 spellings)" || fail "/internal reachable from outside:$bad"
+inside="$("${COMPOSE[@]}" exec -T caddy wget -qO- "http://app:8000/internal/tls-ask?domain=$APP_DOMAIN" 2>&1)"
+echo "$inside" | grep -q '"ok":true' && pass "inside the network Caddy's ask works for $APP_DOMAIN" || fail "tls-ask inside the network: ${inside:0:120}"
+unknown="$("${COMPOSE[@]}" exec -T caddy wget -qO- "http://app:8000/internal/tls-ask?domain=lw-nobody.$APP_DOMAIN" 2>&1)"
+echo "$unknown" | grep -q '404' && pass "no certificate for a shop that doesn't exist" || fail "tls-ask said yes to an unknown shop: ${unknown:0:120}"
+if [ -n "$SHOP" ]; then
+  SB="https://$SHOP.$APP_DOMAIN"
+  page="$("${CURL[@]}" "$SB/" 2>&1)"
+  echo "$page" | grep -q 'name="lw-shop"' && pass "$SB opens over HTTPS with its lw-shop marker" || fail "$SB: no lw-shop marker"
+  bad=""
+  for p in /api/health /internal/tls-ask /build /r/x /assets/x.js; do
+    code="$("${CURL[@]}" -o /dev/null -w '%{http_code}' "$SB$p")"; [ "$code" = "404" ] || bad="$bad $p=$code"
+  done
+  [ -z "$bad" ] && pass "shop host serves no app paths (/api /internal /build /r /assets: 404)" || fail "shop host answered:$bad"
+else
+  info "(no live real shop yet: shop-host checks skipped)"
+fi
+
+# ---------- 4. Accounts: session cookie over https, the admin user ----------
+echo "4. Accounts"
+admin="$(inapp <<'PY' 2>&1
+from sqlmodel import Session, select
+from app.config import get_settings
+from app.db import get_engine
+from app.models import User
+s = get_settings()
+with Session(get_engine()) as db:
+    u = db.exec(select(User).where(User.email == s.admin_email.strip().lower())).first() if s.admin_email else None
+    print("ADMIN", "unset" if not s.admin_email else ("ok" if u and u.role == "admin" and u.status == "approved" else "missing"))
+    print("DEVMODE", s.dev_mode)
+    print("MAILBOX", s.mailbox_expires_on or "unset")
+PY
+)"
+case "$(echo "$admin" | awk '/^ADMIN/{print $2}')" in
+  ok) pass "the ADMIN_EMAIL user exists, approved, role admin";;
+  unset) fail "ADMIN_EMAIL is not set";;
+  *) fail "the ADMIN_EMAIL user is missing or not admin";;
+esac
+[ "$(echo "$admin" | awk '/^DEVMODE/{print $2}')" = "False" ] && pass "DEV_MODE is off" || fail "DEV_MODE is on"
+mb="$(echo "$admin" | awk '/^MAILBOX/{print $2}')"
+if [ "$mb" = "unset" ]; then $LOCAL && info "MAILBOX_EXPIRES_ON unset (fine locally)" || fail "MAILBOX_EXPIRES_ON is not set (health can't warn before hello@ lapses)"
+else pass "MAILBOX_EXPIRES_ON = $mb (health warns 14 days ahead)"; fi
+# A one-time sign-in token for the admin, made inside the app and used once over https, then signed out.
+# Nothing is emailed. The token never reaches the screen.
+TOKEN="$(inapp <<'PY' 2>/dev/null
+from sqlmodel import Session
+from app.accounts import issue_token
+from app.config import get_settings
+from app.db import get_engine
+s = get_settings()
+if s.admin_email:
+    with Session(get_engine()) as db:
+        print(issue_token(db, s.admin_email.strip().lower(), "login", visitor="check_m1"))
+PY
+)"
+TOKEN="$(echo "$TOKEN" | tail -n1 | tr -d '\r')"
+if [ -n "$TOKEN" ]; then
+  hdrs="$(mktemp)"
+  resp="$("${CURL[@]}" -D "$hdrs" -H 'Content-Type: application/json' -H "Origin: $BASE" \
+    --data-binary @- "$BASE/api/auth/confirm" <<<"{\"token\":\"$TOKEN\"}")"
+  unset TOKEN
+  cookie="$(tr -d '\r' < "$hdrs" | grep -i '^set-cookie: __Host-lw_session=' | head -n1)"
+  flags="$(echo "$cookie" | sed -E 's/^set-cookie: __Host-lw_session=[^;]*//I')"  # the value is never shown
+  okc=true
+  for f in "secure" "httponly" "samesite=lax" "path=/"; do echo "$flags" | grep -qi "$f" || okc=false; done
+  echo "$flags" | grep -qi "domain=" && okc=false
+  $okc && pass "__Host-lw_session over https:$flags" || fail "session cookie flags wrong or missing:${flags:-(no __Host-lw_session cookie)}"
+  raw="$(echo "$cookie" | sed -E 's/^set-cookie: __Host-lw_session=([^;]*).*/\1/I')"
+  csrf="$(echo "$resp" | sed -n 's/.*"csrf":"\([^"]*\)".*/\1/p')"
+  out="$("${CURL[@]}" -o /dev/null -w '%{http_code}' -X POST -H "Origin: $BASE" -H "X-CSRF-Token: $csrf" \
+    -H "Cookie: __Host-lw_session=$raw" "$BASE/api/auth/logout")"
+  unset raw csrf
+  [ "$out" = "200" ] && info "(that check session was signed out again)" || warn "couldn't sign the check session out ($out)"
+  rm -f "$hdrs"
+fi
+
+# ---------- 5. One app process ----------
+echo "5. One app process"
+procs="$(inapp <<'PY' 2>&1
+import os
+n = 0
+for p in os.listdir("/proc"):
+    if p.isdigit():
+        try:
+            c = open(f"/proc/{p}/cmdline", "rb").read().split(b"\0")
+        except OSError:
+            continue
+        n += any(x.endswith(b"uvicorn") for x in c[:2]) and b"app.main:app" in c
+print(n)
+PY
+)"
+[ "$(echo "$procs" | tail -n1 | tr -d '\r')" = "1" ] && pass "exactly one uvicorn process" || fail "uvicorn processes: $procs (must be 1)"
+nlog="$("${COMPOSE[@]}" logs app 2>&1 | grep -c 'monitor started' || true)"
+info "scheduler starts logged since the container was created: $nlog (one per start)"
+
+# ---------- 6. Mailbox + contact form ----------
+echo "6. Mailbox and contact form"
+MARK="m1check-$(date +%s)-$RANDOM"
+if $LOCAL; then
+  "${COMPOSE[@]}" exec -T app python -c "import smtplib,os; smtplib.SMTP(os.environ['SMTP_HOST'], int(os.environ['SMTP_PORT']), timeout=10).quit()" \
+    && pass "SMTP reaches the local catch-all (Mailpit)" || fail "SMTP to Mailpit"
+else
+  out="$(inapp "${EXTERNAL_SUBJECT:-}" <<'PY' 2>&1
 import imaplib, os, smtplib, ssl, sys
 user = os.environ.get("SMTP_USER", "")
 ctx = ssl.create_default_context()
@@ -72,7 +224,7 @@ try:
         s.login(user, os.environ.get("SMTP_PASSWORD", ""))
     print("SMTP_OK", user)
 except Exception as e:
-    print("SMTP_FAIL", type(e).__name__, str(e)[:120].replace(os.environ.get("SMTP_PASSWORD", "") or "\0", "***"))
+    print("SMTP_FAIL", type(e).__name__)
 try:
     m = imaplib.IMAP4_SSL(os.environ.get("IMAP_HOST", "imap.secureserver.net"), int(os.environ.get("IMAP_PORT", 993)), ssl_context=ctx)
     m.login(os.environ.get("IMAP_USER", ""), os.environ.get("IMAP_PASSWORD", ""))
@@ -84,31 +236,32 @@ try:
         print("EXTERNAL_FOUND" if data and data[0].split() else "EXTERNAL_MISSING")
     m.logout()
 except Exception as e:
-    print("IMAP_FAIL", type(e).__name__, str(e)[:120])
+    print("IMAP_FAIL", type(e).__name__)
 PY
 )"
-echo "$out" | grep -q '^SMTP_OK' && pass "SMTP login as $(echo "$out" | awk '/^SMTP_OK/{print $2}') (smtpout.secureserver.net:465)" \
-  || fail "SMTP login: $(echo "$out" | grep '^SMTP_FAIL' | cut -d' ' -f2-)"
-echo "$out" | grep -q '^IMAP_OK' && pass "IMAP login (inbox readable)" || fail "IMAP login: $(echo "$out" | grep '^IMAP_FAIL' | cut -d' ' -f2-)"
-if [ -n "${EXTERNAL_SUBJECT:-}" ]; then
-  echo "$out" | grep -q '^EXTERNAL_FOUND' && pass "external test email \"$EXTERNAL_SUBJECT\" is in the inbox" \
-    || fail "external test email \"$EXTERNAL_SUBJECT\" not found in the inbox"
-else
-  info "(manual) send an email from another account, then re-run with EXTERNAL_SUBJECT=\"<its subject>\""
+  echo "$out" | grep -q '^SMTP_OK' && pass "SMTP login as $(echo "$out" | awk '/^SMTP_OK/{print $2}')" || fail "SMTP login: $(echo "$out" | grep '^SMTP_FAIL' | cut -d' ' -f2-)"
+  echo "$out" | grep -q '^IMAP_OK' && pass "IMAP login (inbox readable)" || fail "IMAP login: $(echo "$out" | grep '^IMAP_FAIL' | cut -d' ' -f2-)"
+  if [ -n "${EXTERNAL_SUBJECT:-}" ]; then
+    echo "$out" | grep -q '^EXTERNAL_FOUND' && pass "external test email \"$EXTERNAL_SUBJECT\" is in the inbox" || fail "external test email not found"
+  else
+    info "(manual) send an email from another account, then re-run with EXTERNAL_SUBJECT=\"<its subject>\""
+  fi
 fi
-
-# ---------- 3. Contact form arrives ----------
-echo "3. Contact form"
-MARK="m1check-$(date +%s)-$RANDOM"
-resp="$(curl -sS --max-time 20 -H 'Content-Type: application/json' \
-  -d "{\"name\":\"M1 check\",\"email\":\"m1-check@example.org\",\"message\":\"Automatic M1 check $MARK\"}" \
-  "https://$APP_DOMAIN/api/contact" 2>&1)"
+resp="$("${CURL[@]}" -H 'Content-Type: application/json' -H "Origin: $BASE" \
+  -d "{\"name\":\"Stack check\",\"email\":\"m1-check@example.org\",\"message\":\"Automatic stack check $MARK\"}" "$BASE/api/contact" 2>&1)"
 if echo "$resp" | grep -q '"ok":true'; then
   pass "contact form accepted the message"
-  found="$(inapp "$MARK" <<'PY' 2>&1
+  if $LOCAL; then
+    found=""
+    for _ in $(seq 1 10); do
+      curl -s "http://localhost:8025/api/v1/search?query=$MARK" | grep -q '"total":[1-9]' && { found=1; break; }; sleep 1
+    done
+    [ -n "$found" ] && pass "contact message arrived (Mailpit)" || fail "contact message not in Mailpit"
+  else
+    found="$(inapp "$MARK" <<'PY' 2>&1
 import imaplib, os, ssl, sys, time
 mark = sys.argv[1]
-for _ in range(12):  # up to ~2 minutes
+for _ in range(12):
     try:
         m = imaplib.IMAP4_SSL(os.environ.get("IMAP_HOST", "imap.secureserver.net"), int(os.environ.get("IMAP_PORT", 993)), ssl_context=ssl.create_default_context())
         m.login(os.environ.get("IMAP_USER", ""), os.environ.get("IMAP_PASSWORD", ""))
@@ -123,27 +276,32 @@ for _ in range(12):  # up to ~2 minutes
 print("MISSING")
 PY
 )"
-  echo "$found" | grep -q '^FOUND' && pass "contact form message arrived in the mailbox" \
-    || fail "contact form message not in the inbox after 2 minutes ($(echo "$found" | tail -n1))"
+    echo "$found" | grep -q '^FOUND' && pass "contact message arrived in the mailbox (IMAP)" || fail "contact message not in the inbox after 2 minutes"
+  fi
 else
   fail "contact form: ${resp:0:200}"
 fi
 
-# ---------- 4. Password only in server .env ----------
-echo "4. Secrets"
+# ---------- 7. Secrets ----------
+echo "7. Secrets"
 git ls-files --error-unmatch .env >/dev/null 2>&1 && fail ".env is tracked by git!" || pass ".env is not tracked by git"
-PW="$(envval SMTP_PASSWORD)"
-if [ -z "$PW" ]; then
-  fail "SMTP_PASSWORD is empty in .env"
-else
-  # -f <(...) keeps the password off every command line (ps can't see it).
-  if git grep -qF -f <(printf '%s\n' "$PW") -- . 2>/dev/null; then fail "SMTP password found in a tracked file (git grep)"
-  else pass "git grep: SMTP password not in any tracked file"; fi
-  if git log -p --all 2>/dev/null | grep -qF -f <(printf '%s\n' "$PW"); then fail "SMTP password found in git history"
-  else pass "SMTP password not in any commit"; fi
+if ! $LOCAL; then
+  mode="$(stat -c '%a' .env 2>/dev/null)"
+  [ "$mode" = "600" ] && pass ".env is chmod 600" || fail ".env mode is ${mode:-?} (chmod 600 .env)"
+  PW="$(envval SMTP_PASSWORD)"
+  if [ -z "$PW" ]; then
+    fail "SMTP_PASSWORD is empty in .env"
+  else
+    # -f <(...) keeps the password off every command line (ps can't see it).
+    git grep -qF -f <(printf '%s\n' "$PW") -- . 2>/dev/null && fail "SMTP password found in a tracked file" || pass "SMTP password not in any tracked file"
+    git log -p --all 2>/dev/null | grep -qF -f <(printf '%s\n' "$PW") && fail "SMTP password found in git history" || pass "SMTP password not in any commit"
+  fi
+  unset PW
 fi
-unset PW
+docker image inspect "$("${COMPOSE[@]}" images -q app 2>/dev/null | head -n1)" >/dev/null 2>&1 && \
+  { "${COMPOSE[@]}" exec -T app sh -c 'test ! -e /app/.env && test ! -e /app/backend/.env' && pass "no .env inside the image" || fail ".env found inside the app image"; }
 
+$LOCAL && rm -f "$CA"
 echo
-if [ "$FAILS" -eq 0 ]; then echo "M1: all checks passed."; else echo "M1: $FAILS check(s) failed."; fi
+if [ "$FAILS" -eq 0 ]; then echo "Stack check: all checks passed."; else echo "Stack check: $FAILS check(s) failed."; fi
 exit "$FAILS"

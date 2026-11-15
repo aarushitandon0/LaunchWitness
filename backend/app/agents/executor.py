@@ -300,6 +300,10 @@ def run_plan(engine: Engine, settings: Settings, integ: Integrations, plan_id: i
                 continue
             st.update(status="running", message="", started_at=utcnow().isoformat(), finished_at=None)
             _save_steps(session, plan, steps)
+            if integ.fake and settings.practice_step_seconds > 0:  # pretend world only: let the steps be seen
+                import time
+
+                time.sleep(min(settings.practice_step_seconds, 10))
             try:
                 message = STEPS[st["kind"]](ctx)
             except StepFailed as e:

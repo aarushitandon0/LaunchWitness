@@ -38,7 +38,7 @@ AC
 
 Tasks (user does purchases on godaddy.com; Claude Code helps with commands/config)
 - VPS: SSH key, Docker installed, repo deployed, `.env` on server only.
-- App domain A record (and wildcard `*`) → VPS IP; Caddy HTTPS on the app domain.
+- App domain A record `@` → VPS IP (no wildcard: each shop gets its own A record at launch, decided S9F); Caddy HTTPS on the app domain.
 - Titan Pro Light mailbox `hello@<APP_DOMAIN>` created (via `gddy`), test email from another account arrives.
 - Contact form on the app's own landing page → sends to the mailbox over SMTP (`smtpout.secureserver.net`, full address as username, password from env).
 

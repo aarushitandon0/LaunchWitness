@@ -16,10 +16,10 @@ Claude Code reads this at the start of every session and updates it at the end. 
 - **Owner TODO:** look up hello@launchwitness.com's daily send limit (sign-in links, orders, daily test orders and alerts all go through it). Known risk: if hello@ lapses (about Dec 15) or hits its limit, sign-in, orders and alerts all stop. Set `MAILBOX_EXPIRES_ON` on the server so `/api/health` warns 14 days ahead.
 - **Owner TODO (VPS):** set `ADMIN_EMAIL` and a fresh `ADMIN_TOKEN` in the server `.env`; `DEV_MODE` must stay false there.
 
-0. **M1 on the VPS on Wed Nov 18** (the VPS is free and arrives then; **do not buy one**). The old "by Nov 17" deadline can't be met; session 9 can run before it. Thursday Nov 19 demo shop = `meerasbakes.launchwitness.com` via the wildcard record (no seller domain bought).
+0. **M1 on the VPS on Wed Nov 18** (the VPS is free and arrives then; **do not buy one**). The old "by Nov 17" deadline can't be met; session 9 can run before it. Thursday Nov 19 demo shop = `meerasbakes.launchwitness.com` with its own A record written at launch (no wildcard, decided S9F; no seller domain bought).
 0a. **Owner check:** run `python scripts/list_godaddy_domains.py` (read-only, prod keys from `.env`) and confirm `launchwitness.com` shows ACTIVE.
 0b. **Session 9** (orders + UPI pay link + status page + seller order list + WhatsApp hand-offs + email verification + policy check + report/pause): paste `docs/NEXT_SESSION_S9.md`.
-1. **M1 on the VPS** once credit is confirmed: follow `docs/RUNBOOK_M1.md` (buy → SSH → Docker → clone → `.env` → DNS A + wildcard → prod compose → backup cron → mailbox → `check_m1.sh` all PASS). Confirm the `gddy` sub-commands with `gddy tree` (marked in the runbook).
+1. **M1 on the VPS** once credit is confirmed: follow `docs/RUNBOOK_M1.md` (now `docs/NEXT_SESSION_VPS.md`: SSH → Docker → clone → `.env` → DNS `A @` only → prod compose → backup cron → mailbox → `check_m1.sh` all PASS). Confirm the `gddy` sub-commands with `gddy tree` (marked in the runbook).
 2. **Fable session — plug in real integrations** in the order of the runbook's step 11 table, then `USE_FAKES=false` (admin-created businesses only) and the M3 AC1 sandbox launch with real HTTPS.
 3. **Session 10 (demo + submission) leads with proof, not generation.** Pitch: "Describe your business. LaunchWitness puts it online on GoDaddy, proves a real order reaches you, fixes what breaks, and keeps checking." Demo and brief order: proof (test order reaches the inbox) → Doctor repair → monitoring → generation last. README + landing already follow this (session 8.5); the video script (SPEC §12) and `docs/PROJECT_BRIEF.md` still need reordering.
 4. **M4 AC5 (evening):** one full launch of Meera's purchased domain (if budget allows), recorded — needs M1 + the Fable session.
@@ -155,7 +155,7 @@ Everything below is behind an interface with a working fake; tests cover the fak
 | GoDaddy developer account + `gddy` CLI | ? | Run `gddy tree` to confirm |
 | GoDaddy credit | **$2.37 left, expires Nov 23** | No card on file. Nothing else can be bought. |
 | Docker VPS (4 vCPU / 8 GB, $0) | **Arrives free Wed Nov 18** | Do NOT buy one |
-| App domain | **`launchwitness.com` bought Nov 15** | 1 year, renews Nov 2027 at $22.99. `launchwitness.in` NOT bought. A `@` is still GoDaddy's parked record; A + wildcard wait for the VPS. **Don't touch DNS before then.** |
+| App domain | **`launchwitness.com` bought Nov 15** | 1 year, renews Nov 2027 at $22.99. `launchwitness.in` NOT bought. A `@` is still GoDaddy's parked record; `A @` waits for the VPS (no wildcard: per-shop records). **Don't touch DNS before then.** |
 | App mailbox `hello@launchwitness.com` | **Bought Nov 15, 1 month** | GoDaddy Professional Email **Pro Light** (secureserver.net backend, not Titan). $5.99/mo monthly; $1.99/mo = $23.88/yr on a 1-yr term. **Expires ~Dec 15 and auto-renew will lapse** (no card). MX (smtp/mailstore1.secureserver.net), SPF `include:secureserver.net -all`, DKIM ×2, DMARC `p=quarantine` already set by GoDaddy. SMTP send verified from a local run. |
 | Meera's demo domain | **Not bought** (credit ran out) | Demo uses `meerasbakes.launchwitness.com` |
 | Claude API key ($100, product only) | ? | |
