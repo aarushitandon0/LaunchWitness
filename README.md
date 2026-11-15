@@ -1,12 +1,12 @@
 # LaunchWitness
 
-> **Describe your business. LaunchWitness launches it on GoDaddy and proves everything works before your first customer arrives.**
+> **Airo builds your website. LaunchWitness proves it can take a customer's order, fixes it when it can't, and keeps watching after launch.**
 
-Built for the GoDaddy Inclusive Innovation Hackathon 2026 (working name).
+**Is your shop actually ready for customers?** Built for the GoDaddy Inclusive Innovation Hackathon 2026 (working name).
 
-- **Live app:** `https://<APP_DOMAIN>` *(placeholder: goes live in M1)*. "Try it" runs in practice mode, so nothing is bought.
+- **Live app:** `https://launchwitness.com` *(goes live in M1, when the VPS arrives)*. "Try it" runs in practice mode, so nothing is bought.
 - **Demo video (3 min):** `<YouTube link>` *(placeholder)*
-- **How it was built:** the combined Claude Code session replay at `https://<APP_DOMAIN>/build`, plus [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md)
+- **How it was built:** the combined Claude Code session replay at `https://launchwitness.com/build`, plus [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md)
 
 ---
 
@@ -14,14 +14,14 @@ Built for the GoDaddy Inclusive Innovation Hackathon 2026 (working name).
 
 Meera bakes eggless cakes at home in Pune. Her customers find her on Instagram and order in messages. She has no website and no business email, and "DNS" means nothing to her.
 
-With LaunchWitness she types two lines and pastes her price list. A few minutes later she has:
-- a mobile website with her menu, prices, WhatsApp button and UPI QR
-- her own domain name and business email
-- an order form that emails her
+Plenty of tools will make her a website. None of them tell her whether a customer's order will actually reach her. LaunchWitness does that, in this order:
 
-Before she shares the link, LaunchWitness proves it all works. It checks that the site opens securely, that the email settings are right, and that a **real test order arrives in her inbox**. Anything that fails gets explained in one plain sentence and repaired from a fixed, safe list of fixes. The report ends with: **"Your business is ready for customers."** After launch it keeps checking lightly and warns her personal email before something breaks or expires.
+1. **Proof.** Before she shares the link, a **real test order has to arrive in her inbox**. LaunchWitness also checks that the site opens securely and that her email settings are right. The report ends with **"Your business is ready for customers."** only when every check has passed.
+2. **The Doctor.** Anything that fails is explained in one plain sentence and repaired from a fixed, safe list of fixes, then checked again. Nothing outside that list can run, and every change is backed up and can be undone.
+3. **Watching.** After launch it re-checks her site every 15 minutes and her settings daily, fixes what it safely can, and emails her personal address before something breaks or expires.
+4. **Generation, last.** If she has no site yet, she types two lines and pastes her price list (or a photo of it), and LaunchWitness builds a mobile shop with her menu, prices, WhatsApp button and UPI QR, on her own domain with business email.
 
-Most AI builders stop at "your site is ready". LaunchWitness shows the proof.
+Most builders stop at "your site is ready". LaunchWitness shows the proof.
 
 ## How it works
 

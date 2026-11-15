@@ -89,3 +89,12 @@ One entry per Claude Code session, newest last. This is what judges read to unde
 - What checking caught: the tailor page scrolled sideways on phones (a grid column grew to fit the category chips; fixed with `minmax(0, 1fr)`); basket prices broke one digit per line next to long Hinglish names; the 44-item menu left a big empty column on laptops (now two columns + search); "Price starts from ₹300" repeated the "from ₹300" price (tidy-up drops it); the review page needed the "I've saved it" step in the browser check.
 - Result: 333 passed, 2 skipped. All 6 gallery sellers checked at 375 and 1440 px with no sideways scrolling; full practice flow checked in the browser. Live Claude spend: $0.
 - Next: M1 on the VPS by Nov 17; session 9 from `docs/NEXT_SESSION_S9.md`.
+
+### Session 8.5 — 2026-11-15 — Real domain + mailbox wiring, proof-first copy
+- Goal: M1 prep without a VPS: the contact form sending through the real `hello@launchwitness.com` mailbox; real email price; proof-first positioning.
+- Asked Claude to: make SMTP env-only with 465 SSL and a 587 STARTTLS fallback, send one real contact-form message from a local run without printing the password, set the real email plan price, switch app-domain references to `launchwitness.com`, add a read-only "list my GoDaddy domains" script, and reorder the README + landing around proof (test order → Doctor → monitoring → generation last).
+- Claude built: the fallback in `app/mail/smtp.py` (only when the SSL connection can't be made; never after login, so no double sends or password retries) + 3 tests; `scripts/list_godaddy_domains.py` + 3 tests; `EMAIL_PLAN_ESTIMATE_USD=23.88`; README pitch, landing headline "Is your shop actually ready for customers?", runbook step 0 (purchases done), PROGRESS, session 9 note.
+- I changed / rejected: bought `launchwitness.com` + a 1-month Pro Light mailbox (not `.in`, not a seller domain: credit ran out); no DNS changes until the VPS arrives free on Wed Nov 18; demo on `meerasbakes.launchwitness.com`.
+- What checking caught: the mailbox is GoDaddy Professional Email (secureserver.net), not Titan, while the planner still assumes Titan's DKIM name (open question); the old "M1 by Nov 17" deadline can't hold with a Nov 18 VPS; a mixed-case `LaunchWitness.in.` test case was missed by the first find-and-replace.
+- Result: real contact-form email sent over port 465 (HTTP 200, no fallback needed). 339 passed, 2 skipped. Live Claude spend: $0.
+- Next: session 9 (`docs/NEXT_SESSION_S9.md`), M1 on Wed Nov 18.

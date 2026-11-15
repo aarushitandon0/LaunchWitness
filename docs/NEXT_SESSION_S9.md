@@ -6,6 +6,8 @@ Paste this as the first message of session 9.
 
 Session 9: UPI pay link, order status tracking, trust and safety
 
+**Positioning (decided in session 8.5): proof first, generation last.** Pitch: "Airo builds your website. LaunchWitness proves it can take a customer's order, fixes it when it can't, and keeps watching after launch." Every new piece below should feed the proof: the UPI-link and status-page checks are launch checks; seller-facing copy talks about "your shop is ready for customers", not "your website is generated". Infra facts: app domain `launchwitness.com`, mailbox `hello@launchwitness.com` (GoDaddy Professional Email, secureserver.net), VPS arrives Wed Nov 18, demo shop `meerasbakes.launchwitness.com`.
+
 Follow the session ritual in CLAUDE.md: read CLAUDE.md and docs/PROGRESS.md, post a plan, and WAIT for my OK.
 
 ## Goal
@@ -52,4 +54,4 @@ Sellers need payment and order tracking, and the platform needs basic protection
 - Screenshots of form → pay → status page → seller order list on mobile and desktop saved to `docs/screenshots/s9/`, using at least 3 of the session-8 gallery sellers (one with no UPI ID).
 - Update PROGRESS + BUILD_LOG, save the transcript, rebuild replay, run the secret scan, open the PR and merge once tests pass.
 
-**Reminder: M1 (VPS) must happen by Nov 17.** If session 9 runs on Nov 16 or later, do M1 first.
+**Reminder:** M1 (VPS) happens on Wed Nov 18 when the free VPS arrives (don't buy one). Session 9 can run before it.
