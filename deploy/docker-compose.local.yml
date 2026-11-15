@@ -31,6 +31,8 @@ services:
       IMAP_USER: hello@launchwitness.localhost
       # The e2e suite signs up several people from one address; keep the real limits otherwise.
       SIGNIN_LINKS_PER_IP_PER_HOUR: "200"
+      SIGNIN_LINKS_PER_EMAIL_PER_DAY: "100"
+      VISITOR_CONTACTS_PER_DAY: "100"
       USER_DESCRIBES_PER_DAY: "50"
       VISITOR_DESCRIBES_PER_DAY: "50"
       VISITOR_LAUNCHES_PER_DAY: "50"

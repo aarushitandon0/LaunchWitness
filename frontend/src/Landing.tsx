@@ -542,8 +542,8 @@ function CheckAnyAddress() {
             Read-only results for <strong>{result.address}</strong>:
           </p>
           <ul className="rows checks">
-            {result.results.map((r) => (
-              <li key={r.check} className={r.ok === false ? "bad" : r.ok ? "ok" : "st-pending"}>
+            {result.results.map((r, i) => (
+              <li key={`${r.check}-${i}`} className={r.ok === false ? "bad" : r.ok ? "ok" : "st-pending"}>
                 <span className="icon" aria-hidden>
                   {r.ok === false ? "✕" : r.ok ? "✓" : "–"}
                 </span>

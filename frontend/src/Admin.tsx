@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AdminShop, AdminUser, api, ApiError, ShopReportRow } from "./api";
+import { AdminShop, AdminUser, api, ApiError, ShopReportRow, ZoneFinding } from "./api";
 import { useMe } from "./Account";
 import { ErrorBox } from "./Describe";
 
@@ -17,15 +17,17 @@ export function AdminPage() {
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [shops, setShops] = useState<AdminShop[] | null>(null);
   const [reports, setReports] = useState<ShopReportRow[] | null>(null);
+  const [zone, setZone] = useState<ZoneFinding[] | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
-    Promise.all([api.admin.users(), api.admin.shops(), api.admin.reports()])
-      .then(([u, s, r]) => {
+    Promise.all([api.admin.users(), api.admin.shops(), api.admin.reports(), api.admin.zoneFindings()])
+      .then(([u, s, r, z]) => {
         setUsers(u);
         setShops(s);
         setReports(r);
+        setZone(z);
       })
       .catch(setError);
   }, []);
@@ -130,6 +132,48 @@ export function AdminPage() {
               </span>
             </li>
           ))}
+        </ul>
+      )}
+
+      <h2>Address records ({(zone ?? []).filter((z) => z.status === "open").length} to look at)</h2>
+      <p className="muted">
+        Once a day we compare the shop address records on our domain with the shops here. Nothing changes until you
+        approve a fix. Only shop records are ever touched (never @, www or mail records).
+      </p>
+      <p>
+        <button className="btn btn-ghost btn-sm" disabled={busy} onClick={act(() => api.admin.zoneCheck())}>
+          Check now
+        </button>
+      </p>
+      {(zone ?? []).filter((z) => z.status === "open").length === 0 ? (
+        <p className="muted">Everything matches.</p>
+      ) : (
+        <ul className="names admin-list">
+          {(zone ?? [])
+            .filter((z) => z.status === "open")
+            .map((z) => (
+              <li key={z.id}>
+                <span>
+                  <strong>{z.name}</strong> <span className="muted">({z.kind.replace("_", " ")})</span>
+                  <br />
+                  <span className="muted">{z.plain}</span>
+                  <details>
+                    <summary>Details</summary>
+                    <code>
+                      A {z.name}: now [{z.found || "none"}] → after [{z.want || "removed"}]
+                    </code>
+                  </details>
+                </span>
+                <span className="actions">
+                  <button className="btn btn-primary btn-sm" disabled={busy} onClick={act(() => api.admin.zoneApprove(z.id))}>
+                    {z.fix === "delete" ? "Remove record" : "Point it here"}
+                  </button>
+                  <button className="btn btn-ghost btn-sm" disabled={busy} onClick={act(() => api.admin.zoneDismiss(z.id))}>
+                    Leave it
+                  </button>
+                </span>
+              </li>
+            ))}
         </ul>
       )}
 

@@ -199,6 +199,17 @@ export function MyShopsPage() {
                 </a>
                 <br />
                 <span className="muted">{shopState(b)}</span>
+                {b.renewal && (
+                  <>
+                    <br />
+                    <span className={`renewal-note renewal-${b.renewal.state}`}>
+                      Renewal: {b.renewal.label}, {b.renewal.days_left !== null && b.renewal.days_left < 0
+                        ? "ran out"
+                        : `${b.renewal.days_left} days left`}
+                      {b.renewal.who === "you" ? " (you renew it)" : " (our team renews it)"}
+                    </span>
+                  </>
+                )}
               </span>
               <a className="btn btn-ghost btn-sm" href={`#/b/${b.id}/report`}>
                 Report

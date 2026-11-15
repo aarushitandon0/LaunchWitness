@@ -10,6 +10,7 @@ from sqlmodel import Session, select
 from app import accounts, audit
 from app.config import Settings, get_settings
 from app.db import get_session
+from app.integrations import Integrations, get_integrations
 from app.mail.smtp import Mailer, get_mailer
 from app.models import Business, Membership, ShopReport, User
 from app.safety.access import Actor, require_admin
@@ -216,3 +217,56 @@ def close_report(report_id: int, body: Reason, admin: AdminDep, session: Annotat
     audit.record(session, actor="admin", action="report_closed", target=f"report:{r.id}", result="ok",
                  business_id=r.business_id, user_id=admin.user_id, detail=body.reason)
     return {"ok": True}
+
+
+# ---------- zone hygiene (S10): proposed fixes to shop A records on the app domain; the admin decides ----------
+
+def _zone_godaddy(integ: Annotated[Integrations, Depends(get_integrations)]):
+    return integ.godaddy  # the server's own GoDaddy (the guarded client writes shop A records only)
+
+
+@router.get("/zone-findings")
+def zone_findings(admin: AdminDep, session: Annotated[Session, Depends(get_session)]) -> list[dict]:
+    from app.models import ZoneFinding
+    from app.zone_hygiene import finding_out
+
+    rows = session.exec(select(ZoneFinding).order_by(ZoneFinding.id.desc()).limit(100)).all()
+    return [finding_out(f) for f in rows]
+
+
+@router.post("/zone-check")
+def zone_check(admin: AdminDep, settings: Annotated[Settings, Depends(get_settings)],
+               session: Annotated[Session, Depends(get_session)], godaddy=Depends(_zone_godaddy)) -> dict:
+    """Read the app zone now and list what doesn't match the shops (changes nothing)."""
+    from app.zone_hygiene import finding_out, scan
+
+    try:
+        found = scan(session.get_bind(), settings, godaddy)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"We couldn't read the address records ({type(e).__name__}).") from e
+    return {"open": [finding_out(f) for f in found]}
+
+
+@router.post("/zone-findings/{finding_id}/approve")
+def zone_approve(finding_id: int, admin: AdminDep, settings: Annotated[Settings, Depends(get_settings)],
+                 session: Annotated[Session, Depends(get_session)], godaddy=Depends(_zone_godaddy)) -> dict:
+    from app.zone_hygiene import NoLongerTrue, approve, finding_out
+
+    by = admin.user.email if admin.user else "admin token"
+    try:
+        f = approve(session.get_bind(), settings, godaddy, finding_id, by)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail="That finding isn't open any more.") from e
+    except NoLongerTrue as e:
+        raise HTTPException(status_code=409, detail="That's no longer the case, so nothing was changed.") from e
+    return finding_out(f)
+
+
+@router.post("/zone-findings/{finding_id}/dismiss")
+def zone_dismiss(finding_id: int, admin: AdminDep, session: Annotated[Session, Depends(get_session)]) -> dict:
+    from app.zone_hygiene import dismiss, finding_out
+
+    try:
+        return finding_out(dismiss(session.get_bind(), finding_id, admin.user.email if admin.user else "admin token"))
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail="That finding isn't open any more.") from e

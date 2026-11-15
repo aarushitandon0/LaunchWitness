@@ -8,7 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from app import audit, proof
+from app import audit, proof, renewals
 from app.agents.checker import TITLES
 from app.agents.claude_client import Claude
 from app.agents.launch_check import AlreadyChecking, latest_launched_plan, run_checks, start_run
@@ -121,6 +121,8 @@ def report(b: Annotated[Business, Depends(require_business_access)], actor: Acto
         "monitoring": {"enabled": settings.monitor_enabled, "every_minutes": QUICK_MINUTES,
                        "last_quick": last("monitor_quick"), "last_daily": last("monitor_daily"),
                        "cert_days_left": info.get("cert_days_left"), "domain_days_left": info.get("domain_days_left")},
+        # Renewals (S10): only for a launched shop; dates from the pretend world are labelled by `practice`.
+        "renewals": renewals.card(settings, plan.mode, plan.zone, info) if plan and b.status == "live" else None,
         "audit": [{"at": iso(e.created_at), "actor": e.actor, "action": e.action, "target": e.target,
                    "result": e.result, "detail": e.detail} for e in events],
         "admin": admin,
