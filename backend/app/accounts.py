@@ -58,12 +58,15 @@ def issue_token(session: Session, email: str, purpose: str, visitor: str = "") -
     return raw
 
 
-def consume_token(session: Session, raw: str, purpose: str) -> LoginToken | None:
-    """Use the token up. Returns it only the FIRST time, and only if it hasn't expired."""
+def consume_token(session: Session, raw: str, purpose: str, email: str | None = None) -> LoginToken | None:
+    """Use the token up. Returns it only the FIRST time, and only if it hasn't expired. With `email`,
+    a token issued to another address is refused WITHOUT being used up (so nobody can burn your link)."""
     if not raw or len(raw) > 200:
         return None
     row = session.exec(select(LoginToken).where(LoginToken.token_hash == sha(raw), LoginToken.purpose == purpose)).first()
     if row is None or row.used_at is not None or aware(row.expires_at) <= utcnow():
+        return None
+    if email is not None and row.email != email:
         return None
     done = session.exec(update(LoginToken).where(LoginToken.id == row.id, LoginToken.used_at == None)  # noqa: E711
                         .values(used_at=utcnow()))

@@ -166,8 +166,8 @@ def delete_account(body: Confirm, response: Response, user: Annotated[User, Depe
                    practice: Annotated[Integrations, Depends(get_practice_integrations)]) -> dict:
     """Unpublish and delete the user's shops, remove memberships and personal data, end every
     session, and keep one anonymous audit record. Needs the emailed link AND being signed in."""
-    row = accounts.consume_token(session, body.token, "delete_account")
-    if row is None or row.email != user.email:
+    row = accounts.consume_token(session, body.token, "delete_account", email=user.email)
+    if row is None:
         raise HTTPException(status_code=400, detail=EXPIRED)
     if user.role == "admin":
         raise HTTPException(status_code=409, detail="The admin account can't be deleted here.")

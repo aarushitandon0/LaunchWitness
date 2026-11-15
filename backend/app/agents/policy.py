@@ -51,9 +51,14 @@ def policy_check(claude: Claude, profile: Profile) -> Verdict:
     if hit:
         return Verdict(False, "This shop seems to sell something we can't host here "
                               f"(we noticed “{hit.group(0).lower()}”). Our team will take a look.", by="code")
+    # A safety check is never answered from a saved sample: in live mode we skip the "resting for today"
+    # fallback and ask live Claude directly, so a down API or a spent budget holds the shop (fail closed).
+    asker = getattr(claude, "live", claude)
     try:
-        data = claude.ask_json(fixture="policy_ok", tier="cheap", system=SYSTEM, user=text, schema=SCHEMA, max_tokens=120)
-    except (ClaudeError, FileNotFoundError):
+        data = asker.ask_json(fixture="policy_ok", tier="cheap", system=SYSTEM, user=text, schema=SCHEMA, max_tokens=120)
+    except (ClaudeError, FileNotFoundError, OSError):
+        return Verdict(False, HELD_NO_ANSWER, by="unavailable")
+    if not isinstance(data, dict):
         return Verdict(False, HELD_NO_ANSWER, by="unavailable")
     if data.get("ok") is True:
         return Verdict(True)
