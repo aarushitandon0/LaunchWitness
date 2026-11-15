@@ -587,7 +587,7 @@ def test_every_admin_action_is_audited(world, browser, engine):
 
 
 def test_two_users_never_see_each_other(world):
-    a, b, shop_a = world["a"], world["b"], world["shop_a"]
+    b, shop_a = world["b"], world["shop_a"]
     r = b.get(f"/api/businesses/{shop_a['id']}/report")
     assert r.status_code == 404 and r.json()["detail"] == "We couldn't find that shop."
     assert not re.search(r"shop-a", json.dumps(b.get("/api/businesses").json()))
