@@ -4,15 +4,24 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
+**Session 9F (Nov 15–16): Phase 1 (claims made true) + Phase 2 (accounts and multi-tenancy) done and merged.** Email-link sign-in, guest practice, team approval, per-owner shops, CSRF, host-only cookies, team page, account deletion; 52 access tests; frontend rewired (no owner links). Checkpoint: `docs/S9F_PHASE2_CHECKPOINT.md`. Next: Phase 3 (order proof chain) — see `docs/STATE_FOR_NEXT_SESSION.md`.
+
+**Session 8.5 (Nov 15): real app domain + mailbox wired, no VPS yet.** `launchwitness.com` and `hello@launchwitness.com` are bought; the contact form sent a real email over GoDaddy SMTP from a local run. **Positioning changed to proof first** (see Decisions). VPS arrives free on **Wed Nov 18**; M1 happens then.
+
 **M1 + M5: everything that doesn't need real infra is done** (session 4): landing page + contact form, `/build`, prod compose, backup/restore, `docs/RUNBOOK_M1.md`, `scripts/check_m1.sh`, demo seeder, README, project brief draft, public replay built and secret-scanned. Session 5 (design + motion pass) done: new look and motion for the landing page and the whole demo flow. **Session 6 (real Claude agents) done**, and **session 7 captured all 17 live Claude fixtures** on the owner's laptop ($0.0726, every quality gate passes, measured ≈ 1 cent per launch). **Session 8 rebuilt the seller shop template** (one generic template for every seller, basket, new profile fields, booking scope guard). **M1 on the VPS must happen by Nov 17** (`docs/RUNBOOK_M1.md`); session 9 (orders, UPI, tracking, trust & safety) is ready in `docs/NEXT_SESSION_S9.md`. M4 done against fakes (AC5 needs real infra). M3 done except the real-infra AC. M0 · M2 done.
 
 ## Next up
 
-0. **Deadline: M1 on the VPS by Nov 17.** If session 9 would start on Nov 16 or later, do M1 first.
+- **S9F Phase 3 → 6** in the order of `docs/STATE_FOR_NEXT_SESSION.md` (proof chain, Doctor, design, verification + VPS handover).
+- **Owner TODO:** look up hello@launchwitness.com's daily send limit (sign-in links, orders and alerts all go through it).
+- **Owner TODO (VPS):** set `ADMIN_EMAIL` and a fresh `ADMIN_TOKEN` in the server `.env`; `DEV_MODE` must stay false there.
+
+0. **M1 on the VPS on Wed Nov 18** (the VPS is free and arrives then; **do not buy one**). The old "by Nov 17" deadline can't be met; session 9 can run before it. Thursday Nov 19 demo shop = `meerasbakes.launchwitness.com` via the wildcard record (no seller domain bought).
+0a. **Owner check:** run `python scripts/list_godaddy_domains.py` (read-only, prod keys from `.env`) and confirm `launchwitness.com` shows ACTIVE.
 0b. **Session 9** (orders + UPI pay link + status page + seller order list + WhatsApp hand-offs + email verification + policy check + report/pause): paste `docs/NEXT_SESSION_S9.md`.
 1. **M1 on the VPS** once credit is confirmed: follow `docs/RUNBOOK_M1.md` (buy → SSH → Docker → clone → `.env` → DNS A + wildcard → prod compose → backup cron → mailbox → `check_m1.sh` all PASS). Confirm the `gddy` sub-commands with `gddy tree` (marked in the runbook).
 2. **Fable session — plug in real integrations** in the order of the runbook's step 11 table, then `USE_FAKES=false` (admin-created businesses only) and the M3 AC1 sandbox launch with real HTTPS.
-3. **Check `EMAIL_PLAN_ESTIMATE_USD`** (placeholder **$24/year**) against the real GoDaddy cart for Titan Pro Light, then set it in `.env`.
+3. **Session 10 (demo + submission) leads with proof, not generation.** Pitch: "Describe your business. LaunchWitness puts it online on GoDaddy, proves a real order reaches you, fixes what breaks, and keeps checking." Demo and brief order: proof (test order reaches the inbox) → Doctor repair → monitoring → generation last. README + landing already follow this (session 8.5); the video script (SPEC §12) and `docs/PROJECT_BRIEF.md` still need reordering.
 4. **M4 AC5 (evening):** one full launch of Meera's purchased domain (if budget allows), recorded — needs M1 + the Fable session.
 5. **M5 on the live app:** fill the live link + video in `README.md`; turn `docs/PROJECT_BRIEF.md` into the PDF (find a 2025–26 India stat); record the demo video (SPEC §12; rehearse with `scripts/seed_demo.py --launched` + the demo switch); rebuild `/build` (`scripts/build-replay.sh`) at the very end so it has every session; final secret scan; submit. Stretch only after the user says core is done.
 
@@ -130,17 +139,25 @@ Everything below is behind an interface with a working fake; tests cover the fak
   - Browser check (Chromium, 390 px): salon description → plain refusal; Meera example → private link → review → new fields → save → site shows 3 badges + message field → basket → order → thank-you page.
   - SPEC updated (flow, features 3a/3b for session 9, out of scope, agents, judge Q&A). Session 9 prompt written: `docs/NEXT_SESSION_S9.md`.
   - Tests: 333 passed, 2 skipped (real infra). Live Claude spend: $0.
+- 2026-11-15: **Session 8.5, real domain + mailbox wiring (no VPS):**
+  - Owner bought `launchwitness.com` + `hello@launchwitness.com` (Professional Email Pro Light, 1 month). Session 8 PR #12 was already merged.
+  - SMTP: 465 SSL with a 587 STARTTLS fallback on connection failure only (3 new tests). Settings from env only; `.env` git-ignored (checked with `git check-ignore`); `.env.example` has placeholder names only.
+  - **Live check:** ran the backend locally with the real `.env`, `POST /api/contact` once → `200 "Thank you! Your message was sent."` over port 465 (no fallback needed). Owner to confirm it in the hello@ inbox.
+  - `EMAIL_PLAN_ESTIMATE_USD` = 23.88. App-domain examples/tests now use `launchwitness.com` (seller `.in` examples unchanged).
+  - `scripts/list_godaddy_domains.py` (read-only) + 3 tests (no network; key never printed).
+  - Proof-first copy: README pitch + "What it is" reordered, landing headline "Is your shop actually ready for customers?", hero + "How it works" text, page meta description.
+  - Tests: 339 passed, 2 skipped (real infra). `npm run build` clean. Live Claude spend: $0.
 
 ## Environment status
 
 | Item | Status | Notes |
 |---|---|---|
 | GoDaddy developer account + `gddy` CLI | ? | Run `gddy tree` to confirm |
-| GoDaddy credit confirmed by organizers | Waiting | Don't buy before confirmation |
-| Docker VPS (4 vCPU / 8 GB, $0) | Not bought | |
-| App domain | Not chosen | |
-| Titan Pro Light mailbox hello@ | Not bought | |
-| Meera's demo domain | Optional | Only if credit left |
+| GoDaddy credit | **$2.37 left, expires Nov 23** | No card on file. Nothing else can be bought. |
+| Docker VPS (4 vCPU / 8 GB, $0) | **Arrives free Wed Nov 18** | Do NOT buy one |
+| App domain | **`launchwitness.com` bought Nov 15** | 1 year, renews Nov 2027 at $22.99. `launchwitness.in` NOT bought. A `@` is still GoDaddy's parked record; A + wildcard wait for the VPS. **Don't touch DNS before then.** |
+| App mailbox `hello@launchwitness.com` | **Bought Nov 15, 1 month** | GoDaddy Professional Email **Pro Light** (secureserver.net backend, not Titan). $5.99/mo monthly; $1.99/mo = $23.88/yr on a 1-yr term. **Expires ~Dec 15 and auto-renew will lapse** (no card). MX (smtp/mailstore1.secureserver.net), SPF `include:secureserver.net -all`, DKIM ×2, DMARC `p=quarantine` already set by GoDaddy. SMTP send verified from a local run. |
+| Meera's demo domain | **Not bought** (credit ran out) | Demo uses `meerasbakes.launchwitness.com` |
 | Claude API key ($100, product only) | ? | |
 | OTE (sandbox) API keys | ? | |
 | Availability check method | Undecided | gddy / Domains API / OTE / RDAP — interface + fake ready (`GoDaddyAvailabilityChecker` stub) |
@@ -214,6 +231,14 @@ Everything below is behind an interface with a working fake; tests cover the fak
 - 2026-11-14 (session 8): "Appointments" = the customer buys the owner's time at a booked slot (salon, beauty, tuition, coaching, clinic, classes). Tailors and caterers stay "orders". The old live `no_categories` fixture (a mehendi artist) has no `kind`, so it still builds a shop; a fresh live capture may now refuse it.
 - 2026-11-14 (session 8): Seller sites use system fonts (no Google Fonts), so customers' browsers don't call a third party.
 - 2026-11-14 (session 8): The thank-you page shows a "Message on WhatsApp" button only when the seller has WhatsApp/phone; the session-9 "send this order" link replaces it.
+- 2026-11-15 (session 8.5, user): **Proof first.** Lead every pitch, page and the demo with proof, not generation: "Describe your business. LaunchWitness puts it online on GoDaddy, proves a real order reaches you, fixes what breaks, and keeps checking." Order: proof (test order reaches the inbox) → Doctor → monitoring → generation last. Landing headline: "Is your shop actually ready for customers?". Copy/docs only, no feature change. `docs/SPEC.md` and the CLAUDE.md tagline still carry the old one-liner (not edited; update if the owner wants).
+- 2026-11-15 (session 8.5): SMTP uses port 465 SSL; if the SSL connection itself can't be made (timeout, refused, TLS error) it tries 587 STARTTLS once. No fallback after login starts (no double sends, a wrong password isn't retried). `SMTP_PORT=587` uses STARTTLS directly.
+- 2026-11-15 (session 8.5): `EMAIL_PLAN_ESTIMATE_USD=23.88` (Pro Light, 1-yr term). The $5.99/mo monthly price is noted in `.env.example` and config only; the approval card shows the yearly figure.
+- 2026-11-15 (session 8.5): `scripts/list_godaddy_domains.py` = one read-only GET to the prod Domains API with keys from env/`.env`; prints domain, status, expiry, auto-renew; never prints the key. stdlib only, so it runs without the venv.
+- 2026-11-15 (session 8.5, user): Thursday demo shop on `meerasbakes.launchwitness.com` (wildcard), since `meerasbakes.in` wasn't bought.
+
+- **S9F accounts (Fable's design, kept):** email-link sign-in only; guest practice + "sign in to keep it" is the one claim path; pending until the team approves (beta); `ADMIN_EMAIL` is the admin, `ADMIN_TOKEN` command line only; subdomains only for real launches; `MAX_LIVE_SHOPS=40` for certificate limits; orders/alerts to verified sign-in addresses.
+- **S9F (Opus) fixes:** the policy check never uses the saved-fixture fallback (fails closed); the daily describe cap counts `describe_used` rows that survive shop deletion; a delete-account token is checked against the signed-in email before it's used up; ruff rules pinned in `backend/pyproject.toml` (E4/E7/E9/F/I); the Vite dev proxy rewrites Origin to `LW_APP_ORIGIN` (default `http://localhost`) in dev only; `seed_demo.py` now works as a command-line admin (no owner keys).
 
 ## Open questions
 
@@ -223,11 +248,11 @@ Everything below is behind an interface with a working fake; tests cover the fak
 - Demo domain: SPEC's Meera story says `meerabakes.in`, but the live Namer suggests `meerasbakes.in` / `punebakes.in` (no `meerabakes`). The owner can still type any name; pick which one to buy for the demo.
 
 - Should seller sites also answer on `www.<domain>` (needs tls-ask + DNS change)? Currently no.
-- Exact Titan Pro Light yearly price for the approval card estimate (placeholder $24).
+- The app mailbox is GoDaddy Professional Email (secureserver.net), not Titan. The planner/`TitanMailboxProvider` still assume Titan (`titan1._domainkey`, `TITAN_MX`, `TITAN_SPF`). Which product do real seller mailboxes get, and what are its DKIM selector names? Check on hello@'s zone when the VPS session reads DNS (read only).
+- Keep hello@ past ~Dec 15? Needs a card on file or new credit; judging may still be running.
 - Exact `gddy` sub-commands for DNS records and Titan mailboxes on your CLI version (`gddy tree`).
 - Repo public or private on the VPS? (Private → deploy key, see runbook step 3.)
 
-- Does the credit cover domain + Pro Light fully? Exact cart total?
 - Are hackathon accounts whitelisted for production Domains/DNS APIs, or use `gddy`?
 - Is a demo video expected in the submission? (Include one anyway.)
 - One current India-specific stat on small businesses without websites.

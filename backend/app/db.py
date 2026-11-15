@@ -33,8 +33,35 @@ def get_engine() -> Engine:
     return _engine
 
 
+def add_missing_columns(engine: Engine) -> list[str]:
+    """Tiny forward-only migration: a table that already exists gets any column the models added
+    since (SQLite `ALTER TABLE ... ADD COLUMN` with the model's default). Never drops or rewrites."""
+    from sqlalchemy import inspect, text
+
+    added: list[str] = []
+    insp = inspect(engine)
+    with engine.begin() as conn:
+        for table in SQLModel.metadata.sorted_tables:
+            if not insp.has_table(table.name):
+                continue
+            have = {c["name"] for c in insp.get_columns(table.name)}
+            for col in table.columns:
+                if col.name in have:
+                    continue
+                default = col.default.arg if col.default is not None and not callable(col.default.arg) else None
+                ddl = f'ALTER TABLE "{table.name}" ADD COLUMN "{col.name}" {col.type.compile(engine.dialect)}'
+                if default is not None:
+                    value = int(default) if isinstance(default, bool) else default
+                    ddl += " DEFAULT " + (str(value) if isinstance(value, (int, float)) else "'" + str(value).replace("'", "''") + "'")
+                conn.execute(text(ddl))
+                added.append(f"{table.name}.{col.name}")
+    return added
+
+
 def init_db(engine: Engine | None = None) -> None:
-    SQLModel.metadata.create_all(engine or get_engine())
+    engine = engine or get_engine()
+    SQLModel.metadata.create_all(engine)
+    add_missing_columns(engine)
 
 
 def get_session() -> Iterator[Session]:

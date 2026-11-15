@@ -1,12 +1,12 @@
 # LaunchWitness
 
-> **Describe your business. LaunchWitness launches it on GoDaddy and proves everything works before your first customer arrives.**
+> **Describe your business. LaunchWitness puts it online on GoDaddy, proves a real order reaches you, fixes what breaks, and keeps checking.**
 
-Built for the GoDaddy Inclusive Innovation Hackathon 2026 (working name).
+**Is your shop actually ready for customers?** Built for the GoDaddy Inclusive Innovation Hackathon 2026 (working name).
 
-- **Live app:** `https://<APP_DOMAIN>` *(placeholder: goes live in M1)*. "Try it" runs in practice mode, so nothing is bought.
+- **Live app:** `https://launchwitness.com` *(goes live in M1, when the VPS arrives)*. "Try it" runs in practice mode, so nothing is bought.
 - **Demo video (3 min):** `<YouTube link>` *(placeholder)*
-- **How it was built:** the combined Claude Code session replay at `https://<APP_DOMAIN>/build`, plus [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md)
+- **How it was built:** the combined Claude Code session replay at `https://launchwitness.com/build`, plus [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md)
 
 ---
 
@@ -14,14 +14,14 @@ Built for the GoDaddy Inclusive Innovation Hackathon 2026 (working name).
 
 Meera bakes eggless cakes at home in Pune. Her customers find her on Instagram and order in messages. She has no website and no business email, and "DNS" means nothing to her.
 
-With LaunchWitness she types two lines and pastes her price list. A few minutes later she has:
-- a mobile website with her menu, prices, WhatsApp button and UPI QR
-- her own domain name and business email
-- an order form that emails her
+Plenty of tools will make her a website. None of them tell her whether a customer's order will actually reach her. LaunchWitness does that, in this order:
 
-Before she shares the link, LaunchWitness proves it all works. It checks that the site opens securely, that the email settings are right, and that a **real test order arrives in her inbox**. Anything that fails gets explained in one plain sentence and repaired from a fixed, safe list of fixes. The report ends with: **"Your business is ready for customers."** After launch it keeps checking lightly and warns her personal email before something breaks or expires.
+1. **Proof.** Before she shares the link, a **real test order has to arrive in her inbox**. LaunchWitness also checks that the site opens securely and that her email settings are right. The report ends with **"Your business is ready for customers."** only when every check has passed.
+2. **The Doctor.** Anything that fails is explained in one plain sentence and repaired from a fixed, safe list of fixes, then checked again. Nothing outside that list can run, and every change is backed up and can be undone.
+3. **Watching.** After launch it re-checks her site every 15 minutes and her settings daily, fixes what it safely can, and emails her personal address before something breaks or expires.
+4. **Generation, last.** If she has no site yet, she types two lines and pastes her price list (or a photo of it), and LaunchWitness builds a mobile shop with her menu, prices, WhatsApp button and UPI QR, on her own domain with business email.
 
-Most AI builders stop at "your site is ready". LaunchWitness shows the proof.
+Most builders stop at "your site is ready". LaunchWitness shows the proof.
 
 ## How it works
 
@@ -45,11 +45,12 @@ The model **decides and explains**; plain code **acts and checks**.
 - **Back up, then undo.** The current records are saved before any DNS write. A write without a backup is refused, and a failed launch can be put back.
 - **Scoped actions.** A launch can only touch its own domain (or its own subdomain), one record type and name at a time. The Doctor can only pick from 5 fixes in code (`restore_backup`, `readd_mx`, `readd_email_auth`, `retry_certificate`, `repoint_site`). Anything else is refused and logged. At most 3 attempts are made, and no fix spends money.
 - **Everything is audited.** Every state change writes an audit event, shown in the report.
-- **Safe public link.**
-  - Visitors' businesses are always **practice** (a pretend GoDaddy), even on the real server.
-  - There are per-visitor daily limits on describe, launch and contact messages.
-  - Each business has a secret owner link; only its hash is stored.
-  - Admin is off until a strong `ADMIN_TOKEN` is set.
+- **Accounts and a safe public link.**
+  - Anyone can **try it without signing in**: a practice shop (pretend GoDaddy) kept for 24 hours.
+  - **Sign in by email link** (no passwords) to keep it. New accounts practise until the team approves them; only approved accounts can launch for real, on a free `<shop>.launchwitness.com` address.
+  - Each owner sees only their own shops (someone else's answers "We couldn't find that shop"). Every route is classified, and a test fails on any that isn't.
+  - Session cookies are host-only, so shop pages on subdomains never receive them. Every change needs the app's Origin and a CSRF token.
+  - Per-visitor and per-account daily limits; at most 40 live shops (certificate limits); a go-live policy check that can only hold a shop for review; "Report this shop" and a team pause switch.
 - **No secrets in the repo.** All keys come from environment variables (`.env` exists only on the server). Transcripts are redacted and secret-scanned before they're committed.
 
 ## Architecture
@@ -98,7 +99,11 @@ Or the full stack with Caddy: `docker compose -f deploy/docker-compose.yml up --
 Rehearse the demo:
 - `python3 scripts/seed_demo.py --launched` creates Meera's shop and runs a practice launch.
 - `--reset` removes it.
-- For the demo fault (DMARC removed, then fixed by the Doctor): set `ADMIN_TOKEN` to 16+ characters, open `/#/admin`, then use the switch on the report.
+- For the demo fault (DMARC removed, then fixed by the Doctor): sign in as the team (`ADMIN_EMAIL`), open the shop's report, then use the switch. (`ADMIN_TOKEN` is for command-line tools such as this script only.)
+
+**Judges:** open the live app, press **Try it**, pick an example seller and run a practice launch; no account needed. A seeded read-only demo seller comes in Phase 6. To see the account side, sign in with your email (you'll stay in practice until approved).
+
+Local development: set `DEV_MODE=true` in `.env` (http only; it refuses to start on https). Sign-in links are then shown on screen instead of emailed. `npm run dev` proxies `/api` to :8000 and presents the app's own origin.
 
 Production on the VPS: follow [`docs/RUNBOOK_M1.md`](docs/RUNBOOK_M1.md) (copy-paste steps with a check after each). `scripts/check_m1.sh` verifies the result, and `scripts/backup_db.sh` backs up and restores the database. More commands are in [`CLAUDE.md`](CLAUDE.md).
 
@@ -110,7 +115,7 @@ The whole product was built in Claude Code sessions, each one following a fixed 
 3. It makes small, tested commits.
 4. At the end it updates [`docs/PROGRESS.md`](docs/PROGRESS.md) and [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md), then saves a redacted transcript.
 
-- **I make the product decisions**: scope, safety rules, budget, and what to postpone. Claude asks when the spec doesn't answer something and records the answer under "Decisions". For example: no accounts but a secret owner link; a "Pretend I bought it" button for practice; the email plan shown as a separate estimate.
+- **I make the product decisions**: scope, safety rules, budget, and what to postpone. Claude asks when the spec doesn't answer something and records the answer under "Decisions". For example: email-link accounts with team approval during the beta (they replaced the earlier secret owner links); a "Pretend I bought it" button for practice; the email plan shown as a separate estimate.
 - **Hard rules hold across sessions**:
   - no secrets in the repo
   - Claude never spends money

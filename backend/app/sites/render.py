@@ -1,6 +1,7 @@
 """Render a seller's site from the ONE fixed template + their Profile."""
 
 import re
+import secrets
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import quote, urlencode
@@ -105,8 +106,9 @@ def area_is_repeated(profile: Profile) -> bool:
 
 
 def render_site(profile: Profile, *, page: str = "home", order: dict | None = None, form_error: str = "",
-                form_values: dict | None = None) -> str:
-    """page: 'home' | 'privacy' | 'thanks'."""
+                form_values: dict | None = None, preview: bool = False) -> str:
+    """page: 'home' | 'privacy' | 'thanks'. preview=True: the owner's private look at a shop that
+    isn't public (banner on top, the order button is off)."""
     uri = upi_uri(profile)
     return _env.get_template("seller.html").render(
         p=profile,
@@ -122,4 +124,6 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
         order=order,
         form_error=form_error,
         form=form_values or {},
+        order_token=(form_values or {}).get("order_token") or secrets.token_urlsafe(16),
+        preview=preview,
     )

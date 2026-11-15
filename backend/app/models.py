@@ -9,6 +9,70 @@ def utcnow() -> datetime:
     return datetime.now(UTC)
 
 
+class User(SQLModel, table=True):
+    """A seller (or the admin). Signs in with an email link; no passwords are stored anywhere."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    email: str = Field(unique=True, index=True)  # lowercase, trimmed; proven at first sign-in
+    status: str = "pending"  # pending (practice only) | approved (real launches) | suspended | deleted
+    role: str = "seller"  # seller | admin
+    status_reason: str = ""  # shown to the user when rejected / suspended
+    created_at: datetime = Field(default_factory=utcnow)
+    last_login_at: datetime | None = None
+
+
+class LoginToken(SQLModel, table=True):
+    """A single-use emailed link (sign in, or confirm deleting the account). Only the SHA-256
+    of the token is stored, so a copy of the database can't be used to sign in."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    token_hash: str = Field(unique=True, index=True)
+    email: str = Field(index=True)
+    purpose: str = "login"  # login | delete_account
+    visitor: str = Field(default="", index=True)  # hashed IP that asked (rate limit)
+    expires_at: datetime
+    used_at: datetime | None = None
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class UserSession(SQLModel, table=True):
+    """Server-side session. The cookie holds a random token; only its SHA-256 is stored."""
+
+    __tablename__ = "sessions"
+
+    id: int | None = Field(default=None, primary_key=True)
+    token_hash: str = Field(unique=True, index=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    user_agent: str = ""
+    created_at: datetime = Field(default_factory=utcnow)
+    last_seen_at: datetime = Field(default_factory=utcnow)
+    expires_at: datetime
+    revoked: bool = False
+
+
+class Membership(SQLModel, table=True):
+    """Who may manage which shop. One owner per shop for now; the table allows teams later."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    business_id: int = Field(foreign_key="business.id", index=True)
+    role: str = "owner"
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class ShopReport(SQLModel, table=True):
+    """A visitor's "Report this shop" message, for the team's queue."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    business_id: int = Field(foreign_key="business.id", index=True)
+    reason: str
+    note: str = ""
+    visitor: str = Field(default="", index=True)  # hashed IP (limit), never the IP itself
+    status: str = "open"  # open | closed
+    closed_note: str = ""
+    created_at: datetime = Field(default_factory=utcnow)
+
+
 class Business(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str
@@ -24,8 +88,15 @@ class Business(SQLModel, table=True):
     # Practice businesses always run against the fake world (never real GoDaddy/DNS/email).
     # Only businesses created with the admin token on a real server are not practice.
     practice: bool = True
-    owner_key_hash: str = ""  # sha256 of the secret owner link token (the token itself is never stored)
+    # Guest practice: sha256 of the anonymous visitor cookie that made this shop. Cleared when the
+    # visitor signs in (the shop then belongs to their account through a Membership row).
+    guest_hash: str = Field(default="", index=True)
+    paused_reason: str = ""
+    # Go-live policy check: "" (not checked) | held (the team must look) | cleared (OK to launch)
+    review: str = ""
+    review_reason: str = ""
     visitor: str = ""  # hashed client IP that created it (daily limit)
+    paused: bool = False  # team pause: the public shop shows a neutral "paused" page and takes no orders
     demo_fault: str = ""  # admin demo switch, consumed by the next check run: "" | "dmarc" | "mx"
     created_at: datetime = Field(default_factory=utcnow)
 
@@ -34,6 +105,7 @@ class Plan(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     business_id: int = Field(foreign_key="business.id", index=True)
     mode: str = "sandbox"  # sandbox | full
+    practice: bool = True  # a practice plan ran in the pretend world; its results never count as real proof
     zone: str = ""  # the DNS zone this launch writes to (APP_DOMAIN or the seller's domain)
     site_host: str = ""  # e.g. meera.<APP_DOMAIN> or meerascakes.in
     mailbox: str = ""  # address orders are emailed to
@@ -100,6 +172,7 @@ class AuditEvent(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     business_id: int | None = Field(default=None, foreign_key="business.id", index=True)
     actor: str  # "owner", "system", "executor", "doctor", ...
+    user_id: int | None = Field(default=None, index=True)  # the signed-in user who did it, when there is one
     action: str
     target: str = ""
     result: str  # "ok" | "blocked" | "failed" | ...
@@ -129,7 +202,11 @@ class Order(SQLModel, table=True):
     items_json: str = "[]"  # [{"name", "qty", "price_inr"}]
     total_inr: int = 0
     note: str = ""
+    ref: str = Field(default="", index=True)  # public order reference, e.g. LW-4F2K7Q9M (random, not a count)
     is_test: bool = False  # placed by the launch check, not a customer
+    nonce: str = ""  # test orders: random code in the email subject + body, so an old email can never pass
+    visitor: str = Field(default="", index=True)  # hashed client IP (order rate limit); never the IP itself
+    client_token: str = Field(default="", index=True)  # hidden form field: a double submit makes one order
     email_status: str = "pending"  # pending | sent | failed
     email_message_id: str = ""
     created_at: datetime = Field(default_factory=utcnow)

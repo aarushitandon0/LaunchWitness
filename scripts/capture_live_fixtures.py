@@ -50,13 +50,11 @@ DOCTOR_CASES = {
     "email_spf": Outcome("email_spf", False, "Your emails may land in spam: the sending permission is missing.",
                          "TXT @ = nothing"),
     "email_dkim": Outcome("email_dkim", False, "Your emails aren't signed, so they may land in spam.",
-                          "TXT titan1._domainkey = nothing"),
+                          "signing records on meerascakes.in: none found"),
     "email_dmarc": Outcome("email_dmarc", False, "Order emails could land in spam: a protection setting is missing.",
                            "TXT _dmarc = nothing"),
     "test_order": Outcome("test_order", False, "A test order was sent but hasn't arrived in your inbox.",
                           "order #12 not found in orders@meerascakes.in"),
-    "launch_clean": Outcome("launch_clean", False, "Some launch steps didn't finish.",
-                            "plan failed; unfinished: ['Set up your mailbox']"),
 }
 
 

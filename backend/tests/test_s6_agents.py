@@ -12,23 +12,34 @@ import re
 from pathlib import Path
 
 import pytest
-from sqlmodel import Session, select
+from sqlmodel import select
 
 from app.agents.checker import Outcome
-from app.agents.claude_client import (FALLBACK_NAMES_NOTE, FALLBACK_NOTE, ClaudeBadJson, ClaudeBudgetExceeded,
-                                      ClaudeUnavailable, FallbackClaudeClient, FixtureClaudeClient, LiveClaudeClient,
-                                      make_claude_client)
+from app.agents.claude_client import (
+    FALLBACK_NAMES_NOTE,
+    FALLBACK_NOTE,
+    ClaudeBadJson,
+    ClaudeBudgetExceeded,
+    ClaudeUnavailable,
+    FallbackClaudeClient,
+    FixtureClaudeClient,
+    LiveClaudeClient,
+    make_claude_client,
+)
 from app.agents.doctor import SYSTEM as DOCTOR_SYSTEM
 from app.agents.doctor import DoctorRefused, diagnose, doctor_user
 from app.agents.namer import SYSTEM as NAMER_SYSTEM
 from app.agents.namer import clean_names
-from app.agents.playbook import FIXES_FOR, PLAYBOOK
+from app.agents.playbook import FIXES_FOR as FIXES_BY_MODE
+from app.agents.playbook import PLAYBOOK
 from app.agents.reader import SYSTEM as READER_SYSTEM
 from app.agents.reader import Profile, build_user_content
 from app.models import AuditEvent
 from app.routers.businesses import get_claude
 from tests.test_m3_launch import meera
 from tests.test_m4_repair import ScriptedDoctor, ctx_for, launched
+
+FIXES_FOR = FIXES_BY_MODE["full"]  # own-domain launches have a fix for every check
 
 FIX = Path(__file__).parent / "fixtures"
 CLAUDE = FIX / "claude"
@@ -230,7 +241,7 @@ def test_describe_has_no_note_when_live_works(client):
 def test_names_fall_back_with_note_header(client, claude):
     biz = meera(client)
     client.app.dependency_overrides[get_claude] = lambda: FallbackClaudeClient(Raises(ClaudeUnavailable("x")), claude)
-    r = client.get(f"/api/businesses/{biz['id']}/names", headers={"X-Owner-Key": biz["owner_key"]})
+    r = client.get(f"/api/businesses/{biz['id']}/names")
     assert r.status_code == 200 and r.headers["X-Assistant-Note"] == FALLBACK_NAMES_NOTE
 
 

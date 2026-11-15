@@ -14,9 +14,11 @@ def record(
     target: str = "",
     detail: str = "",
     business_id: int | None = None,
+    user_id: int | None = None,
 ) -> AuditEvent:
     event = AuditEvent(
         business_id=business_id,
+        user_id=user_id,
         actor=actor,
         action=action,
         target=target,

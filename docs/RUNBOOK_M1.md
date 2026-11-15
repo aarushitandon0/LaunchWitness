@@ -2,7 +2,7 @@
 
 Copy-paste steps, in order. Each step ends with **✔ Check**: don't go on until it passes.
 Commands marked `(laptop)` run on your computer, `(vps)` on the server.
-Replace `<APP_DOMAIN>` (e.g. `launchwitness.in`) and `<VPS_IP>` everywhere.
+Replace `<APP_DOMAIN>` (= `launchwitness.com`) and `<VPS_IP>` everywhere.
 
 Rules that still apply (CLAUDE.md): secrets live **only** in the server's `.env`; purchases are made by you on godaddy.com with the hackathon credit; never paste a password into chat, a commit or a file other than `.env`.
 
@@ -10,14 +10,21 @@ Rules that still apply (CLAUDE.md): secrets live **only** in the server's `.env`
 
 ---
 
-## 0. Buy (you, on godaddy.com, with the hackathon credit)
+## 0. Purchases — done (Nov 15)
 
-1. Docker VPS (4 vCPU / 8 GB), Ubuntu 24.04 if offered.
-2. The app domain `<APP_DOMAIN>`.
-3. One Titan **Pro Light** mailbox on `<APP_DOMAIN>` (you'll name it `hello@<APP_DOMAIN>` in step 8).
-   Note the real yearly price for `EMAIL_PLAN_ESTIMATE_USD` (currently a $24 placeholder).
+Already in the GoDaddy account. **Buy nothing else**: $2.37 credit left (expires Nov 23), no card on file.
 
-**✔ Check:** all three show in your GoDaddy account (*My Products*). Write down the VPS IP shown in the VPS dashboard as `<VPS_IP>`.
+| Item | Status |
+|---|---|
+| App domain `launchwitness.com` | Bought, 1 year (renews Nov 2027 at $22.99). `launchwitness.in` was NOT bought. |
+| Mailbox `hello@launchwitness.com` | Bought: GoDaddy Professional Email **Pro Light** (secureserver.net backend, not Titan), **1 month**. $5.99/mo monthly; $23.88/yr on a 1-yr term (`EMAIL_PLAN_ESTIMATE_USD=23.88`). **Expires ~Dec 15; auto-renew will lapse** (no card). |
+| Mail DNS | Set by GoDaddy: MX `smtp.secureserver.net` / `mailstore1.secureserver.net`, SPF `include:secureserver.net -all`, DKIM ×2, DMARC `p=quarantine`. Leave them alone. |
+| Docker VPS | **Free, arrives Wed Nov 18. Do NOT buy one.** |
+| Demo seller domain | Not bought. The demo shop is `meerasbakes.launchwitness.com` via the wildcard record (step 6). |
+
+`A @` still points at GoDaddy's parked WebsiteBuilder page. Don't change any DNS until the VPS exists (step 6).
+
+**✔ Check:** `python scripts/list_godaddy_domains.py` lists `launchwitness.com` as ACTIVE (read-only, uses the prod keys in `.env`, never prints them). When the VPS arrives, write down its IP as `<VPS_IP>`.
 
 ## 1. SSH key and first connection
 
@@ -127,10 +134,10 @@ Fill in (leave anything not listed at its default):
 | `ALLOW_PURCHASE` | `false` | **never change** (you buy on godaddy.com) |
 | `MAX_SPEND_USD` | `15` | **never raise casually** |
 | `EMAIL_PLAN_ESTIMATE_USD` | real yearly Pro Light price | your GoDaddy cart (step 0) |
-| `SMTP_HOST` / `SMTP_PORT` | `smtpout.secureserver.net` / `465` | GoDaddy Titan settings |
+| `SMTP_HOST` / `SMTP_PORT` | `smtpout.secureserver.net` / `465` | GoDaddy Professional Email settings (587 STARTTLS is the automatic fallback) |
 | `SMTP_USER` | `hello@<APP_DOMAIN>` (full address) | step 8 |
 | `SMTP_PASSWORD` | the mailbox password | the one you set in step 8 (or the email GoDaddy sends the account owner) |
-| `IMAP_HOST` / `IMAP_PORT` | `imap.secureserver.net` / `993` | GoDaddy Titan settings |
+| `IMAP_HOST` / `IMAP_PORT` | `imap.secureserver.net` / `993` | GoDaddy Professional Email settings |
 | `IMAP_USER` / `IMAP_PASSWORD` | same address and password as SMTP | step 8 |
 | `DATABASE_URL` | default | SQLite on the `app-data` volume |
 | `CADDYFILE` | `Caddyfile.prod` | (the prod compose file forces it anyway) |
@@ -162,6 +169,8 @@ bash scripts/backup_db.sh                      # first backup now
 **✔ Check:** `ls -l backups/` shows `launchwitness-<time>.db` (mode `-rw-------`). Restore, if ever needed: `bash scripts/backup_db.sh --restore backups/launchwitness-<time>.db`.
 
 ## 8. Create the mailbox `hello@<APP_DOMAIN>`
+
+> **Already done (Nov 15):** `hello@launchwitness.com` exists on GoDaddy Professional Email (secureserver.net) and its DNS records are set. Just copy the address + password into the VPS `.env` and restart; the check below uses GoDaddy webmail (email.secureserver.net), not Titan.
 
 With `gddy` (*confirm with `gddy tree | grep -i -A5 email`*):
 

@@ -94,16 +94,16 @@ export default function Landing() {
                 For small sellers · runs on GoDaddy
               </motion.p>
               <h1 className="display" id="hero-title">
-                <Line i={0}>Describe it.</Line>
+                <Line i={0}>Is your shop</Line>
                 <Line i={1}>
                   <span className="inline-icon" aria-hidden>
                     <svg viewBox="0 0 24 24">
                       <path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="var(--accent-ink)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </span>
-                  We launch it.
+                  actually ready
                 </Line>
-                <Line i={2}>Then we prove it.</Line>
+                <Line i={2}>for customers?</Line>
               </h1>
             </div>
             <HeroShape progress={p} />
@@ -114,9 +114,9 @@ export default function Landing() {
               transition={{ duration: 0.7, delay: 0.45, ease: EASE }}
             >
               <p>
-                Type a few lines and your price list. LaunchWitness puts your shop online with your own name and email,
-                then proves it works — a secure site, working email and a real test order in your inbox — before your
-                first customer arrives.
+                Website builders stop at “your site is ready”. LaunchWitness proves it can take a customer’s order —
+                a real test order has to land in your inbox — fixes it when it can’t, and keeps watching after launch.
+                No website yet? Type a few lines and your price list and we build one too.
               </p>
               <div className="hero-meta">
                 <a className="btn btn-primary" href="#/try">
@@ -138,7 +138,8 @@ export default function Landing() {
         <section className="dark on-dark" id="how" ref={darkRef} aria-labelledby="how-title">
           <div className="wrap">
             <SectionHead id="how-title" title="How it works" label="/ 4 steps · about 10 minutes">
-              From a few lines of text to a shop that's online, on your own name, with proof that orders reach you.
+              The point is the proof: a real test order reaching your inbox, plain-English fixes when something breaks,
+              and a check-in every 15 minutes after launch. Building the site is the easy part.
             </SectionHead>
             <Steps />
           </div>

@@ -7,7 +7,7 @@ Used after a launch finishes, by "Run checks now", and by monitoring.
 
 import json
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, select
@@ -17,7 +17,7 @@ from app.agents.checker import Outcome, checks_for, run_check
 from app.agents.claude_client import Claude
 from app.agents.doctor import repair
 from app.agents.executor import Ctx, StepFailed, assert_can_write
-from app.agents.playbook import FIXES_FOR
+from app.agents.playbook import fixes_for
 from app.config import Settings
 from app.integrations import Integrations
 from app.models import Business, CheckRun, Plan, utcnow
@@ -25,8 +25,15 @@ from app.models import Business, CheckRun, Plan, utcnow
 DEMO_FAULTS = {"dmarc": ("TXT", "_dmarc"), "mx": ("MX", "@")}
 
 
+STALE_RUN = timedelta(minutes=15)  # a "running" row older than this lost its worker
+
+
 class NotLaunched(Exception):
     pass
+
+
+class AlreadyChecking(Exception):
+    """A check run for this business is in progress: monitoring and "Run checks now" never overlap."""
 
 
 @dataclass
@@ -37,13 +44,36 @@ class RunSummary:
 
 
 def latest_launched_plan(session: Session, business_id: int) -> Plan | None:
-    return session.exec(select(Plan).where(Plan.business_id == business_id, Plan.status == "done")
-                        .order_by(Plan.id.desc())).first()
+    """The finished launch that counts: for a real shop, never a practice plan."""
+    b = session.get(Business, business_id)
+    if b is None:
+        return None
+    return session.exec(select(Plan).where(Plan.business_id == business_id, Plan.status == "done",
+                                           Plan.practice == b.practice).order_by(Plan.id.desc())).first()
 
 
 def running_check(session: Session, business_id: int) -> CheckRun | None:
     return session.exec(select(CheckRun).where(CheckRun.business_id == business_id, CheckRun.status == "running")
                         .order_by(CheckRun.id.desc())).first()
+
+
+def start_run(session: Session, business_id: int, plan_id: int, trigger: str) -> CheckRun:
+    """The ONE way a check run starts (launch, "Run checks now", monitoring). Refuses while
+    another run for the same business is in progress; a run stuck for 15 minutes is closed as failed."""
+    current = running_check(session, business_id)
+    if current is not None:
+        started = current.started_at if current.started_at.tzinfo else current.started_at.replace(tzinfo=UTC)
+        if utcnow() - started < STALE_RUN:
+            raise AlreadyChecking(business_id)
+        current.status, current.passed, current.finished_at = "done", False, utcnow()
+        session.add(current)
+        audit.record(session, actor="checker", action="check_run", target=f"run:{current.id}", result="failed",
+                     business_id=business_id, detail="closed: no result after 15 minutes")
+    run = CheckRun(business_id=business_id, plan_id=plan_id, trigger=trigger)
+    session.add(run)
+    session.commit()
+    session.refresh(run)
+    return run
 
 
 def apply_demo_fault(ctx: Ctx) -> str | None:
@@ -98,10 +128,7 @@ def run_checks(engine: Engine, settings: Settings, integ: Integrations, claude: 
             raise NotLaunched(plan_id)
         run = session.get(CheckRun, run_id) if run_id else None
         if run is None:
-            run = CheckRun(business_id=business.id, plan_id=plan.id, trigger=trigger)
-            session.add(run)
-            session.commit()
-            session.refresh(run)
+            run = start_run(session, business.id, plan.id, trigger)  # raises AlreadyChecking
         ctx = Ctx(session, settings, integ, plan, business, run_id=run.id)
         outs: list[Outcome] = []
         try:
@@ -112,7 +139,7 @@ def run_checks(engine: Engine, settings: Settings, integ: Integrations, claude: 
                 outs.append(out)
                 if out.passed:
                     continue
-                if fix and FIXES_FOR.get(out.check):
+                if fix and fixes_for(out.check, plan.mode):
                     r = repair(claude, ctx, out)
                     repairs.append({"check": r.check, "fixed": r.fixed, "attempts": r.attempts})
                     if r.fixed:
@@ -123,7 +150,7 @@ def run_checks(engine: Engine, settings: Settings, integ: Integrations, claude: 
         except Exception as e:  # keep the run row consistent; report shows it as not passed
             audit.record(session, actor="checker", action="check_run", target=f"run:{run.id}", result="failed",
                          business_id=business.id, detail=f"{type(e).__name__}: {e}"[:300])
-            failed, repairs, info = [Outcome("launch_clean", False, "We couldn't finish the checks.", str(e))], [], {}
+            failed, repairs, info = [Outcome("check_run", False, "We couldn't finish the checks.", str(e))], [], {}
         run.status, run.passed, run.finished_at = "done", not failed, utcnow()
         run.repairs_json, run.info_json = json.dumps(repairs), json.dumps(info)
         session.add(run)

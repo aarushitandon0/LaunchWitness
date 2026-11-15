@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { ShopLink } from "./ShopLink";
 import { useEffect, useRef, useState } from "react";
 import {
   api,
@@ -13,6 +14,7 @@ import {
 import { Cross, Dot, EASE, Spinner, Tick, useCalm } from "./motion";
 import { goTo } from "./App";
 import { ErrorBox } from "./Describe";
+import { useMe } from "./Account";
 
 /** Step 3: choose where the site goes — free address now, or the seller's own name. */
 export function LaunchChoice({ businessId }: { businessId: number }) {
@@ -21,6 +23,7 @@ export function LaunchChoice({ businessId }: { businessId: number }) {
   const [namesNote, setNamesNote] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
+  const me = useMe(true);
 
   useEffect(() => {
     api.get(businessId).then(setBiz).catch(setError);
@@ -38,14 +41,16 @@ export function LaunchChoice({ businessId }: { businessId: number }) {
     }
   };
 
-  const makePlan = (mode: "sandbox" | "full", domain?: string) =>
-    run(mode, async () => {
-      const p = await api.createPlan(businessId, mode, domain);
+  const makePlan = (mode: "sandbox" | "full", domain?: string, real = false) =>
+    run(real ? "real" : mode, async () => {
+      const p = await api.createPlan(businessId, mode, domain, real);
       goTo(`#/b/${businessId}/plan/${p.id}`);
     });
 
   if (!biz) return error ? <ErrorBox error={error} /> : <p>Loading…</p>;
   const freeHost = biz.site_url ? new URL(biz.site_url).host : "";
+  // Shown only for convenience: the server checks the account again when the plan is made and approved.
+  const canLaunchForReal = !!me?.user && me.user.status === "approved" && !biz.guest;
 
   return (
     <>
@@ -56,26 +61,42 @@ export function LaunchChoice({ businessId }: { businessId: number }) {
         before anything happens.
       </p>
 
-      <section className="card choice">
-        <h2>Free address</h2>
-        <p>
-          <strong>{freeHost}</strong> — ready in a few minutes, costs nothing.
-          You can move to your own name later.
-        </p>
-        <button
-          className="btn btn-primary"
-          disabled={!!busy}
-          onClick={() => makePlan("sandbox")}
-        >
-          {busy === "sandbox" ? "Preparing…" : "Use the free address"}
-        </button>
-      </section>
+      {canLaunchForReal && (
+        <section className="card choice">
+          <h2>Launch for real</h2>
+          <p>
+            <strong>{freeHost}</strong> goes on the internet for your customers. It costs nothing. You'll see every
+            change before anything happens.
+          </p>
+          <button className="btn btn-primary" disabled={!!busy} onClick={() => makePlan("sandbox", undefined, true)}>
+            {busy === "real" ? "Preparing…" : "Launch for real"}
+          </button>
+        </section>
+      )}
 
+      {biz.practice && (
+        <section className="card choice">
+          <h2>Practice launch</h2>
+          <p>
+            Try every step on <strong>{freeHost}</strong> against a pretend GoDaddy. Nothing goes on the internet and
+            nothing is bought.
+          </p>
+          <button
+            className={canLaunchForReal ? "btn btn-ghost" : "btn btn-primary"}
+            disabled={!!busy}
+            onClick={() => makePlan("sandbox")}
+          >
+            {busy === "sandbox" ? "Preparing…" : "Practise with the free address"}
+          </button>
+        </section>
+      )}
+
+      {biz.practice && (
       <section className="card choice">
-        <h2>Your own name</h2>
+        <h2>Your own name (practice only)</h2>
         <p>
-          Like meerascakes.in. We suggest names that are really available, with
-          their price.
+          Like meerascakes.in. Real launches use the free address for now; you can practise this one. We suggest names
+          that are really available, with their price.
         </p>
         {names === null ? (
           <button
@@ -124,6 +145,7 @@ export function LaunchChoice({ businessId }: { businessId: number }) {
           </>
         )}
       </section>
+      )}
 
       {error && <ErrorBox error={error} />}
       <p>
@@ -460,16 +482,7 @@ export function PlanView({
             See your launch report →
           </a>
         )}
-        {finished && plan.site_url && (
-          <a
-            className="btn btn-ghost"
-            href={plan.site_url}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Open my website
-          </a>
-        )}
+        {finished && <ShopLink businessId={businessId} siteUrl={plan.site_url} isPublic={plan.public} />}
         <a className="btn btn-ghost" href={`#/b/${plan.business_id}`}>
           Back to your details
         </a>

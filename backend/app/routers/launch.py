@@ -11,25 +11,26 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.engine import Engine
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from app import audit
 from app.agents.claude_client import FALLBACK_NAMES_NOTE, Claude, ClaudeBudgetExceeded
 from app.agents.executor import reset_for_resume, run_plan
+from app.agents.launch_check import AlreadyChecking, run_checks
 from app.agents.namer import NamerError, find_names, namer_fixture
 from app.agents.planner import PlanError, active_plan, build_plan, plan_out
+from app.agents.policy import policy_check
 from app.agents.reader import Profile
 from app.config import Settings, get_settings
 from app.db import get_session
-from app.agents.launch_check import run_checks
 from app.integrations import Integrations, for_business, get_integrations, get_practice_integrations
 from app.models import Approval, Business, Plan, utcnow
 from app.routers.businesses import get_claude
-from app.safety.access import admin_flag, launches_today, owned_business, owned_plan, visitor_id
-from app.sites.hosts import site_url
+from app.safety.access import ActorDep, launches_today, require_business_access, require_plan_access, visitor_id
+from app.sites.hosts import is_public, site_url
 
 router = APIRouter(prefix="/api", tags=["launch"])
-IntegFor = Callable[[Business], Integrations]
+IntegFor = Callable[[Business | Plan], Integrations]  # chosen by the object's own `practice` flag
 
 
 def integrations_for(server: Annotated[Integrations, Depends(get_integrations)],
@@ -38,15 +39,18 @@ def integrations_for(server: Annotated[Integrations, Depends(get_integrations)],
     return lambda b: for_business(b, server, practice)
 
 
-@router.get("/practice-mode")
-def practice_mode(integ: Annotated[Integrations, Depends(get_integrations)],
-                  admin: Annotated[bool, Depends(admin_flag)]) -> dict:
-    """True when this visitor's shops run against the pretend GoDaddy (always, unless admin on a real server)."""
-    return {"practice": integ.fake or not admin, "admin": admin}
+NOT_APPROVED = ("Your account is waiting for approval, so you can practise for now. "
+                "We'll email you as soon as you can launch for real.")
+SUBDOMAINS_ONLY = "Shops live at an address under ours for now. Using your own domain comes later."
+
+
+def live_shops(session: Session) -> int:
+    return session.exec(select(func.count()).select_from(Business).where(
+        Business.status == "live", Business.practice == False)).one()  # noqa: E712
 
 
 @router.get("/businesses/{business_id}/names")
-def name_ideas(response: Response, b: Annotated[Business, Depends(owned_business)],
+def name_ideas(response: Response, b: Annotated[Business, Depends(require_business_access)],
                session: Annotated[Session, Depends(get_session)],
                claude: Annotated[Claude, Depends(get_claude)],
                integ_for: Annotated[IntegFor, Depends(integrations_for)]) -> list[dict]:
@@ -73,6 +77,7 @@ def name_ideas(response: Response, b: Annotated[Business, Depends(owned_business
 class PlanRequest(BaseModel):
     mode: Literal["sandbox", "full"]
     domain: str | None = Field(default=None, max_length=63)
+    real: bool = False  # false = practice (pretend GoDaddy). true = a real launch: approved accounts only.
 
 
 def card_out(plan: Plan, settings: Settings) -> dict:
@@ -83,12 +88,21 @@ def card_out(plan: Plan, settings: Settings) -> dict:
 
 
 @router.post("/businesses/{business_id}/plans", status_code=201)
-def create_plan(body: PlanRequest, b: Annotated[Business, Depends(owned_business)],
+def create_plan(body: PlanRequest, actor: ActorDep, b: Annotated[Business, Depends(require_business_access)],
                 settings: Annotated[Settings, Depends(get_settings)],
                 session: Annotated[Session, Depends(get_session)],
-                integ_for: Annotated[IntegFor, Depends(integrations_for)]) -> dict:
+                server: Annotated[Integrations, Depends(get_integrations)],
+                practice: Annotated[Integrations, Depends(get_practice_integrations)]) -> dict:
+    if body.real:
+        if not actor.approved or b.guest_hash:
+            raise HTTPException(status_code=403, detail=NOT_APPROVED if actor.user else "Please sign in to launch for real.")
+        if body.mode != "sandbox":
+            raise HTTPException(status_code=422, detail=SUBDOMAINS_ONLY)
+    elif not b.practice:
+        raise HTTPException(status_code=409, detail="This shop is real now, so it can't be launched in practice mode.")
     try:
-        plan = build_plan(session, settings, integ_for(b), b, mode=body.mode, domain=body.domain)
+        plan = build_plan(session, settings, practice if not body.real else server, b, mode=body.mode,
+                          domain=body.domain, practice=not body.real)
     except PlanError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     except NotImplementedError as e:
@@ -97,11 +111,12 @@ def create_plan(body: PlanRequest, b: Annotated[Business, Depends(owned_business
 
 
 @router.get("/plans/{plan_id}")
-def read_plan(plan: Annotated[Plan, Depends(owned_plan)], settings: Annotated[Settings, Depends(get_settings)],
+def read_plan(plan: Annotated[Plan, Depends(require_plan_access)], settings: Annotated[Settings, Depends(get_settings)],
               session: Annotated[Session, Depends(get_session)]) -> dict:
     out = card_out(plan, settings)
     b = session.get(Business, plan.business_id)
-    out["practice"] = b.practice
+    out["practice"] = plan.practice
+    out["public"] = is_public(b) and not b.paused
     out["site_url"] = (f"https://{plan.site_host}/" if plan.mode == "full" and not b.practice
                        else site_url(b.subdomain, settings) if b and b.subdomain else None)
     out["approvals"] = [{"action": a.action, "target": a.target, "amount_usd": a.amount_usd,
@@ -118,7 +133,10 @@ def launch_then_check(engine: Engine, settings: Settings, integ: Integrations, c
     """Run the plan; when it finishes, prove it works (checks + Doctor repairs)."""
     status = run_plan(engine, settings, integ, plan_id)
     if status == "done":
-        run_checks(engine, settings, integ, claude, plan_id, trigger="launch")
+        try:
+            run_checks(engine, settings, integ, claude, plan_id, trigger="launch")
+        except AlreadyChecking:  # a check for this shop is already running; its result is the proof
+            pass
     return status
 
 
@@ -129,8 +147,8 @@ def _start(background: BackgroundTasks, session: Session, settings: Settings, in
 
 @router.post("/plans/{plan_id}/approve")
 def approve_plan(body: ApproveRequest, request: Request, background: BackgroundTasks,
-                 plan: Annotated[Plan, Depends(owned_plan)],
-                 admin: Annotated[bool, Depends(admin_flag)],
+                 plan: Annotated[Plan, Depends(require_plan_access)],
+                 actor: ActorDep,
                  settings: Annotated[Settings, Depends(get_settings)],
                  session: Annotated[Session, Depends(get_session)],
                  claude: Annotated[Claude, Depends(get_claude)],
@@ -140,12 +158,38 @@ def approve_plan(body: ApproveRequest, request: Request, background: BackgroundT
     running = active_plan(session, plan.business_id)
     if running is not None:
         raise HTTPException(status_code=409, detail="Another launch is already running for this business.")
-    visitor = visitor_id(request)
+    visitor, admin = visitor_id(request), actor.is_admin
     if not admin and launches_today(session, visitor) >= settings.visitor_launches_per_day:
         raise HTTPException(status_code=429, detail="You've launched several shops today already. "
                             "Please come back tomorrow to launch another one.")
     b = session.get(Business, plan.business_id)
-    integ = integ_for(b)
+    integ = integ_for(plan)
+
+    if not plan.practice:
+        # A real launch puts a shop on the public internet under our name. Checked again here, at the
+        # moment of approval: the account, the certificate budget, and the go-live policy check.
+        if not actor.approved or b.guest_hash or plan.mode != "sandbox":
+            raise HTTPException(status_code=403, detail=NOT_APPROVED)
+        if not (b.status == "live" and not b.practice) and live_shops(session) >= settings.max_live_shops:
+            raise HTTPException(status_code=409, detail="We've reached the number of live shops we can host this week. "
+                                "Nothing was changed. Please try again in a few days.")
+        if b.paused:
+            raise HTTPException(status_code=409, detail="This shop is paused by our team, so it can't be launched right now.")
+        if b.review != "cleared":  # "cleared" = the team already looked
+            verdict = policy_check(claude, Profile.model_validate_json(b.profile_json))
+            b.review, b.review_reason = ("ok", "") if verdict.ok else ("held", verdict.reason)
+            session.add(b)
+            session.commit()
+            audit.record(session, actor="policy", action="policy_check", target=f"business:{b.id}",
+                         result="ok" if verdict.ok else "held", business_id=b.id, user_id=actor.user_id,
+                         detail=f"by {verdict.by}: {verdict.reason}"[:300])
+            if not verdict.ok:
+                raise HTTPException(status_code=409, detail=f"{verdict.reason} Nothing was launched. "
+                                    "We'll email you when our team has looked at it.")
+        if b.practice:  # from here on the shop is real: old practice results no longer count
+            b.practice, b.status = False, "draft"
+            session.add(b)
+            session.commit()
 
     if plan.mode == "full":
         # Re-check the price now: never approve a different amount than the card showed.
@@ -168,13 +212,14 @@ def approve_plan(body: ApproveRequest, request: Request, background: BackgroundT
     session.add(plan)
     session.commit()
     audit.record(session, actor="owner", action="approve_plan", target=plan.site_host, result="ok",
-                 business_id=b.id, detail=f"plan #{plan.id}, ${plan.total_cost_usd:.2f}, by {body.approved_by}")
+                 business_id=b.id, user_id=actor.user_id,
+                 detail=f"plan #{plan.id}, {'practice' if plan.practice else 'REAL'}, ${plan.total_cost_usd:.2f}, by {body.approved_by}")
     _start(background, session, settings, integ, claude, plan)
     return {"ok": True, "plan_id": plan.id}
 
 
 @router.post("/plans/{plan_id}/resume")
-def resume_plan(background: BackgroundTasks, plan: Annotated[Plan, Depends(owned_plan)],
+def resume_plan(background: BackgroundTasks, plan: Annotated[Plan, Depends(require_plan_access)],
                 settings: Annotated[Settings, Depends(get_settings)],
                 session: Annotated[Session, Depends(get_session)],
                 claude: Annotated[Claude, Depends(get_claude)],
@@ -184,12 +229,12 @@ def resume_plan(background: BackgroundTasks, plan: Annotated[Plan, Depends(owned
     reset_for_resume(session, plan)
     audit.record(session, actor="owner", action="resume_plan", target=plan.site_host, result="ok",
                  business_id=plan.business_id, detail=f"plan #{plan.id}")
-    _start(background, session, settings, integ_for(session.get(Business, plan.business_id)), claude, plan)
+    _start(background, session, settings, integ_for(plan), claude, plan)
     return {"ok": True, "plan_id": plan.id}
 
 
 @router.post("/plans/{plan_id}/practice-buy")
-def practice_buy(background: BackgroundTasks, plan: Annotated[Plan, Depends(owned_plan)],
+def practice_buy(background: BackgroundTasks, plan: Annotated[Plan, Depends(require_plan_access)],
                  settings: Annotated[Settings, Depends(get_settings)],
                  session: Annotated[Session, Depends(get_session)],
                  claude: Annotated[Claude, Depends(get_claude)],
@@ -197,8 +242,8 @@ def practice_buy(background: BackgroundTasks, plan: Annotated[Plan, Depends(owne
     """Practice mode only: pretend the owner bought the domain on godaddy.com, then resume.
     Touches nothing but the in-memory fake world; refused on real integrations."""
     b = session.get(Business, plan.business_id)
-    integ = integ_for(b)
-    if not integ.fake:
+    integ = integ_for(plan)
+    if not integ.fake or not plan.practice:
         raise HTTPException(status_code=409, detail="This is only available in practice mode. "
                             "Please buy the name on godaddy.com, then press Resume.")
     blocked = [s for s in json.loads(plan.steps_json) if s["kind"] == "get_domain" and s["status"] == "blocked"]
@@ -213,7 +258,7 @@ def practice_buy(background: BackgroundTasks, plan: Annotated[Plan, Depends(owne
 
 
 @router.get("/businesses/{business_id}/plans")
-def list_plans(b: Annotated[Business, Depends(owned_business)], session: Annotated[Session, Depends(get_session)]) -> list[dict]:
+def list_plans(b: Annotated[Business, Depends(require_business_access)], session: Annotated[Session, Depends(get_session)]) -> list[dict]:
     rows = session.exec(select(Plan).where(Plan.business_id == b.id).order_by(Plan.id.desc())).all()
-    return [{"id": p.id, "mode": p.mode, "site_host": p.site_host, "status": p.status,
+    return [{"id": p.id, "mode": p.mode, "practice": p.practice, "site_host": p.site_host, "status": p.status,
              "total_cost_usd": p.total_cost_usd, "steps": [s["status"] for s in json.loads(p.steps_json)]} for p in rows]

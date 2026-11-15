@@ -10,7 +10,7 @@ from app.agents.checker import checks_for, run_all, run_check
 from app.agents.claude_client import FixtureClaudeClient
 from app.agents.doctor import MAX_ATTEMPTS, DoctorRefused, diagnose, repair
 from app.agents.executor import Ctx
-from app.agents.playbook import FIXES_FOR, PLAYBOOK, apply_fix
+from app.agents.playbook import FIXES_FOR, PLAYBOOK, apply_fix, fixes_for
 from app.models import AuditEvent, Business, CheckResult, Order, Plan
 from tests.test_m3_launch import approve, meera, plan
 
@@ -54,23 +54,24 @@ def test_full_launch_all_checks_green(client, integ, engine, settings):
     ctx = ctx_for(engine, settings, integ, launched(client, integ))
     outs = run_all(ctx)
     assert [o.check for o in outs] == ["site_points", "https", "email_mx", "email_spf", "email_dkim", "email_dmarc",
-                                       "test_order", "launch_clean"]
+                                       "test_order"]
     assert all(o.passed for o in outs), [(o.check, o.detail) for o in outs]
-    assert len(ctx.session.exec(select(CheckResult).where(CheckResult.run_id == None)).all()) == 8  # noqa: E711
+    assert len(ctx.session.exec(select(CheckResult).where(CheckResult.run_id == None)).all()) == 7  # noqa: E711
     test_order = ctx.session.exec(select(Order).where(Order.is_test).order_by(Order.id.desc())).first()
-    assert integ.inbox.find(subject_contains=f"(#{test_order.id})")[0].subject.startswith("[TEST] New order")
+    assert integ.inbox.find(subject_contains=test_order.nonce)[0].subject.startswith("[TEST] New order")
 
 
-def test_sandbox_runs_site_checks_only(client, integ, engine, settings):
+def test_sandbox_runs_the_same_checks_and_reads_the_app_mail_settings(client, integ, engine, settings):
     ctx = ctx_for(engine, settings, integ, launched(client, integ, "sandbox"))
-    assert checks_for(ctx) == ["site_points", "https", "test_order", "launch_clean"]
+    assert checks_for(ctx) == ["site_points", "https", "email_mx", "email_spf", "email_dkim", "email_dmarc",
+                               "test_order"]
     assert all(o.passed for o in run_all(ctx))
 
 
 @pytest.mark.parametrize("breakage,check", [
     (lambda i: drop(i, "MX", "@"), "email_mx"),
     (lambda i: drop(i, "TXT", "_dmarc"), "email_dmarc"),
-    (lambda i: drop(i, "TXT", "titan1._domainkey"), "email_dkim"),
+    (lambda i: drop(i, "TXT", "mail._domainkey"), "email_dkim"),
     (lambda i: drop(i, "A", "@"), "site_points"),
     (lambda i: i.http.broken_cert.add(DOMAIN), "https"),
     (lambda i: setattr(i.mailer, "drop", True), "test_order"),
@@ -84,17 +85,10 @@ def test_each_check_detects_its_failure(client, integ, engine, settings, breakag
         assert word not in out.plain  # seller-facing text stays plain
 
 
-def test_spf_check_needs_titan_include(client, integ, engine, settings):
+def test_spf_check_needs_the_provider_include(client, integ, engine, settings):
     ctx = ctx_for(engine, settings, integ, launched(client, integ))
     integ.godaddy.set_records(DOMAIN, "TXT", "@", [{"data": "v=spf1 -all"}])
     assert not run_check(ctx, "email_spf").passed
-
-
-def test_launch_clean_fails_for_unfinished_plan(client, integ, engine, settings):
-    integ.dns.hide.add(("meera.localhost", "A"))
-    p = approve(client, plan(client, meera(client)))
-    ctx = ctx_for(engine, settings, integ, p["id"])
-    assert not run_check(ctx, "launch_clean").passed
 
 
 def test_crashing_check_is_a_failed_check(client, integ, engine, settings):
@@ -112,7 +106,7 @@ def test_crashing_check_is_a_failed_check(client, integ, engine, settings):
 
 def test_playbook_is_exactly_the_spec_list():
     assert set(PLAYBOOK) == {"restore_backup", "readd_mx", "readd_email_auth", "retry_certificate", "repoint_site"}
-    assert all(fixes <= set(PLAYBOOK) for fixes in FIXES_FOR.values())
+    assert all(fixes <= set(PLAYBOOK) for by_check in FIXES_FOR.values() for fixes in by_check.values())
 
 
 def test_restore_backup_puts_settings_back(client, integ, engine, settings):
@@ -146,7 +140,7 @@ def test_apply_fix_rejects_unknown_ids(client, integ, engine, settings):
 def test_doctor_fixtures_are_valid_and_plain(path):
     d = json.loads(path.read_text())
     check = path.stem.removeprefix("doctor_")
-    assert d["fix_id"] in FIXES_FOR[check]
+    assert d["fix_id"] in fixes_for(check, "full")
     assert not any(w in d["plain_explanation"] for w in ("MX", "DNS", "TXT", "SPF", "DKIM", "DMARC"))
 
 
