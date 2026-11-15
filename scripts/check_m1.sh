@@ -195,6 +195,15 @@ if [ -n "$TOKEN" ]; then
     -H "Cookie: __Host-lw_session=$raw" "$BASE/api/auth/logout")"
   unset raw csrf
   [ "$out" = "200" ] && info "(that check session was signed out again)" || warn "couldn't sign the check session out ($out)"
+  # Its one-time token mustn't count against the admin's daily sign-in links.
+  inapp <<'PY' >/dev/null 2>&1
+from sqlmodel import Session, delete
+from app.db import get_engine
+from app.models import LoginToken
+with Session(get_engine()) as db:
+    db.exec(delete(LoginToken).where(LoginToken.visitor == "check_m1"))
+    db.commit()
+PY
   rm -f "$hdrs"
 fi
 
@@ -287,6 +296,8 @@ PY
 )"
     echo "$found" | grep -q '^FOUND' && pass "contact message arrived in the mailbox (IMAP)" || fail "contact message not in the inbox after 2 minutes"
   fi
+elif echo "$resp" | grep -q 'several messages today'; then
+  warn "contact form: this address's daily limit is used up (the limit works; delivery not re-checked today)"
 else
   fail "contact form: ${resp:0:200}"
 fi

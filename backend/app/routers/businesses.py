@@ -178,7 +178,24 @@ def list_businesses(actor: ActorDep, settings: Annotated[Settings, Depends(get_s
         q = select(Business).where(Business.guest_hash == actor.guest)
     else:
         return []
-    return [business_out(b, settings, session) for b in session.exec(q.order_by(Business.id.desc())).all()]
+    return [{**business_out(b, settings, session), "renewal": shop_renewal(session, settings, b)}
+            for b in session.exec(q.order_by(Business.id.desc())).all()]
+
+
+def shop_renewal(session: Session, settings: Settings, b: Business) -> dict | None:
+    """The renewal of a live shop that needs attention soonest (S10 Renewals), for "My shops"."""
+    if b.status != "live":
+        return None
+    from app import renewals
+    from app.agents.launch_check import latest_launched_plan
+    from app.models import CheckRun
+
+    plan = latest_launched_plan(session, b.id)
+    run = session.exec(select(CheckRun).where(CheckRun.business_id == b.id, CheckRun.status == "done")
+                       .order_by(CheckRun.id.desc())).first()
+    if plan is None:
+        return None
+    return renewals.nearest(renewals.card(settings, plan.mode, plan.zone, json.loads(run.info_json) if run else {}))
 
 
 @router.get("/businesses/{business_id}")

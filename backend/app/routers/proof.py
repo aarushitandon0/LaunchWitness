@@ -194,6 +194,17 @@ def check_address(body: Address, request: Request, settings: Annotated[Settings,
     return {"address": host, "read_only": True, "results": address_results(host, dns, web)}
 
 
+def dangling_cname(name: str, dns: DnsResolver, add) -> None:
+    """Read-only: if `name` is a CNAME whose target doesn't exist (NXDOMAIN), say so. No other names are tried."""
+    target = next((t.rstrip(".") for t in dns.resolve(name, "CNAME")), "")
+    exists = getattr(dns, "exists", None)
+    if not target or exists is None:
+        return
+    if exists(target) is False:
+        add("dangling_cname", False, f"Possible dangling record: {name} points to {target}, which doesn't exist. "
+            "Anyone who claims that service could serve pages on this address.", f"CNAME {name} -> {target} (NXDOMAIN)")
+
+
 def address_results(host: str, dns: DnsResolver, web: SafeWeb) -> list[dict]:
     out = []
 
@@ -218,6 +229,8 @@ def address_results(host: str, dns: DnsResolver, web: SafeWeb) -> list[dict]:
         except Refused as e:
             add("https", None, str(e))
     zone = host.removeprefix("www.")
+    for name in dict.fromkeys((zone, f"www.{zone}")):  # only the names typed: the address itself and its www
+        dangling_cname(name, dns, add)
     mx = dns.resolve(zone, "MX")
     add("email_mx", bool(mx), "Emails to this address have somewhere to go." if mx else
         "This address can't receive email.", ", ".join(mx))

@@ -30,7 +30,32 @@ export type Profile = {
   not_supported_reason: string;
 };
 
+export type ZoneFinding = {
+  id: number;
+  kind: "dangling" | "missing" | "wrong_target";
+  name: string;
+  found: string;
+  want: string;
+  fix: "delete" | "set";
+  plain: string;
+  status: "open" | "fixed" | "dismissed" | "gone";
+  result: string;
+  business_id: number | null;
+  created_at: string;
+  decided_by: string;
+};
+
+export type Renewal = {
+  what: "certificate" | "domain" | "mailbox";
+  label: string;
+  days_left: number | null;
+  state: "ok" | "soon" | "urgent" | "lapsed" | "unknown";
+  who: "automatic" | "you" | "team";
+  plain: string;
+};
+
 export type Business = {
+  renewal?: Renewal | null; // My shops: the renewal that needs attention soonest
   id: number;
   name: string;
   subdomain: string;
@@ -220,6 +245,7 @@ export type Report = {
     cert_days_left: number | null;
     domain_days_left: number | null;
   };
+  renewals: Renewal[] | null;
   audit: AuditRow[];
   admin: boolean;
   demo_fault: string | null;
@@ -401,6 +427,10 @@ export const api = {
     clearReview: (id: number) => request<{ ok: boolean }>(`/api/admin/businesses/${id}/clear-review`, { method: "POST" }),
     reports: () => request<ShopReportRow[]>("/api/admin/reports"),
     closeReport: (id: number, reason: string) => request<{ ok: boolean }>(`/api/admin/reports/${id}/close`, json({ reason })),
+    zoneFindings: () => request<ZoneFinding[]>("/api/admin/zone-findings"),
+    zoneCheck: () => request<{ open: ZoneFinding[] }>("/api/admin/zone-check", { method: "POST" }),
+    zoneApprove: (id: number) => request<ZoneFinding>(`/api/admin/zone-findings/${id}/approve`, { method: "POST" }),
+    zoneDismiss: (id: number) => request<ZoneFinding>(`/api/admin/zone-findings/${id}/dismiss`, { method: "POST" }),
   },
   setDemoFault: (id: number, fault: "" | "dmarc" | "mx") =>
     request<{ ok: boolean; demo_fault: string }>(`/api/admin/businesses/${id}/demo-fault`, json({ fault }, "PUT")),

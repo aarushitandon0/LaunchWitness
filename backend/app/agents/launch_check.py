@@ -109,11 +109,13 @@ def days_left(when: datetime | None) -> int | None:
 
 
 def expiry_info(ctx: Ctx) -> dict:
-    info: dict = {"cert_days_left": None, "domain_days_left": None}
+    info: dict = {"cert_days_left": None, "domain_days_left": None, "app_domain_days_left": None}
     try:
         info["cert_days_left"] = days_left(ctx.integ.http.cert_expires(ctx.plan.site_host))
-        if ctx.plan.mode == "full":  # sandbox addresses live under the app's own domain
+        if ctx.plan.mode == "full":  # the seller's own name: the seller renews (and pays)
             info["domain_days_left"] = days_left(ctx.integ.godaddy.domain_expires(ctx.plan.zone))
+        else:  # sandbox addresses live under the app's own domain: the team renews it (Renewals card)
+            info["app_domain_days_left"] = days_left(ctx.integ.godaddy.domain_expires(ctx.settings.app_domain))
     except Exception as e:  # informational only; never breaks a check run
         info["error"] = type(e).__name__
     return info

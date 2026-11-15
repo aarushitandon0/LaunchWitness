@@ -278,3 +278,34 @@ class AddressCheck(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     visitor: str = Field(index=True)
     created_at: datetime = Field(default_factory=utcnow)
+
+
+class TeamAlert(SQLModel, table=True):
+    """An email to the team (ADMIN_EMAIL) about something no seller can fix: the app domain or the team
+    mailbox running out. Sent once per (kind, threshold) until it's renewed (S10)."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    kind: str = Field(index=True)  # app_domain_expiry | mailbox_expiry
+    key: str  # threshold, e.g. "30d"
+    sent_to: str = ""
+    resolved_at: datetime | None = None
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class ZoneFinding(SQLModel, table=True):
+    """Zone hygiene (S10): an A record on the app's own domain that doesn't match the shops in the database,
+    with the fix we propose. Nothing is changed until the admin approves it on the team page."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    business_id: int | None = Field(default=None, index=True)  # the shop involved, if any (no FK: may be deleted)
+    kind: str  # dangling | missing | wrong_target
+    name: str  # the record name (a shop label), never @ / www
+    found: str = ""  # what the zone has now ("" = no record)
+    want: str = ""  # what it should be ("" = no record)
+    fix: str  # delete | set
+    plain: str = ""
+    status: str = Field(default="open", index=True)  # open | fixed | dismissed | gone (fixed itself)
+    decided_by: str = ""
+    result: str = ""
+    created_at: datetime = Field(default_factory=utcnow)
+    decided_at: datetime | None = None

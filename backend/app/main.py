@@ -42,7 +42,7 @@ def start_monitor(settings: Settings):
     engine = get_engine()
     claude = make_claude_client(settings, engine if settings.claude_mode == "live" else None)
     monitor = Monitor(engine, settings, lambda b: for_business(b, get_integrations(), get_practice_integrations()),
-                      claude)
+                      claude, team=get_integrations())
     monitor.start()
     from app.tenancy import purge_old_guest_shops
 

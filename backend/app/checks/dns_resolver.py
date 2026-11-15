@@ -24,6 +24,18 @@ class RealDnsResolver:
             return []
         return [r.to_text() for r in answer]
 
+    def exists(self, name: str) -> bool | None:
+        """False only for NXDOMAIN (the name doesn't exist at all); None when DNS didn't answer."""
+        try:
+            self._r.resolve(name, "A")
+            return True
+        except dns.resolver.NXDOMAIN:
+            return False
+        except dns.resolver.NoAnswer:
+            return True  # the name exists, it just has no A record
+        except (dns.exception.Timeout, dns.resolver.NoNameservers):
+            return None
+
 
 class FakeDnsResolver:
     def __init__(self, records: dict[tuple[str, str], list[str]] | None = None):
@@ -34,6 +46,10 @@ class FakeDnsResolver:
 
     def resolve(self, name: str, rtype: str) -> list[str]:
         return list(self.records.get((name.lower().rstrip("."), rtype.upper()), []))
+
+    def exists(self, name: str) -> bool | None:
+        n = name.lower().rstrip(".")
+        return any(key == n and values for (key, _t), values in self.records.items())
 
 
 def record_text(rec: dict) -> str:

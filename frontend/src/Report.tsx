@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ShopLink } from "./ShopLink";
 import { useEffect, useState } from "react";
-import { api, ApiError, CheckRow, Hop, Report } from "./api";
+import { api, ApiError, CheckRow, Hop, Renewal, Report } from "./api";
 import { Cross, Dot, EASE, Spinner, Tick, TypeIn, useCalm } from "./motion";
 import { ErrorBox } from "./Describe";
 
@@ -398,19 +398,8 @@ export function ReportPage({ businessId }: { businessId: number }) {
                   </dd>
                 </div>
               )}
-              {mon.cert_days_left !== null && (
-                <div>
-                  <dt>Security certificate (renews by itself)</dt>
-                  <dd>{mon.cert_days_left} days left</dd>
-                </div>
-              )}
-              {mon.domain_days_left !== null && (
-                <div>
-                  <dt>Your website name (you renew it on GoDaddy)</dt>
-                  <dd>{mon.domain_days_left} days left — we'll remind you 30, 7 and 1 days before</dd>
-                </div>
-              )}
             </dl>
+            {rep.renewals && <RenewalsCard items={rep.renewals} practice={rep.practice} />}
             {!rep.business.has_owner_email && (
               <p className="warn">
                 <a href="#/signin">Sign in</a> so we can warn you if something breaks (we write to your sign-in address).
@@ -589,5 +578,36 @@ export function GotItPage() {
         {busy ? "Saving…" : "Yes, I got it"}
       </button>
     </>
+  );
+}
+
+const RENEWAL_STATE: Record<Renewal["state"], string> = {
+  ok: "Fine",
+  soon: "Soon",
+  urgent: "Very soon",
+  lapsed: "Ran out",
+  unknown: "Not known yet",
+};
+
+/** Renewals (S10): what runs out, when, and who renews it. LaunchWitness never renews or pays by itself. */
+export function RenewalsCard({ items, practice }: { items: Renewal[]; practice: boolean }) {
+  return (
+    <div className="renewals">
+      <h3>Renewals</h3>
+      {practice && <p className="practice">Practice: these dates come from the pretend GoDaddy.</p>}
+      <ul>
+        {items.map((r) => (
+          <li key={r.what} className={`renewal renewal-${r.state}`}>
+            <strong>{r.label}</strong>
+            <span>
+              {r.days_left === null ? RENEWAL_STATE.unknown : r.days_left < 0 ? RENEWAL_STATE.lapsed : `${r.days_left} days left`}
+              {r.state !== "ok" && r.state !== "unknown" && ` · ${RENEWAL_STATE[r.state]}`}
+            </span>
+            <span className="muted">{r.plain}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="muted">We never renew or pay for anything automatically. Money always needs a person.</p>
+    </div>
   );
 }

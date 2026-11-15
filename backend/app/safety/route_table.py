@@ -72,6 +72,10 @@ ROUTES: dict[tuple[str, str], str] = {
     ("DELETE", "/api/admin/practice-businesses/{business_id}"): ADMIN,
     ("GET", "/api/admin/reports"): ADMIN,
     ("POST", "/api/admin/reports/{report_id}/close"): ADMIN,
+    ("GET", "/api/admin/zone-findings"): ADMIN,  # zone hygiene (S10): read
+    ("POST", "/api/admin/zone-check"): ADMIN,  # reads the app zone, changes nothing
+    ("POST", "/api/admin/zone-findings/{finding_id}/approve"): ADMIN,  # applies ONE proposed shop A-record fix
+    ("POST", "/api/admin/zone-findings/{finding_id}/dismiss"): ADMIN,
     # --- private network only ---
     ("GET", "/internal/tls-ask"): INTERNAL,
 }

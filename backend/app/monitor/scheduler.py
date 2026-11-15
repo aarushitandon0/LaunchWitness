@@ -22,7 +22,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, select
 
-from app import audit
+from app import audit, renewals
 from app.agents.claude_client import Claude
 from app.agents.launch_check import AlreadyChecking, NotLaunched, latest_launched_plan, run_checks
 from app.config import Settings
@@ -34,8 +34,8 @@ QUICK_MINUTES = 15
 RECHECK_SECONDS = 60
 QUICK_CHECKS = ["site_points", "https"]
 EMAIL_CHECKS = ["email_mx", "email_spf", "email_dkim", "email_dmarc"]  # read-only on shops under the app's domain
-DOMAIN_WARN_DAYS = (30, 7, 1)
-CERT_WARN_DAYS = (7, 1)
+DOMAIN_WARN_DAYS = renewals.THRESHOLDS  # one set for everything a person renews (S10)
+CERT_WARN_DAYS = renewals.CERT_THRESHOLDS
 
 
 def daily_checks(mode: str) -> list[str]:
@@ -46,8 +46,9 @@ def daily_checks(mode: str) -> list[str]:
 
 class Monitor:
     def __init__(self, engine: Engine, settings: Settings, integ_for: Callable[[Business], Integrations],
-                 claude: Claude, scheduler: BackgroundScheduler | None = None):
+                 claude: Claude, scheduler: BackgroundScheduler | None = None, team: Integrations | None = None):
         self.engine, self.settings, self.integ_for, self.claude = engine, settings, integ_for, claude
+        self.team = team  # the server's own integrations: the app domain, the team mailbox, the app zone
         self.scheduler = scheduler or BackgroundScheduler(timezone="UTC")
 
     # ---------- scheduler wiring ----------
@@ -57,6 +58,11 @@ class Monitor:
                                replace_existing=True, max_instances=1, coalesce=True)
         self.scheduler.add_job(self.run_daily, "interval", days=1, id="monitor_daily",
                                replace_existing=True, max_instances=1, coalesce=True)
+        if self.team is not None:
+            self.scheduler.add_job(self.team_renewals, "interval", days=1, id="team_renewals",
+                                   replace_existing=True, max_instances=1, coalesce=True)
+            self.scheduler.add_job(self.zone_hygiene, "interval", days=1, id="zone_hygiene",
+                                   replace_existing=True, max_instances=1, coalesce=True)
 
     def start(self) -> None:
         self.register()
@@ -211,3 +217,74 @@ class Monitor:
                         s.add(Alert(business_id=business_id, kind=kind, key=f"{t}d", sent_to="(skipped)"))
                 s.commit()
 
+
+    # ---------- the team's own renewals (S10): the app domain and the team mailbox ----------
+
+    def team_renewals(self, today=None) -> list[str]:
+        """Email ADMIN_EMAIL at 30 / 7 / 1 days before the app domain or the team mailbox runs out. Never renews
+        or pays: both cost money, so a person decides. Returns the alert keys sent this time."""
+        from datetime import date
+
+        from app.agents.launch_check import days_left
+        from app.models import TeamAlert
+
+        domain_days = None
+        if self.team is not None:
+            try:
+                domain_days = days_left(self.team.godaddy.domain_expires(self.settings.app_domain))
+            except Exception as e:  # informational; try again tomorrow
+                with Session(self.engine) as s:
+                    audit.record(s, actor="monitor", action="team_renewals", target=self.settings.app_domain,
+                                 result="failed", detail=type(e).__name__)
+        sent: list[str] = []
+        for kind, days, what in (
+                ("app_domain_expiry", domain_days, f"the app domain {self.settings.app_domain}"),
+                ("mailbox_expiry", renewals.mailbox_days(self.settings, today or date.today()),
+                 f"the team mailbox {self.settings.smtp_user} (sign-in links, orders and alerts all use it)")):
+            hit = renewals.crossed(days, renewals.THRESHOLDS)
+            with Session(self.engine) as s:
+                open_ = s.exec(select(TeamAlert).where(TeamAlert.kind == kind, TeamAlert.resolved_at == None)).all()  # noqa: E711
+                if not hit:  # renewed (or far away): the next cycle warns again
+                    for a in open_:
+                        a.resolved_at = utcnow()
+                        s.add(a)
+                    s.commit()
+                    continue
+                key = f"{min(hit)}d"
+                if any(a.key == key for a in open_):
+                    continue  # this threshold was already sent
+                to = self.settings.admin_email.strip()
+                subject = f"LaunchWitness: {what.split(' (')[0]} runs out in {max(days, 0)} day(s)"
+                body = (f"Hello team,\n\n{what[0].upper() + what[1:]} runs out in {max(days, 0)} day(s). "
+                        "Renewing costs money, so LaunchWitness won't do it: please renew it on godaddy.com.\n\n"
+                        "- LaunchWitness monitoring")
+                result = "skipped"
+                if to and self.team is not None:
+                    try:
+                        self.team.mailer.send(to=to, subject=subject, body=body)
+                        result = "sent"
+                    except Exception as e:
+                        result = f"failed: {type(e).__name__}"
+                if result == "sent":
+                    for t in hit:  # bigger thresholds we're already past count as sent too
+                        if not any(a.key == f"{t}d" for a in open_):
+                            s.add(TeamAlert(kind=kind, key=f"{t}d", sent_to=to if t == min(hit) else "(skipped)"))
+                    sent.append(f"{kind}:{key}")
+                s.commit()
+                audit.record(s, actor="monitor", action=f"alert_{kind}", target=key, result=result.split(":")[0],
+                             detail=subject)
+        return sent
+
+    def zone_hygiene(self) -> int:
+        """Daily: compare the app zone's shop A records with the shops (proposals only; the admin decides)."""
+        from app.zone_hygiene import scan
+
+        if self.team is None:
+            return 0
+        try:
+            return len(scan(self.engine, self.settings, self.team.godaddy))
+        except Exception as e:
+            with Session(self.engine) as s:
+                audit.record(s, actor="zone_hygiene", action="zone_scan", target=self.settings.app_domain,
+                             result="failed", detail=type(e).__name__)
+            return 0
