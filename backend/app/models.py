@@ -223,3 +223,58 @@ class ClaudeUsage(SQLModel, table=True):
     output_tokens: int
     cost_usd: float
     created_at: datetime = Field(default_factory=utcnow)
+
+
+class Evidence(SQLModel, table=True):
+    """One proven hop of a check, stored as it happened (S9F Phase 3). The report only claims what is here."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    business_id: int = Field(foreign_key="business.id", index=True)
+    run_id: int | None = Field(default=None, index=True)  # the CheckRun
+    check: str  # site_points | https | test_order | email_* ...
+    step: str  # dns_answer | http_response | form_post | smtp_accepted | imap_seen | owner_confirmed
+    at: datetime = Field(default_factory=utcnow)
+    source: str = ""  # which server or tool gave the answer, e.g. "ns1.domaincontrol.com", "imap.secureserver.net"
+    server: str = ""  # the server asked (nameserver IP, mail server host)
+    message_id: str = ""
+    nonce: str = ""
+    status_code: int | None = None
+    cert_not_after: datetime | None = None
+    answer: str = ""  # DNS answer or a short excerpt
+    practice: bool = False  # from the pretend world: always labelled
+
+
+class TestTicket(SQLModel, table=True):
+    """A test order the checker is about to place. The form POST carries `lw_test=<nonce>`; only an open
+    ticket for that shop turns the POST into a hidden test order. The test email's "Yes, I got it" link
+    carries a second random token; only its SHA-256 is stored, and it works once."""
+
+    __test__ = False  # not a pytest test class
+
+    id: int | None = Field(default=None, primary_key=True)
+    business_id: int = Field(foreign_key="business.id", index=True)
+    run_id: int | None = Field(default=None, index=True)
+    nonce: str = Field(index=True, unique=True)
+    confirm_hash: str = Field(default="", index=True)
+    order_id: int | None = None
+    used_at: datetime | None = None  # the form POST used it
+    confirmed_at: datetime | None = None  # the owner tapped "Yes, I got it"
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class ReportShare(SQLModel, table=True):
+    """A read-only shared report at /r/<token>. Only the token's SHA-256 is stored; the owner can revoke it."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    business_id: int = Field(foreign_key="business.id", index=True)
+    token_hash: str = Field(index=True, unique=True)
+    revoked_at: datetime | None = None
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class AddressCheck(SQLModel, table=True):
+    """Rate limit for the public "Check any address" tool: hashed visitor + time only, never the address."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    visitor: str = Field(index=True)
+    created_at: datetime = Field(default_factory=utcnow)

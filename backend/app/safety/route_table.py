@@ -22,6 +22,9 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/health"): PUBLIC,
     ("GET", "/api/samples"): PUBLIC,
     ("POST", "/api/contact"): PUBLIC,
+    ("POST", "/api/check-address"): PUBLIC,  # read-only checks of any address; SSRF-guarded, rate-limited
+    ("POST", "/api/proof/confirm"): PUBLIC,  # "Yes, I got it": the single-use token is the permission
+    ("GET", "/r/{token}"): PUBLIC,  # shared read-only report: the unguessable, revocable token is the permission
     # --- public shop pages (served on shop hosts only) ---
     ("POST", "/order"): PUBLIC,
     ("POST", "/report-shop"): PUBLIC,
@@ -52,6 +55,9 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/plans/{plan_id}/approve"): OWNER,
     ("POST", "/api/plans/{plan_id}/resume"): OWNER,
     ("POST", "/api/plans/{plan_id}/practice-buy"): OWNER,
+    ("GET", "/api/businesses/{business_id}/share"): OWNER,
+    ("POST", "/api/businesses/{business_id}/share"): OWNER,
+    ("DELETE", "/api/businesses/{business_id}/share"): OWNER,
     # --- team ---
     ("GET", "/api/admin/check"): ADMIN,
     ("GET", "/api/admin/users"): ADMIN,

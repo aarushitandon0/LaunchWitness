@@ -4,6 +4,7 @@ Every field here must also appear in `.env.example` (a test checks this).
 Defaults are the safe ones: sandbox GoDaddy, fixture Claude, purchases off.
 """
 
+from datetime import date
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -51,6 +52,11 @@ class Settings(BaseSettings):
     use_fakes: bool = True
     # Live-link guards (per visitor = per client IP, per UTC day; admin is exempt).
     visitor_describes_per_day: int = 5
+    address_checks_per_hour: int = 10  # public "Check any address": per visitor
+    address_checks_per_day: int = 500  # ... and for everyone together
+    # The day hello@ (the app's one mailbox) lapses. Sign-in links, orders and alerts all go through it,
+    # so /api/health and startup warn 14 days ahead. Empty = unknown.
+    mailbox_expires_on: date | None = None
     visitor_launches_per_day: int = 3
     visitor_contacts_per_day: int = 5
     # Order form limits on every public shop (test orders from the checker don't count).

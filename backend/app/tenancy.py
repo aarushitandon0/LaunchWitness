@@ -61,7 +61,7 @@ def _purge_extra(session: Session, business_id: int) -> None:
     """Tables added by later phases (evidence, shared reports) register here."""
     from app import models
 
-    for name in ("Evidence", "ReportShare"):
+    for name in ("Evidence", "ReportShare", "TestTicket"):
         table = getattr(models, name, None)
         if table is not None:
             session.exec(delete(table).where(table.business_id == business_id))

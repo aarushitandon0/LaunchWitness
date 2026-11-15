@@ -39,7 +39,9 @@ CERT_WARN_DAYS = (7, 1)
 
 
 def daily_checks(mode: str) -> list[str]:
-    return QUICK_CHECKS + EMAIL_CHECKS + ["settings_match"]
+    # The daily test order carries a fresh code. For an inbox we can't read it proves "form accepted ->
+    # mail server accepted" only (the report says so); delivery needs the owner's tap on that email.
+    return QUICK_CHECKS + EMAIL_CHECKS + ["settings_match", "test_order"]
 
 
 class Monitor:
