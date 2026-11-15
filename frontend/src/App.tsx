@@ -8,6 +8,7 @@ import Review from "./Review";
 import { LaunchChoice, PlanView } from "./Launch";
 import { GotItPage, ReportPage } from "./Report";
 import { AdminPage } from "./Admin";
+import { LegalLinks, PrivacyPage, TermsPage } from "./Legal";
 import {
   AccountPage,
   ConfirmSignInPage,
@@ -29,6 +30,8 @@ type Route =
   | { page: "account" }
   | { page: "delete-account" }
   | { page: "got-it" }
+  | { page: "privacy" }
+  | { page: "terms" }
   | { page: "review"; businessId: number }
   | { page: "launch"; businessId: number }
   | { page: "report"; businessId: number }
@@ -41,6 +44,8 @@ function useRoute(): Route {
     const h = window.location.hash;
     if (h.startsWith("#/admin")) return { page: "admin" };
     if (h.startsWith("#/got-it")) return { page: "got-it" };
+    if (h.startsWith("#/privacy")) return { page: "privacy" };
+    if (h.startsWith("#/terms")) return { page: "terms" };
     if (h.startsWith("#/signin/confirm")) return { page: "confirm" };
     if (h.startsWith("#/signin")) return { page: "signin" };
     if (h.startsWith("#/shops")) return { page: "shops" };
@@ -194,6 +199,8 @@ export default function App() {
                     {route.page === "account" && <AccountPage />}
                     {route.page === "delete-account" && <DeleteAccountPage />}
                     {route.page === "got-it" && <GotItPage />}
+                    {route.page === "privacy" && <PrivacyPage />}
+                    {route.page === "terms" && <TermsPage />}
                   </motion.div>
                 </AnimatePresence>
               </main>
@@ -228,6 +235,7 @@ function Health({ dark = false }: { dark?: boolean }) {
         {state === "ok" && "LaunchWitness is running and ready."}
         {state === "error" && "LaunchWitness isn't responding right now. Please try again in a minute."}
       </span>
+      <LegalLinks />
       <details>
         <summary>Details</summary>
         <pre>{detail}</pre>

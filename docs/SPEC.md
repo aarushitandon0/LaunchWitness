@@ -155,7 +155,14 @@ One GoDaddy Docker VPS (4 vCPU / 8 GB, provided at $0) runs everything; GoDaddy 
 - **Caddy:** HTTPS for the app and every seller site; on-demand TLS with an `ask` endpoint that only approves domains in the DB.
 - **FastAPI:** agents, API, monitoring scheduler, and every seller site (served by `Host` header from one template + profile).
 - **React (Vite):** seller-facing app, built and served as static files.
-- **SQLite:** profiles, plans, DNS backups, check results, audit log.
+- **SQLite:** profiles, plans, DNS backups, check results, audit log. Every connection sets WAL, `busy_timeout=5000` and
+  `foreign_keys=ON` (S10). **Exactly one app process** (APScheduler runs in it; SQLite has one writer): the app refuses to
+  start a second one on the same database. Online backups (`scripts/backup_db.sh`, 7 daily + 4 weekly) with a tested
+  restore (`scripts/restore_db.sh`).
+  **When we'd move to Postgres:** more than one app server, a second worker process, or heavy concurrent writes
+  (hundreds of orders a minute). Not before: one VPS at this scale is what SQLite is good at. The move is small,
+  because every table is a SQLModel model and queries go through SQLAlchemy: change `DATABASE_URL`, swap
+  `add_missing_columns` for a real migration tool (Alembic), and move the scheduler into its own single process.
 - **Outside:** Claude API; GoDaddy Domains/DNS/Email (OTE sandbox in dev, `GODADDY_ENV=ote|prod`); SMTP through the app's one mailbox.
 - **Secrets** live only in environment variables.
 - **Sandbox subdomains** get one A record each (`<slug>.<APP_DOMAIN>` → VPS), written by the app at launch; no wildcard (decided S9F). Only `@` (and optionally `www`) is made by hand.
@@ -196,9 +203,23 @@ Every step goes to the audit log shown in the report.
 - **Team approval during the beta.** New accounts are *pending* (practice only) until the team approves them. The admin is the `ADMIN_EMAIL` user; `ADMIN_TOKEN` stays for the command line only.
 - **Limits.** 3 shops per account; a daily cap on describes (Claude calls) that deleting shops doesn't reset; **at most `MAX_LIVE_SHOPS` (40) live shops**, because Let's Encrypt issues about 50 new certificates per registered domain per week and every shop subdomain needs its own.
 - **Orders and alerts** go to the owners' verified sign-in addresses (the app mailbox only for shops the team runs, or ownerless guest shops).
-- **Go-live gate.** At real approval: approved account, not a guest shop, not paused, under the live-shop cap, policy check OK (or cleared by the team).
+- **Go-live gate.** At real approval: approved account, not a guest shop, not paused, under the live-shop cap, policy check OK (or cleared by the team). On a real server running saved Claude answers (`CLAUDE_MODE=fixture`) the policy check can't really check, so **every real launch is held for the team** (fail closed, S10).
 - **Deleting an account** needs the emailed link *and* being signed in; it unpublishes and deletes the shops, erases the email and keeps one anonymous audit row.
 - Route classes live in `backend/app/safety/route_table.py`; a test fails on any unclassified route.
+
+---
+
+## 9b. Watchdog features, and what's out of scope (S10)
+
+In scope (decided; nothing beyond these): **Renewals** (certificate days left, domain end date, the team mailbox's plan; alerts at
+30/7/1 days, never renews or pays), **zone hygiene for our own shop zone** (a daily comparison of the A records on the app domain with
+the live shops; fixes are proposed, need the admin's approval, go through the guarded client, shop A records only), and one read-only
+finding in **Check any address** (a CNAME whose target doesn't exist: possible dangling record).
+
+**Out of scope, and why.** Domain sniping and drop-catching, portfolio management, defensive registration and brand protection,
+bulk agency tooling, domain valuation, throwaway campaign microsites, natural-language DNS for arbitrary hosts, site/email migration,
+mailbox warm-up and sender reputation. They serve domain investors and agencies, not home sellers; several spend money automatically;
+none makes the order-path proof stronger.
 
 ---
 

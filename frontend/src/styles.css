@@ -441,3 +441,10 @@ input[type="checkbox"] { accent-color: var(--ink); width: 18px; height: 18px; }
 .check-card .checks { list-style: none; padding: 0; }
 .check-card .checks li { display: flex; gap: var(--s-3); padding: var(--s-2) 0; border-top: 1px solid var(--line); }
 .check-card .mono { word-break: break-all; }
+
+/* Privacy / Terms */
+.legal { max-width: 68ch; }
+.legal h2 { margin-top: 1.6em; }
+.legal li { margin: 0.35em 0; }
+.legal-links { white-space: nowrap; }
+.legal-links a { color: inherit; }

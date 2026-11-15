@@ -45,6 +45,8 @@ def events(engine, action):
 
 
 def make_app(make_settings, engine, mailer, claude, integ, practice=None, **settings_kw):
+    if settings_kw.get("use_fakes") is False:
+        settings_kw.setdefault("claude_mode", "live")  # a stand-in for the VPS, which runs live Claude
     settings = make_settings(**settings_kw)
     app = create_app(run_lifespan=False)
 

@@ -11,9 +11,10 @@
 # exactly one app process, the mailbox (SMTP/IMAP; local: Mailpit), a contact-form message arriving, and that
 # the SMTP password is in no tracked file or commit. Exit code = number of failures.
 
+export MSYS_NO_PATHCONV=1  # Git Bash on Windows: never rewrite container paths like /app/...
 set -uo pipefail
 
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
+REPO="$(cd "$(dirname "$0")/.." && (pwd -W 2>/dev/null || pwd))"
 cd "$REPO"
 FAILS=0
 pass() { printf '  \033[32mPASS\033[0m  %s\n' "$1"; }
@@ -23,6 +24,8 @@ info() { printf '        %s\n' "$1"; }
 
 LOCAL=false
 [ "${1:-}" = "--local" ] && LOCAL=true
+# A temp file whose path both bash and native Windows tools (docker.exe, curl.exe) read the same way.
+tmpf() { local f; f="$(mktemp)"; cygpath -m "$f" 2>/dev/null || echo "$f"; }
 
 # Read one value from .env without printing it (no `source`: values may contain spaces/symbols).
 envval() { grep -E "^$1=" .env 2>/dev/null | tail -n1 | cut -d= -f2- | sed -e 's/[[:space:]]#.*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"; }
@@ -31,7 +34,7 @@ if $LOCAL; then
   COMPOSE=(docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml -f deploy/docker-compose.local.yml)
   APP_DOMAIN=launchwitness.localhost
   SERVER_IP=127.0.0.1
-  CA="$(mktemp)"
+  CA="$(tmpf)"
   "${COMPOSE[@]}" cp caddy:/data/caddy/pki/authorities/local/root.crt "$CA" >/dev/null 2>&1 \
     || { echo "FAIL: can't read Caddy's local CA (is the local stack up? see deploy/README.md)"; exit 1; }
   CURL=(curl -sS --max-time 20 --cacert "$CA")
@@ -144,6 +147,9 @@ with Session(get_engine()) as db:
     print("ADMIN", "unset" if not s.admin_email else ("ok" if u and u.role == "admin" and u.status == "approved" else "missing"))
     print("DEVMODE", s.dev_mode)
     print("MAILBOX", s.mailbox_expires_on or "unset")
+from app.selfcheck import warnings
+for w in warnings(s):
+    print("SELFCHECK", w.code, w.text)
 PY
 )"
 case "$(echo "$admin" | awk '/^ADMIN/{print $2}')" in
@@ -151,6 +157,9 @@ case "$(echo "$admin" | awk '/^ADMIN/{print $2}')" in
   unset) fail "ADMIN_EMAIL is not set";;
   *) fail "the ADMIN_EMAIL user is missing or not admin";;
 esac
+sc="$(echo "$admin" | grep '^SELFCHECK' | cut -d' ' -f2-)"
+if [ -z "$sc" ]; then pass "startup self-check: nothing wrong"
+else while IFS= read -r line; do warn "self-check: $line"; done <<<"$sc"; fi
 [ "$(echo "$admin" | awk '/^DEVMODE/{print $2}')" = "False" ] && pass "DEV_MODE is off" || fail "DEV_MODE is on"
 mb="$(echo "$admin" | awk '/^MAILBOX/{print $2}')"
 if [ "$mb" = "unset" ]; then $LOCAL && info "MAILBOX_EXPIRES_ON unset (fine locally)" || fail "MAILBOX_EXPIRES_ON is not set (health can't warn before hello@ lapses)"
@@ -170,7 +179,7 @@ PY
 )"
 TOKEN="$(echo "$TOKEN" | tail -n1 | tr -d '\r')"
 if [ -n "$TOKEN" ]; then
-  hdrs="$(mktemp)"
+  hdrs="$(tmpf)"
   resp="$("${CURL[@]}" -D "$hdrs" -H 'Content-Type: application/json' -H "Origin: $BASE" \
     --data-binary @- "$BASE/api/auth/confirm" <<<"{\"token\":\"$TOKEN\"}")"
   unset TOKEN
