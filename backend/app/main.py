@@ -72,11 +72,10 @@ async def lifespan(_app: FastAPI):
     from app.tenancy import purge_old_guest_shops
 
     ensure_admin(get_engine(), settings)  # the ADMIN_EMAIL account exists and is the admin
-    from app.routers.health import mailbox_warning
+    from app.selfcheck import warnings
 
-    warning = mailbox_warning(settings)
-    if warning:
-        logging.getLogger("launchwitness").warning(warning)
+    for w in warnings(settings):  # startup self-check: wrong-for-production settings, never a secret
+        logging.getLogger("launchwitness").warning("self-check [%s]: %s", w.code, w.text)
     purge_old_guest_shops(get_engine(), settings, get_practice_integrations())
     monitor = start_monitor(settings) if settings.monitor_enabled else None
     yield

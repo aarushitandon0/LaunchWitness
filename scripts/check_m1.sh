@@ -11,9 +11,10 @@
 # exactly one app process, the mailbox (SMTP/IMAP; local: Mailpit), a contact-form message arriving, and that
 # the SMTP password is in no tracked file or commit. Exit code = number of failures.
 
+export MSYS_NO_PATHCONV=1  # Git Bash on Windows: never rewrite container paths like /app/...
 set -uo pipefail
 
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
+REPO="$(cd "$(dirname "$0")/.." && (pwd -W 2>/dev/null || pwd))"
 cd "$REPO"
 FAILS=0
 pass() { printf '  \033[32mPASS\033[0m  %s\n' "$1"; }
@@ -144,6 +145,9 @@ with Session(get_engine()) as db:
     print("ADMIN", "unset" if not s.admin_email else ("ok" if u and u.role == "admin" and u.status == "approved" else "missing"))
     print("DEVMODE", s.dev_mode)
     print("MAILBOX", s.mailbox_expires_on or "unset")
+from app.selfcheck import warnings
+for w in warnings(s):
+    print("SELFCHECK", w.code, w.text)
 PY
 )"
 case "$(echo "$admin" | awk '/^ADMIN/{print $2}')" in
@@ -151,6 +155,9 @@ case "$(echo "$admin" | awk '/^ADMIN/{print $2}')" in
   unset) fail "ADMIN_EMAIL is not set";;
   *) fail "the ADMIN_EMAIL user is missing or not admin";;
 esac
+sc="$(echo "$admin" | grep '^SELFCHECK' | cut -d' ' -f2-)"
+if [ -z "$sc" ]; then pass "startup self-check: nothing wrong"
+else while IFS= read -r line; do warn "self-check: $line"; done <<<"$sc"; fi
 [ "$(echo "$admin" | awk '/^DEVMODE/{print $2}')" = "False" ] && pass "DEV_MODE is off" || fail "DEV_MODE is on"
 mb="$(echo "$admin" | awk '/^MAILBOX/{print $2}')"
 if [ "$mb" = "unset" ]; then $LOCAL && info "MAILBOX_EXPIRES_ON unset (fine locally)" || fail "MAILBOX_EXPIRES_ON is not set (health can't warn before hello@ lapses)"

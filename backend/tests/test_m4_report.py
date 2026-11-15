@@ -250,6 +250,7 @@ def two_worlds_client(make_settings, engine, mailer, claude, **settings_kw):
     from app.main import create_app
     from app.routers.businesses import get_claude
 
+    settings_kw.setdefault("claude_mode", "live")  # the VPS runs live Claude; the fixture client plays its answers
     settings = make_settings(use_fakes=False, **settings_kw)
     server = fake_integrations(settings)
     server.fake = False  # stands in for the REAL GoDaddy/DNS/mail on the VPS

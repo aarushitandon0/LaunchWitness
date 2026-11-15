@@ -98,6 +98,10 @@ export function SignInPage() {
       <p className="muted">
         Just looking? You can <a href="#/try">try it without signing in</a>. Practice shops are kept for a day.
       </p>
+      <p className="muted">
+        By signing in you agree to our <a href="#/terms">Terms of use</a>. Our <a href="#/privacy">Privacy page</a> says
+        what we keep and how to delete it.
+      </p>
     </>
   );
 }

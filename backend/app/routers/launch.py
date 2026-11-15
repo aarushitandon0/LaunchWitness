@@ -27,6 +27,7 @@ from app.integrations import Integrations, for_business, get_integrations, get_p
 from app.models import Approval, Business, Plan, utcnow
 from app.routers.businesses import get_claude
 from app.safety.access import ActorDep, launches_today, require_business_access, require_plan_access, visitor_id
+from app.selfcheck import fixture_on_real_server
 from app.sites.hosts import is_public, site_url
 
 router = APIRouter(prefix="/api", tags=["launch"])
@@ -85,6 +86,9 @@ def card_out(plan: Plan, settings: Settings) -> dict:
     # Shown as its own line; the app doesn't buy it, so the spend guard doesn't cover it.
     out["email_plan_estimate_usd"] = settings.email_plan_estimate_usd if plan.mode == "full" else None
     return out
+
+
+HELD_FIXTURE = "Our team looks at every new shop before it goes live."
 
 
 @router.post("/businesses/{business_id}/plans", status_code=201)
@@ -175,6 +179,16 @@ def approve_plan(body: ApproveRequest, request: Request, background: BackgroundT
                                 "Nothing was changed. Please try again in a few days.")
         if b.paused:
             raise HTTPException(status_code=409, detail="This shop is paused by our team, so it can't be launched right now.")
+        if b.review != "cleared" and not integ.fake and fixture_on_real_server(settings):
+            # Fail closed: with saved Claude answers the policy check would always say OK, so on a server that
+            # launches real shops every real launch waits for the team (Team page: "Looks fine").
+            b.review, b.review_reason = "held", HELD_FIXTURE
+            session.add(b)
+            session.commit()
+            audit.record(session, actor="policy", action="policy_check", target=f"business:{b.id}", result="held",
+                         business_id=b.id, user_id=actor.user_id, detail="fixture mode on a real server: team review")
+            raise HTTPException(status_code=409, detail=f"{HELD_FIXTURE} Nothing was launched. "
+                                "We'll email you when our team has looked at it.")
         if b.review != "cleared":  # "cleared" = the team already looked
             verdict = policy_check(claude, Profile.model_validate_json(b.profile_json))
             b.review, b.review_reason = ("ok", "") if verdict.ok else ("held", verdict.reason)
