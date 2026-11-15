@@ -8,7 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from app import audit
+from app import audit, proof
 from app.agents.checker import TITLES
 from app.agents.claude_client import Claude
 from app.agents.launch_check import AlreadyChecking, latest_launched_plan, run_checks, start_run
@@ -36,9 +36,11 @@ def run_out(session: Session, run: CheckRun) -> dict:
     for r in rows:  # later rows (re-checks after a repair) replace earlier ones
         d = json.loads(r.detail) if r.detail.startswith("{") else {"plain": r.detail, "detail": ""}
         first = checks.get(r.check, {}).get("first_passed", r.passed)
+        waiting = bool(d.get("waiting"))
         checks[r.check] = {"check": r.check, "title": TITLES.get(r.check, r.check), "passed": r.passed,
                            "plain": d.get("plain", ""), "detail": d.get("detail", ""), "at": iso(r.created_at),
-                           "attempt": r.attempt, "first_passed": first, "fixed": r.passed and not first}
+                           "attempt": r.attempt, "first_passed": first, "fixed": r.passed and not first,
+                           "waiting": waiting}
     repairs = [{**rep, "title": TITLES.get(rep["check"], rep["check"])} for rep in json.loads(run.repairs_json)]
     return {"id": run.id, "trigger": run.trigger, "status": run.status, "passed": run.passed,
             "started_at": iso(run.started_at), "finished_at": iso(run.finished_at),
@@ -69,6 +71,9 @@ def headline(plan: Plan | None, latest_plan: Plan | None, run: dict | None,
     if run is None or run["status"] == "running":
         return False, "Checking everything for you…", []
     left = [c["plain"] for c in run["checks"] if not c["passed"]]
+    waiting = [c["plain"] for c in run["checks"] if c.get("state") == "needs_you"]
+    if not left and run["passed"] and waiting:  # accepted is not delivered: only she can prove the last hop
+        return False, "Almost ready: tell us the test order reached you", waiting
     if not left and run["passed"]:
         # Never an unlabelled "ready" from the pretend world.
         return True, PRACTICE_PASSED if practice else "Your business is ready for customers", []
@@ -88,6 +93,7 @@ def report(b: Annotated[Business, Depends(require_business_access)], actor: Acto
     run_row = session.exec(select(CheckRun).where(CheckRun.business_id == b.id, CheckRun.trigger.in_(OWNER_RUNS))
                            .order_by(CheckRun.id.desc())).first()
     run = run_out(session, run_row) if run_row and plan else None
+    proven = proof.summary(session, run)  # adds each check's hops + state ("proven" / "needs_you" / "failed")
     ready, title, left = headline(plan, latest_plan, run, practice)
 
     def last(trigger: str) -> dict | None:
@@ -110,7 +116,7 @@ def report(b: Annotated[Business, Depends(require_business_access)], actor: Acto
         if plan else ({"id": latest_plan.id, "mode": latest_plan.mode, "site_host": latest_plan.site_host,
                        "mailbox": latest_plan.mailbox} if latest_plan else None),
         "practice": practice,
-        "ready": ready, "headline": title, "left": left, "run": run,
+        "ready": ready, "headline": title, "left": left, "run": run, "proof": proven,
         "launch": launch_out(plan or latest_plan),
         "monitoring": {"enabled": settings.monitor_enabled, "every_minutes": QUICK_MINUTES,
                        "last_quick": last("monitor_quick"), "last_daily": last("monitor_daily"),

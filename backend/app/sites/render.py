@@ -38,6 +38,16 @@ def whatsapp_digits(number: str) -> str:
     return digits
 
 
+def order_whatsapp_link(profile: Profile, order: dict | None) -> str | None:
+    """Thank-you page: the customer sends the order (ref + items) to the shop's WhatsApp in one tap."""
+    number = whatsapp_digits(profile.whatsapp or profile.phone)
+    if len(number) < 11 or not order or not order.get("ref"):
+        return None
+    items = ", ".join(f"{it['qty']} x {it['name']}" for it in order.get("items", []))[:600]
+    text = f"Hi {profile.name}, this is my order {order['ref']}" + (f": {items}" if items else "") + "."
+    return f"https://wa.me/{number}?{urlencode({'text': text}, quote_via=quote)}"
+
+
 def whatsapp_link(profile: Profile) -> str | None:
     number = whatsapp_digits(profile.whatsapp or profile.phone)
     if len(number) < 11:
@@ -106,7 +116,7 @@ def area_is_repeated(profile: Profile) -> bool:
 
 
 def render_site(profile: Profile, *, page: str = "home", order: dict | None = None, form_error: str = "",
-                form_values: dict | None = None, preview: bool = False) -> str:
+                form_values: dict | None = None, preview: bool = False, shop: str = "") -> str:
     """page: 'home' | 'privacy' | 'thanks'. preview=True: the owner's private look at a shop that
     isn't public (banner on top, the order button is off)."""
     uri = upi_uri(profile)
@@ -119,6 +129,7 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
         monogram=monogram(profile.name),
         show_area=bool(profile.area.strip()) and not area_is_repeated(profile),
         whatsapp_url=whatsapp_link(profile),
+        order_whatsapp_url=order_whatsapp_link(profile, order) if page == "thanks" else None,
         upi=uri,
         upi_qr=upi_qr_svg(uri) if uri else None,
         order=order,
@@ -126,4 +137,5 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
         form=form_values or {},
         order_token=(form_values or {}).get("order_token") or secrets.token_urlsafe(16),
         preview=preview,
+        shop=shop,  # printed as <meta name="lw-shop">: the HTTPS check looks for it
     )

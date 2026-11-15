@@ -1,6 +1,6 @@
 import { motion, MotionValue, useScroll, useSpring, useTransform } from "framer-motion";
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
-import { api, ApiError } from "./api";
+import { AddressResult, api, ApiError } from "./api";
 import { ErrorBox } from "./Describe";
 import { EASE, useCalm } from "./motion";
 
@@ -162,6 +162,21 @@ export default function Landing() {
               </Reveal>
             ))}
           </ul>
+        </div>
+      </section>
+
+      <section className="check-any" id="check" aria-labelledby="check-title">
+        <div className="wrap">
+          <Reveal>
+            <p className="eyebrow">Read-only check</p>
+            <h2 id="check-title">Check any address</h2>
+            <p className="tagline">
+              Already have a website? Type its address and we'll look, from the outside, at whether it opens securely and
+              whether its email is set up so orders don't land in spam. We only read public information: we change
+              nothing, send no email and keep nothing about the address.
+            </p>
+            <CheckAnyAddress />
+          </Reveal>
         </div>
       </section>
 
@@ -480,3 +495,68 @@ function ContactForm() {
     </form>
   );
 }
+
+function CheckAnyAddress() {
+  const [address, setAddress] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<ApiError | null>(null);
+  const [result, setResult] = useState<{ address: string; results: AddressResult[] } | null>(null);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      setResult(await api.checkAddress(address.trim()));
+    } catch (err) {
+      setResult(null);
+      setError(err instanceof ApiError ? err : new ApiError(String(err), 0));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card check-card">
+      <form className="check-form" onSubmit={submit}>
+        <label className="field">
+          <span>Web address</span>
+          <input
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="myshop.com"
+            inputMode="url"
+            autoCapitalize="off"
+            autoCorrect="off"
+            maxLength={300}
+          />
+        </label>
+        <button className="btn btn-primary" type="submit" disabled={busy || !address.trim()}>
+          {busy ? "Checking…" : "Check it"}
+        </button>
+      </form>
+      {error && <ErrorBox error={error} />}
+      {result && (
+        <>
+          <p className="muted">
+            Read-only results for <strong>{result.address}</strong>:
+          </p>
+          <ul className="rows checks">
+            {result.results.map((r) => (
+              <li key={r.check} className={r.ok === false ? "bad" : r.ok ? "ok" : "st-pending"}>
+                <span className="icon" aria-hidden>
+                  {r.ok === false ? "✕" : r.ok ? "✓" : "–"}
+                </span>
+                <div className="body">
+                  <div className="title">{r.plain}</div>
+                  {r.detail && <div className="muted mono">{r.detail}</div>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  );
+}
+

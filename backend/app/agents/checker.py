@@ -9,19 +9,19 @@ the report shows them separately.
 """
 
 import json
-import secrets
 from dataclasses import dataclass
 from datetime import timedelta
+from urllib.parse import urljoin
 
 from sqlmodel import Session
 
-from app import audit
+from app import audit, proof
 from app.agents.executor import Ctx
 from app.agents.planner import DKIM_PENDING
 from app.agents.reader import Profile
 from app.mail.providers import provider_for
-from app.models import CheckResult, utcnow
-from app.sites.orders import place_order
+from app.models import CheckResult, Order, utcnow
+from app.sites.orders import order_recipients
 
 
 @dataclass
@@ -30,6 +30,31 @@ class Outcome:
     passed: bool
     plain: str  # one line for the seller
     detail: str = ""  # technical
+    waiting: bool = False  # passed as far as we can see, but delivery still needs the owner's "Yes, I got it"
+
+
+def practice_world(ctx: Ctx) -> bool:
+    return bool(ctx.integ.fake or ctx.business.practice)
+
+
+def evidence(ctx: Ctx, check: str, step: str, **fields) -> None:
+    proof.add(ctx.session, business=ctx.business, run_id=ctx.run_id, check=check, step=step,
+              practice=practice_world(ctx), **fields)
+
+
+def dns_server(ctx: Ctx) -> str:
+    return getattr(ctx.integ.dns, "last_server", "") or ("pretend nameserver" if ctx.integ.fake else "")
+
+
+def shop_web(ctx: Ctx) -> proof.ShopWeb:
+    """How the checker reaches the shop like a customer: in-process for practice, else over the internet
+    to the shop's own host only (SSRF-guarded)."""
+    factory = getattr(ctx.integ, "shop_web", None)
+    if factory is not None:
+        return factory(ctx)
+    if practice_world(ctx):
+        return proof.PracticeShopWeb(ctx.session, ctx.settings, ctx.integ.mailer, ctx.business, ctx.plan.site_host)
+    return proof.real_shop_web(ctx.plan.site_host)
 
 
 def _txt(values: list[str]) -> list[str]:
@@ -40,17 +65,37 @@ def check_site_points(ctx: Ctx) -> Outcome:
     host, want = ctx.plan.site_host, ctx.settings.server_ip
     got = ctx.integ.dns.resolve(host, "A")
     ok = want in got
+    evidence(ctx, "site_points", "dns_answer", answer=f"A {host} = {', '.join(got) or 'nothing'}",
+             server=dns_server(ctx), source="authoritative nameserver")
     return Outcome("site_points", ok, "Your address leads to your website." if ok else
                    "Your address doesn't lead to your website yet.", f"A {host} = {got or 'nothing'}; want {want}")
 
 
+HTTPS_BACKOFF = (5, 10, 20, 40, 45)  # seconds: up to 2 minutes while a new certificate is being issued
+
+
 def check_https(ctx: Ctx) -> Outcome:
-    r = ctx.integ.http.fetch(f"https://{ctx.plan.site_host}/")
+    url = f"https://{ctx.plan.site_host}/"
+    for i in range(len(HTTPS_BACKOFF) + 1):
+        r = ctx.integ.http.fetch(url)
+        if r.ok and r.cert_valid:
+            break
+        if i < len(HTTPS_BACKOFF):
+            ctx.integ.sleep(HTTPS_BACKOFF[i])
     ok = r.ok and r.cert_valid
-    plain = ("Your website opens securely (the padlock shows)." if ok else
-             "Your website's security certificate isn't working yet." if not r.cert_valid else
-             "Your website didn't open.")
-    return Outcome("https", ok, plain, f"status={r.status} cert_valid={r.cert_valid} {r.error}".strip())
+    detail = f"status={r.status} cert_valid={r.cert_valid} {r.error}".strip()
+    if not ok:
+        plain = ("Your website's security certificate isn't working yet." if not r.cert_valid else
+                 "Your website didn't open.")
+        return Outcome("https", False, plain, detail)
+    page = shop_web(ctx).get(url)
+    if proof.marker(ctx.business) not in page.html:  # a parked page with a valid certificate is not her shop
+        return Outcome("https", False, "Your address opens a page, but it isn't your shop.",
+                       f"{detail}; shop marker missing (page status {page.status})")
+    cert_end = ctx.integ.http.cert_expires(ctx.plan.site_host)
+    evidence(ctx, "https", "http_response", status_code=r.status, cert_not_after=cert_end, server=page.server,
+             source=url, answer="shop page with its lw-shop marker")
+    return Outcome("https", True, "Your website opens securely (the padlock shows).", detail)
 
 
 def mail_zone(ctx: Ctx) -> str:
@@ -111,27 +156,59 @@ def check_email_dmarc(ctx: Ctx) -> Outcome:
                    f"TXT _dmarc.{zone} = {got or 'nothing'}")
 
 
+TEST_CUSTOMER = {"customer_name": "LaunchWitness test", "customer_phone": "0000000000",
+                 "note": "Automatic test order from your launch check. No action needed."}
+
+
 def check_test_order(ctx: Ctx) -> Outcome:
-    """Place a test order through the same code and to the same people as a customer's order,
-    then look in the inbox we can read for THIS run's random code (never an older email)."""
+    """Order from the shop like a customer: open the public page, find the order form, post it with a
+    one-time test code, then record each hop separately. Delivery is proven only by finding the email in
+    an inbox we can read, or by the owner tapping "Yes, I got it"; a mail server's "accepted" is not delivery."""
+    url = f"https://{ctx.plan.site_host}/"
+    web = shop_web(ctx)
     profile = Profile.model_validate_json(ctx.business.profile_json)
-    first = next((x for x in profile.products if not x.addon), profile.products[0])
-    data = {"customer_name": "LaunchWitness test", "customer_phone": "0000000000",
-            "note": "Automatic test order from your launch check. No action needed.",
-            "items": [{"name": first.name, "qty": 1, "price_inr": first.price_inr}], "total_inr": first.price_inr}
-    started, nonce = utcnow(), secrets.token_hex(8)
-    order = place_order(ctx.session, ctx.integ.mailer, ctx.settings, business=ctx.business, profile=profile,
-                        data=data, is_test=True, nonce=nonce)
+    page = web.get(url)
+    form = proof.find_order_form(page.html) if page.status == 200 else None
+    if form is None:
+        return Outcome("test_order", False, "We couldn't open your order form for a test order.",
+                       f"GET {url}: status {page.status} {page.error}".strip())
+    index = next((i for i, x in enumerate(profile.products) if not x.addon), 0)
+    field = f"qty_{index}"
+    if field not in form.qty_fields:
+        return Outcome("test_order", False, "We couldn't find an item to order on your page.", f"{field} not in form")
+    ticket = proof.new_ticket(ctx.session, ctx.business, ctx.run_id)
+    started = utcnow()
+    fields = {**form.hidden, **TEST_CUSTOMER, field: "1", "lw_test": ticket.nonce}
+    sent = web.post(urljoin(url, form.action), fields)
+    ctx.session.refresh(ticket)
+    order = ctx.session.get(Order, ticket.order_id) if ticket.order_id else None
+    if sent.status != 200 or order is None:
+        return Outcome("test_order", False, "Your order form didn't accept a test order.",
+                       f"POST {form.action}: status {sent.status} {sent.error}".strip())
+    evidence(ctx, "test_order", "form_post", status_code=sent.status, nonce=ticket.nonce, source=web.source,
+             server=sent.server, answer=f"order {order.ref}")
     if order.email_status != "sent":
-        return Outcome("test_order", False, "We couldn't send a test order email.", f"order #{order.id} email failed")
+        return Outcome("test_order", False, "Your order form works, but we couldn't send the order email.",
+                       f"order {order.ref}: mail server refused or unreachable")
+    fake = ctx.integ.fake
+    evidence(ctx, "test_order", "smtp_accepted", message_id=order.email_message_id, nonce=ticket.nonce,
+             server="pretend mail server" if fake else ctx.settings.smtp_host, source="our mail server")
+    recipients = [r.lower() for r in order_recipients(ctx.session, ctx.settings, ctx.business)]
+    readable = fake or ctx.settings.imap_user.lower() in recipients
+    if not readable:  # her own inbox: only she can prove it arrived
+        return Outcome("test_order", True, "The mail server accepted a test order for you. Tap “Yes, I got it” "
+                       "in that email to prove it reached your inbox.", f"order {order.ref} code {ticket.nonce}",
+                       waiting=True)
     for i in range(3):
-        if ctx.integ.inbox.find(subject_contains=nonce, since=started - timedelta(minutes=2)):
-            return Outcome("test_order", True, "A test order arrived in your inbox.",
-                           f"order #{order.id} code {nonce} found")
+        if ctx.integ.inbox.find(subject_contains=ticket.nonce, since=started - timedelta(minutes=2)):
+            evidence(ctx, "test_order", "imap_seen", nonce=ticket.nonce,
+                     server="pretend inbox" if fake else ctx.settings.imap_host, source=ctx.settings.imap_user)
+            return Outcome("test_order", True, "A test order reached your inbox.",
+                           f"order {order.ref} code {ticket.nonce} found")
         if i < 2:
             ctx.integ.sleep(20)
     return Outcome("test_order", False, "A test order was sent but hasn't arrived in your inbox.",
-                   f"order #{order.id} code {nonce} not found in {ctx.plan.mailbox}")
+                   f"order {order.ref} code {ticket.nonce} not found in {ctx.settings.imap_user}")
 
 
 def check_settings_match(ctx: Ctx) -> Outcome:
@@ -190,7 +267,11 @@ def run_check(ctx: Ctx, name: str, attempt: int = 0) -> Outcome:
 
 def save(session: Session, ctx: Ctx, out: Outcome, attempt: int) -> None:
     session.add(CheckResult(business_id=ctx.business.id, plan_id=ctx.plan.id, run_id=ctx.run_id, check=out.check, passed=out.passed,
-                            detail=json.dumps({"plain": out.plain, "detail": out.detail}), attempt=attempt))
+                            detail=json.dumps({"plain": out.plain, "detail": out.detail, "waiting": out.waiting}),
+                            attempt=attempt))
+    if out.check.startswith("email_") and out.passed:
+        evidence(ctx, out.check, "dns_answer", answer=out.detail[:200], server=dns_server(ctx),
+                 source="authoritative nameserver")
     session.commit()
     audit.record(session, actor="checker", action=f"check_{out.check}", target=ctx.plan.site_host,
                  result="pass" if out.passed else "fail", business_id=ctx.business.id,

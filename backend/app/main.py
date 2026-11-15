@@ -4,6 +4,7 @@ Requests whose Host is a seller site (`<subdomain>.APP_DOMAIN` or a seller's
 own domain in the DB) get that seller's pages; everything else gets the app.
 """
 
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated
@@ -15,7 +16,7 @@ from sqlmodel import Session
 
 from app.config import REPO_ROOT, Settings, get_settings
 from app.db import get_session, init_db
-from app.routers import admin, auth, businesses, contact, health, internal, launch, report
+from app.routers import admin, auth, businesses, contact, health, internal, launch, proof, report
 from app.safety.request_guard import request_guard
 from app.sites import routes as seller_routes
 
@@ -62,6 +63,11 @@ async def lifespan(_app: FastAPI):
     from app.tenancy import purge_old_guest_shops
 
     ensure_admin(get_engine(), settings)  # the ADMIN_EMAIL account exists and is the admin
+    from app.routers.health import mailbox_warning
+
+    warning = mailbox_warning(settings)
+    if warning:
+        logging.getLogger("launchwitness").warning(warning)
     purge_old_guest_shops(get_engine(), settings, get_practice_integrations())
     monitor = start_monitor(settings) if settings.monitor_enabled else None
     yield
@@ -83,6 +89,7 @@ def create_app(*, frontend_dist: Path = FRONTEND_DIST, replay_page: Path = REPLA
     app.include_router(launch.router)
     app.include_router(report.router)
     app.include_router(contact.router)
+    app.include_router(proof.router)
     app.include_router(seller_routes.router)
 
     assets = frontend_dist / "assets"

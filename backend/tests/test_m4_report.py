@@ -302,7 +302,15 @@ def test_pending_user_practises_and_approved_user_launches_for_real(make_setting
         assert p["status"] == "done" and p["practice"] is False
         assert server.godaddy.writes() == [("set_records", "localhost", "A", "meera")]
         rep = report(c, biz)
-        assert rep["practice"] is False and rep["headline"] == "Your business is ready for customers"
+        # her own inbox: the mail server's "accepted" is not delivery, so the last hop waits for her tap
+        assert rep["practice"] is False and rep["ready"] is False
+        assert rep["headline"] == "Almost ready: tell us the test order reached you"
+        assert rep["proof"]["needs_you"] == 1 and rep["proof"]["proven"] == rep["proof"]["total"] - 1
+        mail = next(m for m in server.mailer.sent if "[TEST]" in m["subject"])
+        token = mail["body"].split("#/got-it?token=", 1)[1].split()[0]
+        assert c.post("/api/proof/confirm", json={"token": token}).json()["ok"] is True
+        rep = report(c, biz)
+        assert rep["headline"] == "Your business is ready for customers" and rep["proof"]["needs_you"] == 0
         assert rep["business"]["public"] is True
         assert c.get("/", headers={"host": "meera.localhost"}).status_code == 200  # now public
         assert c.get("/internal/tls-ask", params={"domain": "meera.localhost"}).status_code == 200

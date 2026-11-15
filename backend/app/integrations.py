@@ -47,6 +47,7 @@ class Integrations:
     inbox: InboxReader  # demo mailbox, to prove the test order arrived
     sleep: Callable[[float], None] = field(default=time.sleep)
     fake: bool = False
+    shop_web: Callable | None = None  # tests: how the checker reaches the shop (default: see checker.shop_web)
 
 
 def fake_integrations(settings: Settings, sleep: Callable[[float], None] | None = None) -> Integrations:
@@ -71,18 +72,24 @@ def fake_integrations(settings: Settings, sleep: Callable[[float], None] | None 
         inbox=inbox,
         sleep=sleep or (lambda _s: None),
         fake=True,
+        shop_web=_in_process,
     )
 
 
+def _in_process(ctx):
+    from app.proof import in_process
+
+    return in_process(ctx)
+
+
 def real_integrations(settings: Settings) -> Integrations:
-    from app.checks.dns_resolver import RealDnsResolver
+    from app.checks.dns_resolver import AuthoritativeResolver
 
     return Integrations(
         godaddy=GoDaddyClient(settings),
         availability=GoDaddyAvailabilityChecker(),
         mailbox=TitanMailboxProvider(),
-        # TODO(real): pass GoDaddy's authoritative nameserver IPs (ns*.domaincontrol.com) for the zone.
-        dns=RealDnsResolver(),
+        dns=AuthoritativeResolver(),  # the zone's own nameservers (ns*.domaincontrol.com); unproven until the VPS
         http=RealHttpProbe(),
         mailer=SmtpMailer(settings),
         inbox=ImapInboxReader(settings),

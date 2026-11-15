@@ -21,16 +21,7 @@ from app.mail.smtp import Mailer, get_mailer
 from app.models import Business, ShopReport
 from app.safety.access import start_of_today, visitor_id
 from app.sites.hosts import business_for_host, normalize_host, subdomain_label
-from app.sites.orders import (
-    TOO_MANY,
-    OrderInvalid,
-    TooManyOrders,
-    check_order_limits,
-    existing_order,
-    order_view,
-    parse_order_form,
-    place_order,
-)
+from app.sites.orders import accept_order_form
 from app.sites.render import render_site
 
 router = APIRouter(tags=["seller-site"])
@@ -99,7 +90,7 @@ def seller_page(path: str, request: Request, settings: Settings, session: Sessio
     if b.paused:
         return HTMLResponse(PAUSED, status_code=503)
     if path in ("", "index.html"):
-        return HTMLResponse(render_site(profile))
+        return HTMLResponse(render_site(profile, shop=b.subdomain or str(b.id)))
     if path.rstrip("/") == "privacy":
         return HTMLResponse(render_site(profile, page="privacy"))
     if path.rstrip("/") == "report-shop":
@@ -125,24 +116,11 @@ async def submit_order(
     if business.paused:
         return HTMLResponse(PAUSED, status_code=503)
     form = {k: v for k, v in (await request.form()).items() if isinstance(v, str)}
-    token = form.get("order_token", "")
-    again = existing_order(session, business, token)
-    if again is not None:  # double tap / form sent twice: show the same thank-you, make nothing new
-        return HTMLResponse(render_site(profile, page="thanks", order=order_view(again)))
-    try:
-        data = parse_order_form(form, profile)
-    except OrderInvalid as e:
-        return HTMLResponse(render_site(profile, form_error=str(e), form_values=form), status_code=422)
-    visitor = visitor_id(request)
-    try:
-        check_order_limits(session, settings, business, visitor)
-    except TooManyOrders:
-        return HTMLResponse(render_site(profile, form_error=TOO_MANY, form_values=form), status_code=429)
     # The mailer is chosen per business: a practice shop can never reach the real mail server.
     mailer = for_business(business, server, practice).mailer
-    order = place_order(session, mailer, settings, business=business, profile=profile, data=data, visitor=visitor,
-                        token=token)
-    return HTMLResponse(render_site(profile, page="thanks", order=order_view(order)))
+    status, html = accept_order_form(session, settings, mailer, business=business, profile=profile, form=form,
+                                     visitor=visitor_id(request))
+    return HTMLResponse(html, status_code=status)
 
 
 @router.post("/report-shop", response_class=HTMLResponse)

@@ -69,3 +69,45 @@ class ZoneBackedResolver:
                 continue
             return [record_text(r) for r in records if r["type"] == rtype and r["name"] == label]
         return []
+
+
+class AuthoritativeResolver:
+    """Asks the zone's OWN nameservers (found from its NS records), not a cache, and remembers which
+    server answered (`last_server`), so a check can say exactly where its answer came from."""
+
+    def __init__(self, timeout: float = 5.0, finder=None, query=None):
+        self.timeout = timeout
+        self._finder = finder or RealDnsResolver(timeout=timeout)  # only to FIND the nameservers
+        self._query = query or self._udp
+        self.last_server = ""
+
+    def _udp(self, name: str, rtype: str, ip: str) -> list[str]:
+        import dns.message
+        import dns.query
+        import dns.rdatatype
+
+        resp = dns.query.udp(dns.message.make_query(name, rtype), ip, timeout=self.timeout)
+        want = dns.rdatatype.from_text(rtype)
+        return [r.to_text() for rrset in resp.answer if rrset.rdtype == want for r in rrset]
+
+    def nameservers(self, name: str) -> tuple[str, list[str]]:
+        labels = name.lower().rstrip(".").split(".")
+        for i in range(len(labels) - 1):
+            zone = ".".join(labels[i:])
+            ns = self._finder.resolve(zone, "NS")
+            if ns:
+                return zone, sorted(n.rstrip(".") for n in ns)
+        return "", []
+
+    def resolve(self, name: str, rtype: str) -> list[str]:
+        _zone, ns = self.nameservers(name)
+        for host in ns:
+            for ip in self._finder.resolve(host, "A"):
+                try:
+                    answer = self._query(name, rtype, ip)
+                except Exception:  # try the next nameserver
+                    continue
+                self.last_server = f"{host} ({ip})"
+                return answer
+        self.last_server = ""
+        return []

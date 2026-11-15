@@ -53,7 +53,8 @@ def parse_order_form(form: dict[str, str], profile: Profile) -> dict:
     return {"customer_name": name, "customer_phone": phone, "note": note, "items": items, "total_inr": total}
 
 
-def order_email(business: Business, profile: Profile, order: Order, items: list[dict]) -> tuple[str, str]:
+def order_email(business: Business, profile: Profile, order: Order, items: list[dict],
+                confirm_url: str = "") -> tuple[str, str]:
     from app.sites.render import format_inr
 
     test = "[TEST] " if order.is_test else ""
@@ -69,6 +70,8 @@ def order_email(business: Business, profile: Profile, order: Order, items: list[
     lines += ["", f"Estimated total: {format_inr(order.total_inr)}"]
     if order.note:
         lines += ["", "Note from customer:", order.note]
+    if confirm_url:
+        lines += ["", "Did this email reach you? Tap here to say so (it proves your orders reach you):", confirm_url]
     lines += ["", f"Placed: {order.created_at:%Y-%m-%d %H:%M} UTC", "Sent by LaunchWitness"]
     return subject, "\n".join(lines)
 
@@ -132,7 +135,8 @@ def order_view(order: Order) -> dict:
 
 
 def place_order(session: Session, mailer: Mailer, settings: Settings, *, business: Business, profile: Profile,
-                data: dict, is_test: bool = False, nonce: str = "", visitor: str = "", token: str = "") -> Order:
+                data: dict, is_test: bool = False, nonce: str = "", visitor: str = "", token: str = "",
+                confirm_url: str = "") -> Order:
     """Store the order, then email it to `order_recipients`. The launch check's test order and a
     customer's order both come through here, so a passing test order proves the real path."""
     order = Order(business_id=business.id, customer_name=data["customer_name"], customer_phone=data["customer_phone"],
@@ -146,7 +150,7 @@ def place_order(session: Session, mailer: Mailer, settings: Settings, *, busines
                  business_id=business.id, detail=f"{len(data['items'])} item(s), total {data['total_inr']}")
 
     recipients = order_recipients(session, settings, business)
-    subject, body = order_email(business, profile, order, data["items"])
+    subject, body = order_email(business, profile, order, data["items"], confirm_url)
     try:
         order.email_message_id = mailer.send(to=", ".join(recipients), subject=subject, body=body)
         order.email_status = "sent"
@@ -160,3 +164,38 @@ def place_order(session: Session, mailer: Mailer, settings: Settings, *, busines
     audit.record(session, actor="system", action="order_email", target=f"order:{order.id}", result=result,
                  business_id=business.id, detail=detail)
     return order
+
+
+def accept_order_form(session: Session, settings: Settings, mailer: Mailer, *, business: Business, profile: Profile,
+                      form: dict[str, str], visitor: str) -> tuple[int, str]:
+    """What the shop's order form does with a POST: (HTTP status, page HTML). The public route and the
+    checker's practice test order both come through here, so the test order exercises the real path.
+
+    A POST carrying `lw_test=<nonce>` of an OPEN test ticket for this shop becomes a hidden test order
+    (not counted in limits, not in the seller's list). Any other value is ignored."""
+    from app import proof
+    from app.sites.render import render_site
+
+    token = form.get("order_token", "")
+    again = existing_order(session, business, token)
+    if again is not None:  # double tap / form sent twice: show the same thank-you, make nothing new
+        return 200, render_site(profile, page="thanks", order=order_view(again))
+    try:
+        data = parse_order_form(form, profile)
+    except OrderInvalid as e:
+        return 422, render_site(profile, form_error=str(e), form_values=form)
+    ticket = proof.open_ticket(session, business, form.get("lw_test", ""))
+    if ticket is None:
+        try:
+            check_order_limits(session, settings, business, visitor)
+        except TooManyOrders:
+            return 429, render_site(profile, form_error=TOO_MANY, form_values=form)
+        order = place_order(session, mailer, settings, business=business, profile=profile, data=data, visitor=visitor,
+                            token=token)
+    else:
+        confirm_url = proof.issue_confirm_link(session, settings, ticket)
+        order = place_order(session, mailer, settings, business=business, profile=profile, data=data, is_test=True,
+                            nonce=ticket.nonce, visitor="", token=token, confirm_url=confirm_url)
+        proof.ticket_used(session, ticket, order)
+    return 200, render_site(profile, page="thanks", order=order_view(order))
+

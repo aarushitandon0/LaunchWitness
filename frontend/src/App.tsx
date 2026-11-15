@@ -6,7 +6,7 @@ import Describe from "./Describe";
 import Landing from "./Landing";
 import Review from "./Review";
 import { LaunchChoice, PlanView } from "./Launch";
-import { ReportPage } from "./Report";
+import { GotItPage, ReportPage } from "./Report";
 import { AdminPage } from "./Admin";
 import {
   AccountPage,
@@ -28,6 +28,7 @@ type Route =
   | { page: "shops" }
   | { page: "account" }
   | { page: "delete-account" }
+  | { page: "got-it" }
   | { page: "review"; businessId: number }
   | { page: "launch"; businessId: number }
   | { page: "report"; businessId: number }
@@ -39,6 +40,7 @@ function useRoute(): Route {
   const parse = (): Route => {
     const h = window.location.hash;
     if (h.startsWith("#/admin")) return { page: "admin" };
+    if (h.startsWith("#/got-it")) return { page: "got-it" };
     if (h.startsWith("#/signin/confirm")) return { page: "confirm" };
     if (h.startsWith("#/signin")) return { page: "signin" };
     if (h.startsWith("#/shops")) return { page: "shops" };
@@ -191,6 +193,7 @@ export default function App() {
                     {route.page === "shops" && <MyShopsPage />}
                     {route.page === "account" && <AccountPage />}
                     {route.page === "delete-account" && <DeleteAccountPage />}
+                    {route.page === "got-it" && <GotItPage />}
                   </motion.div>
                 </AnimatePresence>
               </main>

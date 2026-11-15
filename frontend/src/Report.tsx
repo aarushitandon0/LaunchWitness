@@ -1,12 +1,37 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ShopLink } from "./ShopLink";
 import { useEffect, useState } from "react";
-import { api, ApiError, CheckRow, Report } from "./api";
+import { api, ApiError, CheckRow, Hop, Report } from "./api";
 import { Cross, Dot, EASE, Spinner, Tick, TypeIn, useCalm } from "./motion";
 import { ErrorBox } from "./Describe";
 
 const time = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
+
+const clock = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+function ago(iso: string | null): string {
+  if (!iso) return "";
+  const min = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (min < 1) return "just now";
+  if (min < 60) return `${min} min ago`;
+  const h = Math.round(min / 60);
+  return h < 48 ? `${h} h ago` : `${Math.round(h / 24)} days ago`;
+}
+
+/** "Form accepted 14:02:11 → Mail server accepted 14:02:12 → In the inbox 14:02:19", from stored evidence only. */
+function HopTrace({ hops }: { hops: Hop[] }) {
+  if (!hops.length) return null;
+  return (
+    <ol className="hops" aria-label="What we saw, step by step">
+      {hops.map((h, i) => (
+        <li key={i} title={[h.server, h.message_id, h.answer].filter(Boolean).join(" · ")}>
+          <span className="hop-title">{h.title}</span> <span className="hop-at">{clock(h.at)}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 // ---------- the assistant note, shown once on the next page ----------
 
@@ -64,16 +89,17 @@ function CheckLine({
 }) {
   const live = state !== "final";
   const red = state === "failed" || state === "doctor" || state === "typed" || (state === "final" && !c.passed);
-  const green = (state === "final" && c.passed) || state === "fixed";
+  const amber = state === "final" && c.passed && c.state === "needs_you"; // accepted, not yet proven delivered
+  const green = ((state === "final" && c.passed) || state === "fixed") && !amber;
   const showDoctor = !!doctor && (state === "doctor" || state === "typed" || state === "fixed" || (state === "final" && !c.first_passed));
   return (
     <motion.li
-      className={red ? "bad row-bad" : green ? "ok" : "st-pending"}
+      className={red ? "bad row-bad" : amber ? "needs-you" : green ? "ok" : "st-pending"}
       layout="position"
       transition={{ duration: 0.4, ease: EASE }}
     >
       <span className="icon">
-        {state === "waiting" ? <Dot /> : state === "checking" ? <Spinner /> : red ? <Cross /> : <Tick animate={live} />}
+        {state === "waiting" ? <Dot /> : state === "checking" ? <Spinner /> : red ? <Cross /> : amber ? <Cross tone="wait" /> : <Tick animate={live} />}
       </span>
       <div className="body">
         <div className="title">
@@ -84,7 +110,7 @@ function CheckLine({
             </motion.span>
           )}
         </div>
-        {red && <div className="msg">{c.plain}</div>}
+        {(red || amber) && <div className="msg">{c.plain}</div>}
         {showDoctor && (
           <motion.div
             className="doctor"
@@ -99,6 +125,7 @@ function CheckLine({
         {state === "fixed" && <div className="fixnote">We fixed it and checked again: it works now.</div>}
         {state === "final" && (
           <>
+            <HopTrace hops={c.hops ?? []} />
             <div className="muted when">Checked {time(c.at)}</div>
             <details>
               <summary>Details</summary>
@@ -255,7 +282,17 @@ export function ReportPage({ businessId }: { businessId: number }) {
             {run.trigger === "launch" ? "Right after your launch" : "When you pressed “Run checks now”"},{" "}
             {time(run.started_at)}.
           </p>
-          <ul className="card rows checks">
+          {!playing && (
+            <p className={`proof-count${rep.proof.stale ? " stale" : ""}`} role="status">
+              <strong>
+                {rep.proof.proven} of {rep.proof.total} proven
+                {rep.proof.needs_you > 0 && `, ${rep.proof.needs_you} needs you`}
+              </strong>
+              {rep.proof.last_checked_at && <> · last checked {ago(rep.proof.last_checked_at)}</>}
+              {rep.proof.stale && <> · these results are more than a day old: run the checks again</>}
+            </p>
+          )}
+          <ul className={`card rows checks${rep.proof.stale && !playing ? " stale" : ""}`}>
             {run.checks.map((c, i) => (
               <CheckLine
                 key={`${run.id}-${c.check}`}
@@ -337,8 +374,12 @@ export function ReportPage({ businessId }: { businessId: number }) {
           <section className="card monitor">
             <p>
               {mon.enabled
-                ? `We check that your website opens every ${mon.every_minutes} minutes, and your email settings once a day.`
+                ? `We check that your website opens every ${mon.every_minutes} minutes, and your email settings and a test order once a day.`
                 : "Regular checks are switched off on this server. Use “Run checks now” any time."}
+            </p>
+            <p className="muted">
+              The daily test order proves your order form works and our mail server accepted the email. It proves the
+              email reached you only when you tap “Yes, I got it” in it.
             </p>
             <dl className="summary">
               {mon.last_quick && (
@@ -372,13 +413,14 @@ export function ReportPage({ businessId }: { businessId: number }) {
             </dl>
             {!rep.business.has_owner_email && (
               <p className="warn">
-                Add your personal email on <a href={`#/b/${businessId}`}>your details</a> so we can warn you if something
-                breaks.
+                <a href="#/signin">Sign in</a> so we can warn you if something breaks (we write to your sign-in address).
               </p>
             )}
           </section>
         </>
       )}
+
+      {launched && run && run.status === "done" && <SharePanel businessId={businessId} practice={rep.practice} />}
 
       {rep.admin && launched && <DemoSwitch businessId={businessId} rep={rep} onChange={load} />}
 
@@ -446,5 +488,106 @@ function DemoSwitch({ businessId, rep, onChange }: { businessId: number; rep: Re
       )}
       {error && <ErrorBox error={error} />}
     </section>
+  );
+}
+
+// ---------- share the proof (read-only link, no customer details) ----------
+
+function SharePanel({ businessId, practice }: { businessId: number; practice: boolean }) {
+  const [active, setActive] = useState<boolean | null>(null);
+  const [url, setUrl] = useState<string | null>(null);
+  const [error, setError] = useState<ApiError | null>(null);
+  useEffect(() => {
+    api.shareStatus(businessId).then((s) => setActive(s.active)).catch(() => setActive(false));
+  }, [businessId]);
+  const run = (fn: () => Promise<void>) => fn().catch((e) => setError(e instanceof ApiError ? e : new ApiError(String(e), 0)));
+  return (
+    <>
+      <h2>Share this proof</h2>
+      <section className="card">
+        <p className="muted">
+          A read-only page with these results and times, for a customer or a friend. It shows no customer details
+          {practice ? ", and it says these are practice results" : ""}. You can turn the link off at any time.
+        </p>
+        {url && (
+          <p className="mono share-url">
+            <a href={url} target="_blank" rel="noopener">
+              {url}
+            </a>
+          </p>
+        )}
+        <div className="actions">
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() =>
+              run(async () => {
+                setUrl((await api.share(businessId)).url);
+                setActive(true);
+              })
+            }
+          >
+            {active ? "Make a new link (the old one stops)" : "Make a share link"}
+          </button>
+          {active && (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() =>
+                run(async () => {
+                  await api.unshare(businessId);
+                  setActive(false);
+                  setUrl(null);
+                })
+              }
+            >
+              Turn the link off
+            </button>
+          )}
+        </div>
+        {error && <ErrorBox error={error} />}
+      </section>
+    </>
+  );
+}
+
+// ---------- "Yes, I got it" (the test order email links here; the button, not the link, records it) ----------
+
+export function GotItPage() {
+  const token = new URLSearchParams(window.location.hash.split("?")[1] ?? "").get("token") ?? "";
+  const [done, setDone] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<ApiError | null>(null);
+  if (done !== null)
+    return (
+      <>
+        <h1>Thank you</h1>
+        <p className="tagline">
+          We've recorded that the test order reached you{done ? ` for ${done}` : ""}. Your report now shows it as proven.
+        </p>
+      </>
+    );
+  return (
+    <>
+      <p className="eyebrow">Test order</p>
+      <h1>Did our test order email reach you?</h1>
+      <p className="tagline">Tap the button to tell us. It proves your customers' orders reach your inbox.</p>
+      {error && <ErrorBox error={error} />}
+      <button
+        className="btn btn-primary"
+        disabled={busy || !token}
+        onClick={async () => {
+          setBusy(true);
+          setError(null);
+          try {
+            setDone((await api.confirmTestOrder(token)).shop);
+          } catch (e) {
+            setError(e instanceof ApiError ? e : new ApiError(String(e), 0));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {busy ? "Saving…" : "Yes, I got it"}
+      </button>
+    </>
   );
 }

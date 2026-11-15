@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% if page == "privacy" %}Privacy · {% elif page == "thanks" %}Order received · {% endif %}{{ p.name }}</title>
+{% if shop %}<meta name="lw-shop" content="{{ shop }}">
+{% endif %}<title>{% if page == "privacy" %}Privacy · {% elif page == "thanks" %}Order received · {% endif %}{{ p.name }}</title>
 <meta name="description" content="{{ p.tagline or p.about[:150] }}">
 <meta property="og:title" content="{{ p.name }}">
 <meta property="og:description" content="{{ p.tagline }}">
@@ -398,7 +399,7 @@
     {% if order["items"] %}<div class="total"><span>Estimated total</span><span>{{ order.total_inr | inr }}</span></div>{% endif %}
     {% if order.note %}<p class="hint">Your note: {{ order.note }}</p>{% endif %}
     <p class="hint">The final amount{% if p.delivery_available %} (for example delivery){% endif %} is confirmed by the shop.</p>
-    <div class="cta">{% if whatsapp_url %}<a class="btn btn-wa" href="{{ whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}Message on WhatsApp</a>{% endif %}<a class="btn btn-line" href="/">Back to the shop</a></div>
+    <div class="cta">{% if order_whatsapp_url %}<a class="btn btn-wa" href="{{ order_whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}Send this order to the shop</a>{% elif whatsapp_url %}<a class="btn btn-wa" href="{{ whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}Message on WhatsApp</a>{% endif %}<a class="btn btn-line" href="/">Back to the shop</a></div>
   </section>
   {% endif %}
   <div style="height:40px"></div>
