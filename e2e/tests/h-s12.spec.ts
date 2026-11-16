@@ -47,12 +47,13 @@ test("the symptom box answers", async ({ page }) => {
   await page.getByRole("button", { name: /Address leads nowhere/ }).click();
   await page.getByRole("button", { name: "My shop doesn't open" }).click();
   await expect(page.getByLabel("What went wrong")).toHaveValue("My shop doesn't open");
+  const left = Number((await page.getByText(/left today/).innerText()).match(/\d+/)![0]);
   await page.getByRole("button", { name: "Check with this in mind" }).click();
   await expect(page.getByText("Checking now.")).toBeVisible();
   await waitForRun(page, id, before);
   await page.reload();
   await expect(page.locator(".doctor-found").first()).toContainText("You said your shop doesn't open", { timeout: 30_000 });
-  await expect(page.getByText(/4 left today/)).toBeVisible();
+  await expect(page.getByText(new RegExp(`${left - 1} left today|None left today`))).toBeVisible();
 });
 
 test("the hop track plays and a hop opens its panel (keyboard too)", async ({ page }) => {
@@ -119,10 +120,14 @@ test("a photo uploaded on Review shows on the shop, re-encoded", async ({ page }
   await expect(page.locator(".photo-grid img")).toHaveCount(1);
   const src = await page.locator(".photo-grid img").getAttribute("src");
   expect(src).toMatch(/^\/photos\/[0-9a-f]{32}-480\.webp$/);
-  const r = await page.request.get(src!);
-  expect(r.status()).toBe(200);
-  expect(r.headers()["content-type"]).toBe("image/webp");
-  expect(r.headers()["cache-control"]).toContain("immutable");
+  // fetched by the browser (Node can't resolve *.localhost)
+  const r = await page.evaluate(async (u) => {
+    const res = await fetch(u);
+    const b = new Uint8Array(await res.arrayBuffer());
+    return { status: res.status, type: res.headers.get("content-type"), cache: res.headers.get("cache-control"),
+      riff: String.fromCharCode(...b.slice(0, 4)) + String.fromCharCode(...b.slice(8, 12)) };
+  }, src!);
+  expect(r).toEqual({ status: 200, type: "image/webp", cache: "public, max-age=31536000, immutable", riff: "RIFFWEBP" });
   const first = (await page.locator(".product input").first().inputValue()).trim();
   await page.getByLabel(`Add a photo of ${first}`).setInputFiles({ name: "item.jpg", mimeType: "image/jpeg", buffer });
   await expect(page.locator(".item-thumb")).toHaveCount(1);

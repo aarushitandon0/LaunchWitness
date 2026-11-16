@@ -4,6 +4,26 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
+**Session 12 (Nov 16, Opus): the UI for everything Fable built, interactive landing sections, product photos. Parts A–D
+merged into `claude/jolly-bell-2bkweh`** (GitHub's `main` is 90+ commits behind; this session may only push its own branch).
+A: confidence tags, numbered steps, provider name, six distinct check states, the Doctor's trace as a timeline, "Describe
+the problem" (owner route, 5/day, words fenced as data), incident timeline (report + shared page), the fourth staged fault
+(parked page) and a 4-fault demo switch, receipt + Verify on the shared page. B: "How the proof works" hop track and "We keep
+watching" example day with "Something breaks", copy pinned to the code. C: product photos (Pillow, WebP ×2, EXIF/GPS
+stripped, in the database). Unit 1006 passed, 2 skipped · ruff, tsc, build clean · e2e 14/14 on the Docker stack ·
+`check_m1.sh --local` all PASS · screenshots + recording `docs/screenshots/s12/`. **The 11 new
+Doctor fixtures (symptom + parked page) are hand-written placeholders**: capture them on the laptop
+(`… capture_doctor_investigation.py --s12`, worst case $0.007, cap $0.10).
+
+**Session 11b (Nov 16, Fable): checks right for every website and mail setup.** Provider-aware email checks (8 services +
+null/no/unknown/mixed MX, SPF walk with the 10-lookup limit, DMARC, DKIM "couldn't check" never "missing"), website checks
+(certificate kinds, http-only, redirects, slow, www vs bare, IDN), findings carry `sure`/`steps`/`provider`, "couldn't
+finish" never passes, "keeps breaking" after 3 fixes a day, one email per problem. 891 passed. Matrix: `docs/CHECKS_MATRIX.md`.
+
+**Session 11 (Nov 16, Fable): review + the investigating Doctor.** One P0 fixed (`SafeWeb` read pages with no total time or
+size limit). The Doctor now looks first (read-only tools, at most 4) and code alone acts on its answer; three staged faults;
+a whole-system invariant test (260 seeds, no bugs found). 646 passed.
+
 **Session 11d (Nov 16, Fable): tamper-evident proof log merged.** Evidence rows are a per-shop hash chain, append-only in
 code; the shared report shows a receipt and `/r/<token>/verify` recomputes the chain (no data in the answer). 951 passed,
 2 skipped. Existing rows are chained once at the first start-up after the merge (the chain starts there).
@@ -44,8 +64,10 @@ dangling-CNAME finding, the XSS test, `docs/SECURITY.md`, the e2e suite (4 flows
 
 ## Next up
 
-- **S10.5 follow-ups:** stored product photos (needs Pillow, storage under `data/`, serving on shop hosts, backup + delete with
-  the shop); the Fable session is next per the owner.
+- **Owner (laptop):** capture the S12 Doctor fixtures live: `cd backend && CLAUDE_MODE=live ../.venv/Scripts/python
+  ../scripts/capture_doctor_investigation.py --s12` (5 conversations, worst case $0.007). Then
+  `REQUIRE_LIVE_FIXTURES=1` has nothing hand-written left in S12.
+- **Owner:** decide whether GitHub's `main` should be brought up to `claude/jolly-bell-2bkweh` (a fast-forward of 90+ commits).
 
 - **Wed Nov 18: `docs/NEXT_SESSION_VPS.md`** (SSH/firewall → Docker → clone → owner fills `.env` → staging CA → `A @` → real CA →
   `check_m1.sh` → backup cron → first real shop A record → HTTPS + marker → outside-in test order + IMAP proof).
@@ -204,6 +226,25 @@ Everything below is behind an interface with a working fake; tests cover the fak
 
 ## Decisions
 
+- **S12 (2026-11-16 IST):**
+  - Product photos are stored as rows in the SQLite database (on the data volume), not as files. Reason: the existing online
+    backup, restore, shop delete and account delete then cover them with no second store to keep in sync; at ≤ 6 + one per
+    item × about 150 KB per shop the database stays small. Revisit if shops grow to hundreds.
+  - Photo URLs on the app's own host work by their random 128-bit name (the owner's preview of a draft shop needs them); on a
+    shop host only that live, unpaused shop's photos are served.
+  - Upload cap 7 MB (Caddy refuses bodies over 8 MB). A renamed item keeps its photo only when the list kept its length
+    (an edit); a removed item's photo is deleted.
+  - "Something breaks" on the landing ends with **no email**, because the code emails only when the problem is still there
+    after the fix (`scheduler.check_alert`); it says when the one email would come. The brief said "→ one email": showing
+    that after a successful fix would be a false claim.
+  - The test order's three failures now get their own code-written steps (form didn't take it / sent but not in the inbox /
+    mail service refused); before, the first two got the "couldn't send the email" text.
+  - Fixture-mode Doctor conversations were recorded on `meera.localhost`; replayed on another shop they now look at that
+    shop's address (otherwise its trace said "not allowed"). Live mode is unchanged.
+  - The owner's words in "Describe the problem" are not written to the audit log (they may name a customer): only the run
+    and the length.
+  - Fourth staged fault `marker` (a parked page, practice only), healed by the playbook's `repoint_site`.
+
 - **S11d (2026-11-16 IST):** The row id is not part of an evidence hash; order is proven by the `prev_hash` links. Reason: one
   INSERT per row, so the append-only guard never has to allow an UPDATE. The verify rate limit (20 a minute per visitor) is
   kept in memory, not in a table: one process is guaranteed, and a restart resetting it is harmless. A shop with no evidence
@@ -331,6 +372,11 @@ Everything below is behind an interface with a working fake; tests cover the fak
 - **S9F P3:** a real shop's headline is "Almost ready" until the owner taps "Yes, I got it" (her inbox can't be read), because "accepted" must never read as "delivered"; the daily monitoring run includes a test order (one email per shop per day); test orders are marked by a single-use `TestTicket` nonce posted as `lw_test` (an unknown or used nonce is just a normal order); the "Yes, I got it" link uses a random token (hash stored), not an HMAC, so no new secret is needed; `/r/<token>` shows check names, states, hop times and servers only.
 
 ## Open questions
+
+- (S12) In this cloud session Docker Hub answered 429 (rate limit); the stack was built from Google's public mirror
+  (`mirror.gcr.io`) re-tagged locally. The repo's compose files are unchanged.
+- (S12) Photos are only as private as their random name on the app host: anyone given a draft shop's photo URL can open it.
+  Fine for product photos; say so if that's not OK.
 
 - Capture `reader:salon` live (1 Sonnet call, ≈ $0.01)? Until then `REQUIRE_LIVE_FIXTURES=1` fails on its `_note` (by design). It isn't in `capture_all_live.sh`'s 17 targets; run it as a single target. The live Reader replies would also start filling the new session-8 fields; re-capturing the 8 Reader fixtures (≈ $0.08) is optional, because tidy-up + defaults already cover them.
 

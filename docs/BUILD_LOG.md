@@ -164,6 +164,24 @@ One entry per Claude Code session, newest last. This is what judges read to unde
   recording) and restored the S10.5 SVG hero; everything else from S10.5b stays. The scene remains in git history (`820e824`).
 
 
+### Session 11 — 2026-11-16 (IST) — Review and the investigating Doctor (Fable; entry written in S12)
+- Goal: a P0 hunt over everything since Phase 1, then a Doctor that looks before it chooses a fix.
+- Claude built: the `SafeWeb` limits (streamed, 300 KB, 20 s per page); `app/agents/investigator.py` (five read-only tools,
+  at most 4 looks, code checks the answer, rule-based fallback labelled "standard"); three staged faults; the whole-system
+  invariant test (`tests/test_s11_invariants.py`, 260 seeds).
+- What checking caught: the model first told the seller to "check your mail password" (the mailbox is ours): the instruction
+  for a refused sign-in is now always the code's. The invariant test's first version passed with zero alert emails sent.
+- Result: 646 passed, 2 skipped. No e2e or screenshots that session.
+
+### Session 11b — 2026-11-16 (IST) — Checks right for every website and mail setup (Fable; entry written in S12)
+- Goal: every website and email setup gets a correct, plain answer; every failed check ends in a fix or exact steps.
+- Claude built: `app/checks/mail_setup.py` (8 services, SPF walk, DMARC, DKIM never "missing"), `app/checks/web_setup.py`,
+  `dns_resolver.lookup` with "our lookup failed", "couldn't finish" never passing, "keeps breaking" after 3 fixes a day, one
+  email per problem, `docs/CHECKS_MATRIX.md`, an 18-test real-network run.
+- What checking caught: 7 bugs from the real-network run (Zoho's SPF names, example.com's wildcard DKIM, an alias judged as
+  its own domain, two trust-list mismatches, https→http, old fixtures that weren't really healthy).
+- Result: 891 passed, 2 skipped. The UI didn't show the new fields yet (done in S12).
+
 ### Session 11c — 2026-11-16 (IST) — Pre-flight for the VPS (Fable)
 - Goal: prove shop generation works with live Claude through the app, and remove hosting surprises before Wednesday.
 - Asked Claude to: run Reader/Namer/policy/Doctor live under a $0.25 cap; trace DNS-before-TLS; a wildcard fallback; one
@@ -189,3 +207,25 @@ One entry per Claude Code session, newest last. This is what judges read to unde
   be checked against a newer chain); none of that was added, as it is outside the brief.
 - Result: 951 passed, 2 skipped; ruff clean; no live Claude, no DNS, no email.
 - Next: the VPS (Wed Nov 18).
+
+### Session 12 — 2026-11-16 (IST) — The UI for the checks and the Doctor, interactive landing, product photos (Opus)
+- Goal: show on screen what S11–S11d built; make "How the proof works" and "We keep watching" interactive; product photos.
+- Asked Claude to: post a short plan, say first if anything was a bad idea, merge each part with `--no-ff`, keep every claim
+  on screen matching the code.
+- Claude built: A: confidence tags, numbered steps, provider name, six distinct check states, the Doctor's trace as a
+  timeline, "Describe the problem" (owner route, 5/day, words fenced and not logged), incident timeline (report + shared
+  page), a fourth staged fault (parked page) and a 4-fault demo switch, receipt + Verify. B: hop track and example day with
+  "Something breaks", copy pinned by `test_s12_landing_copy.py`. C: product photos (`app/photos.py`, Pillow, WebP ×2,
+  EXIF/GPS stripped, in the database, served from the shop host, 24 tests). D: Docker stack, e2e, screenshots + recording.
+- What checking caught: in fixture mode the saved Doctor conversation looked up `meera.localhost` on every shop, so its
+  trace said "not allowed" (e2e); the landing's old `.hops` grid broke the report's hop line into a column (screenshot);
+  a hop's panel opened and closed on one click (focus + toggle); the dot sat 15 px low on phones; the test order's form and
+  inbox failures were given the "couldn't send the email" steps; "We tried 0 times"; a deleted item shifted photos onto the
+  wrong item (positional rename); newer Chromium fails navigations to a bare 404 (e2e helper fixed).
+- I changed / rejected (Claude said so first): pushed to the session branch, not `main` (the only branch this cloud session
+  may push; GitHub's `main` is 90+ commits behind); the new Doctor fixtures are hand-written placeholders (no key in the
+  cloud); "Something breaks" ends with no email, because the code doesn't email after a successful fix; photos live in the
+  database, not as files, so backups and deletions cover them.
+- Result: unit 1006 passed, 2 skipped; ruff, tsc, build clean; Docker stack rebuilt, `check_m1.sh --local` all PASS; e2e
+  14/14 on the Docker stack (7 new flows); screenshots + a 20 s recording in `docs/screenshots/s12/`. Live Claude: $0.
+- Next: capture the S12 fixtures on the laptop (`capture_doctor_investigation.py --s12`, cap $0.10), then the VPS (Wed Nov 18).
