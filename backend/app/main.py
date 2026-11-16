@@ -106,7 +106,8 @@ def create_app(*, frontend_dist: Path = FRONTEND_DIST, replay_page: Path = REPLA
     if assets.is_dir():
         app.mount("/assets", StaticFiles(directory=assets), name="assets")
 
-    @app.get("/{path:path}", include_in_schema=False)
+    # GET and HEAD: uptime monitors often send HEAD (it used to answer 405). Same handler, no body for HEAD.
+    @app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
     def frontend(
         path: str,
         request: Request,

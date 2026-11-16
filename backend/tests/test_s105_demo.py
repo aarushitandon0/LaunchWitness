@@ -63,3 +63,9 @@ def test_shop_says_where_to_resume(client):
     p = plan(client, biz)
     listed = {b["id"]: b for b in client.get("/api/businesses").json()}
     assert listed[biz["id"]]["latest_plan"] == {"id": p["id"], "status": "draft", "practice": True}  # → Approve
+
+
+def test_head_on_pages_is_not_405(client, settings):
+    """Uptime monitors send HEAD /: it used to answer 405 (open bug from S10)."""
+    assert client.head("/").status_code == 200
+    assert client.head("/", headers={"host": f"nobody.{settings.app_domain}"}).status_code == 404
