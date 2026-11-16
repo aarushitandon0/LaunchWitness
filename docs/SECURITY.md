@@ -5,7 +5,7 @@ production-like local stack (`deploy/README.md`, `scripts/check_m1.sh --local`, 
 
 | Topic | How it's handled | Proof |
 |---|---|---|
-| **IDOR** (someone else's shop by URL) | One gate (`safety/access.py`: `require_business_access` / `require_plan_access`). The ownership filter is part of the query, so another owner's id answers **404**, the same as an id that doesn't exist. Every route is classified in `safety/route_table.py` (19 public, 3 auth, 21 owner, 17 admin, 1 internal; S10.5 added the 3 demo-shop routes and order status, go-live checklist, owner confirmations); a test fails on any unlisted route. | `test_s9_phase2_access.py::test_matrix_owner_routes`: all 21 owner routes × {owner 200, other seller 404, guest 404, logged-out 401/404, admin 200 + audited}. e2e `b-two-sellers` (Docker): seller B gets 404 on A's shop, preview, orders, export, names, plans, report and share, and on PUT / plans / checks / share / DELETE. |
+| **IDOR** (someone else's shop by URL) | One gate (`safety/access.py`: `require_business_access` / `require_plan_access`). The ownership filter is part of the query, so another owner's id answers **404**, the same as an id that doesn't exist. Every route is classified in `safety/route_table.py` (19 public, 6 auth, 21 owner, 17 admin, 1 internal; S10.5 added the 3 demo-shop routes and order status, go-live checklist, owner confirmations; S10.5b the 3 watched-address routes, filtered by the signed-in user, others' answer 404); a test fails on any unlisted route. | `test_s9_phase2_access.py::test_matrix_owner_routes`: all 21 owner routes × {owner 200, other seller 404, guest 404, logged-out 401/404, admin 200 + audited}. e2e `b-two-sellers` (Docker): seller B gets 404 on A's shop, preview, orders, export, names, plans, report and share, and on PUT / plans / checks / share / DELETE. |
 | **CSRF** | `safety/request_guard.py`: every POST/PUT/PATCH/DELETE on `/api` needs an Origin (or Referer) equal to the app's origin. A request that carries a cookie also needs `X-CSRF-Token`, an HMAC of that cookie that only our pages can read (from `/api/auth/me`). `SameSite=Lax` cookies. | Phase 2 tests (wrong Origin, missing token, a token from another cookie). The e2e suite sends real browser fetches through Caddy. |
 | **XSS in seller content** | Seller sites: Jinja2 with autoescape; profile values sit only in text and quoted attributes, never in a script. Phone, WhatsApp, UPI ID and the food licence number are validated (digits / `name@bank`), so markup is refused outright. The shared report escapes every value. The React app never uses `dangerouslySetInnerHTML`. | `test_s10_xss.py`: a hostile string in **every** free-text profile field, every product field, the customer's order fields and the refused-order form. Pages are parsed with an HTML parser: no injected element, no `on*` attribute, no `javascript:` URL, at most the template's own script. Plus the shared `/r/` page with a hostile shop name. |
 | **Open redirect** | After sign-in, `next=` may only be a `#/…` page of this app (`accounts.safe_next`); full URLs, `//host` and the like fall back to the default. There are no server-side redirects to user-given URLs. | Phase 2: 8 kinds of bad `next=`. |
@@ -43,6 +43,14 @@ ordinary page with no link back), and asks the app for the shop's own pages with
 "privacy"})`. The app accepts that message only when `event.source` is its own preview frame and the value is one of
 those two words, then fetches `/api/businesses/<id>/preview?page=…` itself through the owner gate. Tests:
 `test_s105_preview.py`, e2e `f-preview-links`.
+
+## Watched addresses (S10.5b)
+
+"Watch this address" reuses Check any address exactly: public DNS lookups and one HTTPS GET of the home page through
+`SafeWeb` (the SSRF guard: no private, loopback or link-local targets, no IP literals or `.local` names). It never submits
+forms, never emails the watched domain, and changes nothing there. Signed-in users only, at most 3 per account, adds limited
+to 10 a day, a daily job (not on demand), one email per new problem to the user's own verified address. The address is not
+written to the audit log. Tests: `test_s105b_watch.py`.
 
 ## Still open (honest list)
 

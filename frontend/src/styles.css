@@ -281,17 +281,8 @@ input[type="checkbox"] { accent-color: var(--ink); width: 18px; height: 18px; }
 .hero-copy { max-width: 26rem; display: grid; gap: var(--s-4); }
 .hero-copy p { color: var(--muted); font-size: var(--fs-base); margin: 0; }
 .hero-meta { display: flex; flex-wrap: wrap; gap: var(--s-4) var(--s-5); align-items: center; }
-.hero-shape { position: absolute; right: -8%; bottom: -6%; width: min(82vw, 440px); aspect-ratio: 1; pointer-events: none; opacity: 0.95; }
-.hero-shape svg { width: 100%; height: 100%; overflow: visible; display: block; }
 .hero-dim { position: absolute; inset: 0; background: var(--ink); pointer-events: none; opacity: 0; will-change: opacity; }
-.hero-shape { contain: layout paint; }
-.shape-rot { position: absolute; inset: 0; will-change: transform; }
-.shape-layer { position: absolute; inset: 0; will-change: transform; backface-visibility: hidden; }
 /* idle motion: transform-only keyframes, run by the compositor */
-.hero-shape .breathe { animation: breathe 5.5s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
-@keyframes breathe { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(0, -7px, 0); } }
-.hero-shape .orbit { animation: orbit 9s cubic-bezier(0.45, 0, 0.55, 1) infinite; transform-origin: 50% 9%; }
-@keyframes orbit { 0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); } 50% { transform: translate3d(0, -12px, 0) rotate(-4deg); } }
 .scroll-cue { position: absolute; right: var(--gutter); bottom: var(--s-5); font-size: var(--fs-xs); color: var(--muted); display: none; align-items: center; gap: 0.5rem; }
 .scroll-cue span { width: 1px; height: 28px; background: currentColor; transform-origin: top; animation: cue 2.4s var(--ease-in-out) infinite; }
 @keyframes cue { 0% { transform: scaleY(0); } 50% { transform: scaleY(1); transform-origin: top; } 51% { transform-origin: bottom; } 100% { transform: scaleY(0); transform-origin: bottom; } }
@@ -302,7 +293,6 @@ input[type="checkbox"] { accent-color: var(--ink); width: 18px; height: 18px; }
   /* …and must fit the screen's height too, so nothing is cut off at the top on shorter laptop screens */
   .display { font-size: min(var(--fs-display), 6.9vw, 6rem, 12svh); }
   .hero-copy { grid-area: copy; align-self: start; }
-  .hero-shape { grid-area: shape; position: relative; right: auto; bottom: auto; top: auto; width: 100%; max-width: 520px; justify-self: end; align-self: center; }
   .scroll-cue { display: flex; }
 }
 @media (max-width: 899px) {
@@ -310,7 +300,6 @@ input[type="checkbox"] { accent-color: var(--ink); width: 18px; height: 18px; }
   .hero-inner { grid-template-areas: "shape" "head" "copy"; align-content: center; padding-top: var(--s-5); padding-bottom: var(--s-6); gap: var(--s-4); }
   .hero-head { grid-area: head; }
   .hero-copy { grid-area: copy; }
-  .hero-shape { grid-area: shape; position: relative; right: auto; bottom: auto; justify-self: center; width: min(62vw, 300px); margin-bottom: calc(-1 * var(--s-3)); }
 }
 
 /* dark sections that slide over the hero */
@@ -578,3 +567,34 @@ input[type="checkbox"] { accent-color: var(--ink); width: 18px; height: 18px; }
 .check-next p { margin: 0; max-width: 46ch; }
 .watch-this { margin-top: var(--s-3); }
 .watched { margin-top: var(--s-5); }
+
+/* S10.5b hero: the layered "witness" scene (three.js, lazy) over its still image */
+.hero-card {
+  background:
+    radial-gradient(48% 58% at 80% 78%, rgba(238, 154, 84, 0.16), transparent 70%),
+    radial-gradient(42% 50% at 70% 40%, rgba(214, 236, 98, 0.14), transparent 70%),
+    var(--bg-gradient);
+}
+.hero-scene { grid-area: shape; position: relative; width: min(84vw, 360px); aspect-ratio: 1.1; justify-self: center; pointer-events: none; }
+.hero-still, .hero-canvas, .hero-labels { position: absolute; inset: -12% -32% -38% -14%; }
+.hero-still { transition: opacity 0.6s ease; }
+.hero-still img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.hero-canvas { opacity: 0; transition: opacity 0.8s ease; }
+.hero-canvas canvas { width: 100% !important; height: 100% !important; display: block; }
+.hero-scene.is-live .hero-canvas { opacity: 1; }
+.hero-scene.is-live .hero-still { opacity: 0; }
+.hero-label { position: absolute; left: 0; top: 0; margin: -11px 0 0 12px; padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+  font-size: 12px; font-weight: 500; letter-spacing: 0.01em; color: var(--text); background: rgba(255, 252, 245, 0.86);
+  border: 1px solid var(--line-strong); opacity: 0; transition: opacity 0.6s ease; will-change: transform; }
+.hero-scene.is-live .hero-label { opacity: 1; }
+@media (min-width: 900px) {
+  .hero-scene { width: 100%; max-width: 640px; justify-self: end; align-self: center; }
+}
+@media (max-width: 899px) {
+  .hero-labels { display: none; }
+  .hero-scene { margin-bottom: calc(-1 * var(--s-3)); }
+}
+.hero-head, .hero-copy { position: relative; z-index: 1; }
+@media (max-width: 899px) {
+  .hero-still, .hero-canvas, .hero-labels { inset: -6% -26% -4% -26%; }
+}
