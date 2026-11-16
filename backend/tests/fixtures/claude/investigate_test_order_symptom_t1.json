@@ -1,0 +1,11 @@
+{
+  "_note": "hand-written placeholder (S12, cloud session has no key): re-capture live with scripts/capture_doctor_investigation.py --s12",
+  "action": "answer",
+  "name": "",
+  "type": "",
+  "authoritative": false,
+  "url": "",
+  "finding": "You said order emails aren't arriving: our mail service refused our sign-in, so they couldn't be sent. Your orders are still saved on your Orders page.",
+  "fix_id": "needs_owner",
+  "owner_instruction": "Nothing is needed from you on the mail side. Please check your Orders page for new orders in the meantime."
+}

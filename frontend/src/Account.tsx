@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { AddressFindings } from "./Findings";
 import { api, ApiError, BusinessSummary, Me, session, Watch } from "./api";
 import { goTo } from "./App";
 import { ErrorBox } from "./Describe";
@@ -245,6 +246,16 @@ export function MyShopsPage() {
   );
 }
 
+function watchSummary(w: Watch): string {
+  const unknown = w.results.filter((r) => r.sure === "couldnt_check" && r.ok !== true).length;
+  if (!w.last_checked_at) return "Not checked yet";
+  if (w.problems.length)
+    return `${w.problems.length} thing${w.problems.length === 1 ? "" : "s"} to look at: ` +
+      w.results.filter((r) => r.ok === false).map((r) => r.plain).join(" ");
+  if (unknown) return `No problems seen, but ${unknown} thing${unknown === 1 ? "" : "s"} couldn't be checked`;
+  return "All fine at the last check";
+}
+
 /** Addresses the user asked us to watch (read-only daily checks, S10.5b). */
 function WatchedAddresses() {
   const [data, setData] = useState<{ limit: number; watches: Watch[] } | null>(null);
@@ -266,11 +277,14 @@ function WatchedAddresses() {
               <strong>{w.address}</strong>
               <br />
               <span className={w.problems.length ? "warn" : "muted"}>
-                {w.problems.length === 0
-                  ? "All fine at the last check"
-                  : `${w.problems.length} thing${w.problems.length === 1 ? "" : "s"} to look at: ` +
-                    w.results.filter((r) => r.ok === false).map((r) => r.plain).join(" ")}
+                {watchSummary(w)}
               </span>
+              {w.results.length > 0 && (
+                <details className="watch-results">
+                  <summary>See every result</summary>
+                  <AddressFindings results={w.results} />
+                </details>
+              )}
             </span>
             <button
               type="button"

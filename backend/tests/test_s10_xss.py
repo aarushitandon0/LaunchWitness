@@ -87,5 +87,8 @@ def test_hostile_shop_on_the_shared_report_page(client, engine):
         s.commit()
     url = client.post(f"/api/businesses/{biz['id']}/share").json()["url"]
     html = client.get("/r/" + url.rsplit("/r/", 1)[1]).text
-    assert_parsed_inert(html, scripts=0)
+    from app.routers.proof import VERIFY_JS
+
+    assert html.count("<script>") == 1 and VERIFY_JS in html  # S12: our own fixed Verify script, nothing from data
+    assert_parsed_inert(html.replace(VERIFY_JS, ""), scripts=0)
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html  # shown as text

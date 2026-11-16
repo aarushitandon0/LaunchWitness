@@ -226,6 +226,9 @@ export type CheckRow = {
   first_passed: boolean;
   fixed: boolean;
   waiting?: boolean;
+  unfinished?: boolean;
+  kind?: "passed" | "waiting" | "failed" | "couldnt_check" | "couldnt_finish" | "keeps_breaking"; // S12: one state, one wording
+  sure?: "seen" | "not_seen" | "couldnt_check";
   state?: "proven" | "needs_you" | "failed"; // from stored evidence only
   doctor?: DoctorLook | null; // S11: what the Doctor found for this check, and what it looked at first
   hops?: Hop[];
@@ -245,7 +248,32 @@ export type Hop = {
   practice: boolean;
 };
 
-export type AddressResult = { check: string; ok: boolean | null; plain: string; detail: string };
+export type AddressResult = {
+  check: string;
+  ok: boolean | null; // true good · false a real problem · null a note or "not sure"
+  plain: string;
+  detail: string; // technical: only inside "Technical details"
+  sure?: "seen" | "not_seen" | "couldnt_check";
+  code?: string;
+  steps?: string; // that email service's own steps, plain words
+  action?: "explain" | "none";
+  domain?: string;
+  provider?: string;
+  provider_label?: string; // "Google Workspace (Gmail)"; "" when we don't recognise the service
+};
+
+/** S12: one entry of a shop's incident timeline (failure → investigation → fix → re-check), from stored rows. */
+export type Incident = {
+  check: string;
+  title: string;
+  status: "open" | "fixed" | "needs_you" | "keeps_breaking";
+  opened_at: string | null;
+  closed_at: string | null;
+  steps: { at: string | null; what: string }[];
+  next?: string; // the owner's exact next step (never on the shared page)
+};
+
+export type DemoFaultName = "" | "dmarc" | "mx" | "a_record" | "smtp_login" | "cert" | "marker";
 
 export type Watch = { id: number; address: string; problems: string[]; results: AddressResult[]; last_checked_at: string | null };
 
@@ -290,6 +318,8 @@ export type Report = {
   admin: boolean;
   demo_fault: string | null;
   confirmed_by_you: { what: "whatsapp" | "upi" | "got_it"; label: string; at: string | null }[];
+  incidents: Incident[];
+  symptoms_left: number;
 };
 
 // ---- who is signed in. The cookies are HttpOnly; the CSRF token comes from /api/auth/me ----
@@ -454,6 +484,8 @@ export const api = {
   },
   report: (id: number) => request<Report>(`/api/businesses/${id}/report`),
   runChecks: (id: number) => request<{ ok: boolean; run_id: number }>(`/api/businesses/${id}/checks`, { method: "POST" }),
+  describeProblem: (id: number, symptom: string) =>
+    request<{ ok: boolean; run_id: number }>(`/api/businesses/${id}/describe-problem`, json({ symptom })),
   // ---- proof ----
   shareStatus: (id: number) => request<{ active: boolean; created_at: string | null }>(`/api/businesses/${id}/share`),
   share: (id: number) => request<{ url: string }>(`/api/businesses/${id}/share`, { method: "POST" }),
@@ -481,7 +513,7 @@ export const api = {
     zoneApprove: (id: number) => request<ZoneFinding>(`/api/admin/zone-findings/${id}/approve`, { method: "POST" }),
     zoneDismiss: (id: number) => request<ZoneFinding>(`/api/admin/zone-findings/${id}/dismiss`, { method: "POST" }),
   },
-  setDemoFault: (id: number, fault: "" | "dmarc" | "mx") =>
+  setDemoFault: (id: number, fault: DemoFaultName) =>
     request<{ ok: boolean; demo_fault: string }>(`/api/admin/businesses/${id}/demo-fault`, json({ fault }, "PUT")),
 };
 

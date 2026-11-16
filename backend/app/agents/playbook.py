@@ -44,7 +44,11 @@ def readd_email_auth(ctx: Ctx) -> str:
 
 
 def repoint_site(ctx: Ctx) -> str:
-    return _rewrite(ctx, _changes(ctx, lambda c: c["type"] == "A"))
+    done = _rewrite(ctx, _changes(ctx, lambda c: c["type"] == "A"))
+    heal = getattr(ctx.integ.shop_web, "staged_heal", None)  # only the staged "parked page" fault has this
+    if heal is not None:
+        heal()
+    return done
 
 
 def retry_certificate(ctx: Ctx) -> str:

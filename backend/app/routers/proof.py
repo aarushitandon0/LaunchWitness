@@ -106,7 +106,11 @@ def shared_report(token: str, session: Annotated[Session, Depends(get_session)])
                                                   CheckRun.status == "done").order_by(CheckRun.id.desc())).first()
     run = run_out(session, run_row) if run_row and plan else None
     summary = proof.summary(session, run)
-    html = render_shared(b, run, summary, receipt=chain.receipt(session, b.id), verify_href=f"/r/{quote(token, safe='')}/verify")
+    from app import incidents
+
+    html = render_shared(b, run, summary, receipt=chain.receipt(session, b.id),
+                         verify_href=f"/r/{quote(token, safe='')}/verify",
+                         timeline=incidents.timeline(session, b.id, public=True))
     return HTMLResponse(html, headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
 
 
@@ -154,9 +158,47 @@ def hhmmss(iso: str | None) -> str:
     return at.strftime("%d %b %H:%M:%S IST")
 
 
-def render_shared(b: Business, run: dict | None, summary: dict, receipt: str = "", verify_href: str = "") -> str:
-    proof_line = (f"<p style='color:#6b7280;font-size:.9rem'>Receipt {escape(receipt)} · "
-                  f"<a href='{escape(verify_href)}'>verify</a></p>") if receipt else ""
+INCIDENT_WORDS = {"open": "Open", "fixed": "Fixed", "needs_you": "Needs the owner", "keeps_breaking": "Keeps breaking"}
+
+# The Verify button: asks /r/<token>/verify to recompute the chain and says what it answered. No other data.
+VERIFY_JS = """<script>
+document.getElementById('lw-verify').addEventListener('click', function () {
+  var out = document.getElementById('lw-verify-out'), btn = this;
+  btn.disabled = true; out.textContent = 'Checking…';
+  fetch(btn.getAttribute('data-href'), {headers: {'Accept': 'application/json'}})
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (v) {
+      out.textContent = v.intact
+        ? 'Intact: all ' + v.rows + ' saved proof steps still link up, and the latest matches this receipt' +
+          (v.head && v.head.indexOf(btn.getAttribute('data-receipt')) === 0 ? '.' : ' (a newer step was added since this page loaded).')
+        : 'Changed: saved proof step ' + v.altered_at + ' no longer matches what was recorded, so the steps after it can\u2019t be trusted.';
+      out.style.color = v.intact ? '#166534' : '#b91c1c';
+    })
+    .catch(function () { out.textContent = 'We couldn\u2019t check just now. Please try again in a minute.'; })
+    .finally(function () { btn.disabled = false; });
+});
+</script>"""
+
+
+def render_timeline(timeline: list[dict]) -> str:
+    if not timeline:
+        return ""
+    items = []
+    for e in timeline:
+        steps = " → ".join(escape(s["what"]) for s in e["steps"])
+        items.append(f"<li><strong>{escape(e['title'])}</strong> · {INCIDENT_WORDS.get(e['status'], e['status'])} · "
+                     f"{escape(hhmmss(e['opened_at']))}<br><small>{steps}</small></li>")
+    return "<h2 style='font-size:1.1rem'>What went wrong, and what happened next</h2><ul>" + "".join(items) + "</ul>"
+
+
+def render_shared(b: Business, run: dict | None, summary: dict, receipt: str = "", verify_href: str = "",
+                  timeline: list[dict] | None = None) -> str:
+    proof_line = (f"<p style='color:#6b7280;font-size:.9rem'>Receipt <code>{escape(receipt)}</code> · "
+                  f"<button type=button id=lw-verify data-href='{escape(verify_href)}' data-receipt='{escape(receipt)}'>"
+                  f"Verify</button> <span id=lw-verify-out role=status></span> "
+                  f"<noscript><a href='{escape(verify_href)}'>verify</a></noscript><br>The receipt is a fingerprint "
+                  "of every proof step saved for this shop, each linked to the one before. Verify recomputes it; if "
+                  "any saved step had been edited, it says which one.</p>" + VERIFY_JS) if receipt else ""
     practice = b.practice or any(h.get("practice") for c in (run or {}).get("checks", []) for h in c.get("hops", []))
     rows = []
     for c in (run or {}).get("checks", []):
@@ -179,7 +221,7 @@ def render_shared(b: Business, run: dict | None, summary: dict, receipt: str = "
             + "</p>" + stale + "<ul>" + "".join(rows) + "</ul><p style='color:#6b7280;font-size:.9rem'>Read-only. "
             "No customer details are shown. \"Mail server accepted\" means our mail server took the email; it is "
             "counted as delivered only when it was seen in the inbox or the owner confirmed it.</p>"
-            + proof_line + "</body></html>")
+            + render_timeline(timeline or []) + proof_line + "</body></html>")
 
 
 # ---------- "Check any address" (public, read-only) ----------

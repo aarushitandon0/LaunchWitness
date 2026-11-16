@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { api, ApiError, CheckRow, Hop, Renewal, Report } from "./api";
 import { Cross, Dot, EASE, Spinner, Tick, TypeIn, useCalm } from "./motion";
 import { ErrorBox } from "./Describe";
+import { DoctorTimeline, KIND_WORDS, KindTag, LOOKS, SureTag } from "./Findings";
+import type { DemoFaultName, Incident } from "./api";
 
 const time = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
@@ -37,14 +39,6 @@ function HopTrace({ hops }: { hops: Hop[] }) {
 // ---------- the assistant note, shown once on the next page ----------
 
 const NOTE = (id: number) => `lw-note-${id}`;
-// The Doctor's read-only looks, in plain words (S11; Opus designs this list next).
-const LOOKS: Record<string, string> = {
-  resolve: "Looked up where the address leads",
-  fetch: "Opened the shop page",
-  evidence: "Read the proof stored for this check",
-  smtp_test: "Tried signing in to our mail service (sent nothing)",
-  mailbox_status: "Checked that our mailbox is active",
-};
 
 export function rememberNote(id: number, note: string) {
   try {
@@ -97,18 +91,31 @@ function CheckLine({
   onTyped: () => void;
 }) {
   const live = state !== "final";
-  const red = state === "failed" || state === "doctor" || state === "typed" || (state === "final" && !c.passed);
+  const unknown = state === "final" && (c.kind === "couldnt_check" || c.kind === "couldnt_finish");
+  const red = state === "failed" || state === "doctor" || state === "typed" || (state === "final" && !c.passed && !unknown);
   const amber = state === "final" && c.passed && c.state === "needs_you"; // accepted, not yet proven delivered
   const green = ((state === "final" && c.passed) || state === "fixed") && !amber;
   const showDoctor = !!doctor && (state === "doctor" || state === "typed" || state === "fixed" || (state === "final" && !c.first_passed));
   return (
     <motion.li
-      className={red ? "bad row-bad" : amber ? "needs-you" : green ? "ok" : "st-pending"}
+      className={unknown ? "st-unknown" : red ? "bad row-bad" : amber ? "needs-you" : green ? "ok" : "st-pending"}
       layout="position"
       transition={{ duration: 0.4, ease: EASE }}
     >
       <span className="icon">
-        {state === "waiting" ? <Dot /> : state === "checking" ? <Spinner /> : red ? <Cross /> : amber ? <Cross tone="wait" /> : <Tick animate={live} />}
+        {state === "waiting" ? (
+          <Dot />
+        ) : state === "checking" ? (
+          <Spinner />
+        ) : unknown ? (
+          <span className="q-mark" aria-label="Not known">?</span>
+        ) : red ? (
+          <Cross />
+        ) : amber ? (
+          <Cross tone="wait" />
+        ) : (
+          <Tick animate={live} />
+        )}
       </span>
       <div className="body">
         <div className="title">
@@ -118,8 +125,13 @@ function CheckLine({
               Fixed by us
             </motion.span>
           )}
+          {state === "final" && <KindTag kind={c.kind} />}
+          {state === "final" && <SureTag sure={c.sure} />}
         </div>
-        {(red || amber) && <div className="msg">{c.plain}</div>}
+        {(red || amber || unknown) && <div className="msg">{c.plain}</div>}
+        {state === "final" && c.kind && c.kind !== "passed" && c.kind !== "failed" && (
+          <div className="kind-line">{KIND_WORDS[c.kind].line}</div>
+        )}
         {showDoctor && (
           <motion.div
             className="doctor"
@@ -136,21 +148,13 @@ function CheckLine({
           <>
             <HopTrace hops={c.hops ?? []} />
             <div className="muted when">Checked {time(c.at)}</div>
-            {c.doctor && (
-              <div className="doctor-found">
-                <div className="doctor-label">What we found{c.doctor.source === "standard" ? " (standard fix)" : ""}</div>
-                <p>{c.doctor.finding}</p>
-                {c.doctor.fix_id === "needs_owner" && c.doctor.owner_instruction && (
-                  <p><strong>Needs you:</strong> {c.doctor.owner_instruction}</p>
-                )}
-              </div>
-            )}
-            <details>
-              <summary>Details</summary>
+            {c.doctor && <DoctorTimeline d={c.doctor} passed={c.passed} fixed={c.fixed} />}
+            <details className="tech-details">
+              <summary>Technical details</summary>
               <p className="mono">{c.detail}</p>
               {c.doctor && c.doctor.trace.length > 0 && (
                 <>
-                  <p>What we looked at before deciding (we only looked; nothing was changed):</p>
+                  <p>What we looked at before deciding (these looks only read; they changed nothing):</p>
                   <ol className="doctor-trace">
                     {c.doctor.trace.map((t, i) => (
                       <li key={i}>
@@ -306,6 +310,10 @@ export function ReportPage({ businessId }: { businessId: number }) {
       </div>
       {error && <ErrorBox error={error} />}
 
+      {launched && !waiting && (
+        <SymptomBox businessId={businessId} left={rep.symptoms_left} onStarted={load} />
+      )}
+
       {run && run.status === "done" && (
         <>
           <h2>What we checked</h2>
@@ -408,7 +416,9 @@ export function ReportPage({ businessId }: { businessId: number }) {
                 <p>
                   {r.fixed
                     ? `We fixed it${r.attempts.length > 1 ? ` after ${r.attempts.length} tries` : ""} and checked again: it works now.`
-                    : `We tried ${r.attempts.length} time${r.attempts.length === 1 ? "" : "s"} and stopped, so nothing else changes without you.`}
+                    : r.attempts.length === 0
+                      ? "We didn't change anything: there is no safe automatic fix for this, so it needs you (the steps are above, under this check)."
+                      : `We tried ${r.attempts.length} time${r.attempts.length === 1 ? "" : "s"} and stopped, so nothing else changes without you.`}
                 </p>
                 <details>
                   <summary>Details</summary>
@@ -425,6 +435,8 @@ export function ReportPage({ businessId }: { businessId: number }) {
           </ul>
         </>
       )}
+
+      {!waiting && rep.incidents.length > 0 && <IncidentTimeline items={rep.incidents} />}
 
       {launched && (
         <>
@@ -495,9 +507,16 @@ export function ReportPage({ businessId }: { businessId: number }) {
   );
 }
 
+const STAGED: { fault: DemoFaultName; label: string; what: string; practiceOnly: boolean }[] = [
+  { fault: "a_record", label: "Address leads nowhere", what: "the shop's address record is really removed (guarded write); the Doctor looks it up and re-points it", practiceOnly: false },
+  { fault: "marker", label: "Parked page, not the shop", what: "the address opens a parked page without the shop marker (pretend); the Doctor opens it and re-points the address", practiceOnly: true },
+  { fault: "cert", label: "Padlock not working", what: "the certificate fails until asked for again (pretend); the Doctor opens the page and asks for a new one", practiceOnly: true },
+  { fault: "smtp_login", label: "Mail sign-in refused", what: "our mail service refuses the sign-in for one run (pretend); the Doctor tries it and hands it to us with exact steps", practiceOnly: true },
+];
+
 function DemoSwitch({ businessId, rep, onChange }: { businessId: number; rep: Report; onChange: () => void }) {
   const [error, setError] = useState<ApiError | null>(null);
-  const set = (fault: "" | "dmarc" | "mx") =>
+  const set = (fault: DemoFaultName) =>
     api
       .setDemoFault(businessId, fault)
       .then(() => {
@@ -505,36 +524,169 @@ function DemoSwitch({ businessId, rep, onChange }: { businessId: number; rep: Re
         onChange();
       })
       .catch(setError);
-  const armed = rep.demo_fault;
+  const armed = (rep.demo_fault ?? "") as DemoFaultName;
+  const staged = STAGED.find((f) => f.fault === armed);
+  const full = rep.plan?.mode === "full";
   return (
-    <section className="card admin">
+    <section className="card admin demo-switch">
       <h2>Demo switch (team only)</h2>
-      {rep.plan?.mode !== "full" ? (
-        <p className="muted">The demo fault needs a launch on the shop's own name.</p>
-      ) : (
-        <>
-          <p>
-            {armed
-              ? `Armed: the ${armed === "dmarc" ? "fake-email protection (DMARC)" : "mail delivery setting (MX)"} will be removed before the next check. Press “Run checks now”.`
-              : "Off. Arm it to remove one email setting before the next check, so the fix shows in the demo."}
-          </p>
-          <div className="actions">
-            <button className="btn btn-ghost btn-sm" disabled={armed === "dmarc"} onClick={() => set("dmarc")}>
-              Remove DMARC before next check
-            </button>
-            <button className="btn btn-ghost btn-sm" disabled={armed === "mx"} onClick={() => set("mx")}>
-              Remove MX instead
-            </button>
-            {armed && (
-              <button className="btn btn-ghost btn-sm" onClick={() => set("")}>
-                Turn off
-              </button>
-            )}
-          </div>
-        </>
+      <p>
+        {staged
+          ? `Armed: ${staged.label.toLowerCase()}: ${staged.what}. Press “Run checks now”. It is used up by that one run.`
+          : armed
+            ? `Armed: the ${armed === "dmarc" ? "fake-email protection (DMARC)" : "mail delivery setting (MX)"} will be removed before the next check. Press “Run checks now”.`
+            : "Off. Stage one fault before the next check, so the Doctor's investigation shows in the demo."}
+      </p>
+      <div className="fault-grid" role="group" aria-label="Staged faults">
+        {STAGED.map((f) => (
+          <button
+            key={f.fault}
+            type="button"
+            className={`btn btn-ghost btn-sm${armed === f.fault ? " is-armed" : ""}`}
+            aria-pressed={armed === f.fault}
+            disabled={f.practiceOnly && !rep.practice}
+            title={f.practiceOnly && !rep.practice ? "Practice shops only: we never break a real shop's page, padlock or mail." : f.what}
+            onClick={() => set(f.fault)}
+          >
+            {f.label}
+            {f.practiceOnly && <small className="muted"> · practice</small>}
+          </button>
+        ))}
+      </div>
+      {full && (
+        <div className="actions">
+          <button className="btn btn-ghost btn-sm" disabled={armed === "dmarc"} onClick={() => set("dmarc")}>
+            Remove DMARC before next check
+          </button>
+          <button className="btn btn-ghost btn-sm" disabled={armed === "mx"} onClick={() => set("mx")}>
+            Remove MX instead
+          </button>
+        </div>
+      )}
+      {armed && (
+        <div className="actions">
+          <button className="btn btn-ghost btn-sm" onClick={() => set("")}>
+            Turn off
+          </button>
+        </div>
       )}
       {error && <ErrorBox error={error} />}
     </section>
+  );
+}
+
+// ---------- "Describe the problem" (S12): her words go to the Doctor as data ----------
+
+const SYMPTOM_CHIPS = [
+  "My shop doesn't open",
+  "Customers see a security warning",
+  "My address opens someone else's page",
+  "Order emails aren't reaching me",
+];
+
+function SymptomBox({ businessId, left, onStarted }: { businessId: number; left: number; onStarted: () => void }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<ApiError | null>(null);
+  const [sent, setSent] = useState(false);
+  return (
+    <section className="card symptom" aria-labelledby="symptom-title">
+      <h2 id="symptom-title">Describe the problem</h2>
+      <p className="muted small">
+        Tell us in your own words what you or a customer saw. We run every check again, and for anything that fails our
+        assistant reads your words while it looks. It can only look and choose from our fixed list of safe fixes;
+        nothing you type can make it do anything else.
+      </p>
+      <div className="chips" role="group" aria-label="Examples">
+        {SYMPTOM_CHIPS.map((c) => (
+          <button key={c} type="button" className="chip" onClick={() => setText(c)} aria-pressed={text === c}>
+            {c}
+          </button>
+        ))}
+      </div>
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          setError(null);
+          try {
+            await api.describeProblem(businessId, text.trim());
+            setSent(true);
+            setText("");
+            onStarted();
+          } catch (err) {
+            setError(err instanceof ApiError ? err : new ApiError(String(err), 0));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <label className="field">
+          <span className="sr-only">What went wrong</span>
+          <textarea
+            rows={2}
+            maxLength={500}
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              setSent(false);
+            }}
+            placeholder="For example: my sister says the page shows a warning on her phone"
+          />
+        </label>
+        <div className="actions">
+          <button className="btn btn-primary btn-sm" type="submit" disabled={busy || left <= 0 || text.trim().length < 3}>
+            {busy ? "Starting…" : "Check with this in mind"}
+          </button>
+          <span className="muted small">{left > 0 ? `${left} left today` : "None left today: try again tomorrow."}</span>
+        </div>
+      </form>
+      {sent && (
+        <p className="status status-ok" role="status">
+          Checking now. The answer appears under “What we checked” below.
+        </p>
+      )}
+      {error && <ErrorBox error={error} />}
+    </section>
+  );
+}
+
+// ---------- incident timeline (S12): from stored results only ----------
+
+const INCIDENT_WORDS: Record<Incident["status"], string> = {
+  open: "Open",
+  fixed: "Fixed",
+  needs_you: "Needs you",
+  keeps_breaking: "Keeps breaking",
+};
+
+export function IncidentTimeline({ items }: { items: Incident[] }) {
+  return (
+    <>
+      <h2>What went wrong, and what happened next</h2>
+      <p className="muted small">Every problem from the last 30 days, from our stored results. Nothing here is guessed.</p>
+      <ol className="card incidents">
+        {items.map((e, i) => (
+          <li key={`${e.check}-${e.opened_at}-${i}`} className={`incident inc-${e.status}`}>
+            <div className="incident-head">
+              <strong>{e.title}</strong>
+              <span className={`inc-tag inc-tag-${e.status}`}>{INCIDENT_WORDS[e.status]}</span>
+              <span className="muted small">{time(e.opened_at)}</span>
+            </div>
+            <ol className="incident-steps">
+              {e.steps.map((s, j) => (
+                <li key={j}>{s.what}</li>
+              ))}
+            </ol>
+            {e.next && (
+              <p className="incident-next">
+                <strong>Next step for you:</strong> {e.next}
+              </p>
+            )}
+          </li>
+        ))}
+      </ol>
+    </>
   );
 }
 

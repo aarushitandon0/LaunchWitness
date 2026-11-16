@@ -29,7 +29,7 @@ from app.models import AuditEvent, Business, CheckRun, Plan, utcnow
 from app.safety.access import run_by_team
 
 DEMO_FAULTS = {"dmarc": ("TXT", "_dmarc"), "mx": ("MX", "@")}
-STAGED_FAULTS = ("a_record", "smtp_login", "cert")  # S11: for the investigating Doctor
+STAGED_FAULTS = ("a_record", "smtp_login", "cert", "marker")  # S11/S12: for the investigating Doctor
 
 
 STALE_RUN = timedelta(minutes=15)  # a "running" row older than this lost its worker
@@ -125,10 +125,45 @@ class StagedCertProbe:
         return None if self.broken and host == self.host else self.inner.cert_expires(host)
 
 
+class StagedParkedPage:
+    """Staged fault (S12): the shop's address opens a page that isn't her shop (a parked page: no shop marker),
+    until the address is pointed at the shop again (`staged_heal`, called by the playbook's repoint_site).
+    Used for ONE practice check run only. Order posts still reach the real handler."""
+
+    def __init__(self, inner_factory):
+        self.inner_factory, self.broken = inner_factory, True
+
+    def staged_heal(self) -> None:
+        self.broken = False
+
+    def __call__(self, ctx: Ctx):
+        from app.agents.checker import shop_web
+
+        inner = self.inner_factory(ctx) if self.inner_factory else shop_web(replace(ctx, integ=replace(
+            ctx.integ, shop_web=None)))
+        outer = self
+
+        class Parked:
+            source = getattr(inner, "source", "")
+
+            def get(self, url: str):
+                from app.proof import Page
+
+                if outer.broken:
+                    return Page(200, "<html><body><h1>This domain is parked</h1></body></html>", url,
+                                server="parked page (staged)")
+                return inner.get(url)
+
+            def post(self, url: str, fields: dict[str, str]):
+                return inner.post(url, fields)
+
+        return Parked()
+
+
 def fault_allowed(session: Session, settings: Settings, b: Business, fault: str) -> str:
     """"" when the team may stage `fault` on this shop, else the plain reason why not."""
     pretend = b.practice or settings.use_fakes
-    if fault in ("smtp_login", "cert") and not pretend:
+    if fault in ("smtp_login", "cert", "marker") and not pretend:
         return "This fault can only be staged on a practice shop (we never break a real shop's mail or padlock)."
     if fault == "a_record" and not pretend and not run_by_team(session, b.id):
         return "On the real internet this fault can only be staged on a shop the team runs itself."
@@ -156,6 +191,9 @@ def stage_fault(ctx: Ctx, fault: str) -> str | None:
     elif fault == "smtp_login":
         ctx.integ = replace(ctx.integ, mailer=RefusedMailer())
         detail = "mail sign-in refused for this check run (pretend)"
+    elif fault == "marker":
+        ctx.integ = replace(ctx.integ, shop_web=StagedParkedPage(ctx.integ.shop_web))
+        detail = "the address opens a parked page instead of the shop until it is re-pointed (pretend)"
     else:
         ctx.integ = replace(ctx.integ, http=StagedCertProbe(ctx.integ.http, ctx.plan.site_host))
         detail = "certificate not working until asked for again (pretend)"
@@ -256,7 +294,8 @@ def run_checks(engine: Engine, settings: Settings, integ: Integrations, claude: 
                 done = fixes_today(session, business.id, out.check) if fix and fixable else 0
                 if done >= MAX_AUTO_FIXES_PER_DAY:  # flapping: stop the fix loop, hand it to the owner
                     out.keeps_breaking = True
-                    repairs.append({"check": out.check, "fixed": False, "attempts": [], "doctor": needs_you(
+                    repairs.append({"check": out.check, "fixed": False, "attempts": [], "keeps_breaking": True,
+                                    "doctor": needs_you(
                         ctx, out.check, "This keeps breaking, so we've stopped fixing it automatically.",
                         KEEPS_BREAKING.format(n=done))})
                 elif not fixable:  # no automatic fix exists: the owner still gets exact plain steps
