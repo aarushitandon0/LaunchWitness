@@ -92,6 +92,7 @@ def make_settings(clean_env):
     def _make(**overrides) -> Settings:
         overrides.setdefault("database_url", "sqlite://")
         overrides.setdefault("monitor_enabled", False)
+        overrides.setdefault("monitor_workers", 1)  # the in-memory test DB is ONE shared connection (S13 B scale tests use a file)
         overrides.setdefault("admin_token", ADMIN_TOKEN)
         overrides.setdefault("visitor_describes_per_day", 1000)  # limit tests set these low explicitly
         overrides.setdefault("visitor_launches_per_day", 1000)

@@ -4,6 +4,18 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
+**Session 13 (Nov 17, Opus, laptop): stopped after Part B by the owner.** Part 0: the 11 S12 Doctor fixtures captured live
+($0.0025). Part A: durable email outbox (every email saved first, retried with backoff, dead letters shown to the team,
+daily budget with priorities, honest sign-in "trouble sending", orders never lost, "Email to you" on the Orders page).
+Part B: monitoring with a 4-worker pool, per-shop slots, a per-check watchdog, non-blocking inbox look, GoDaddy rate
+limit (40 shops: quick 534 s -> ~163 s). **Not done: Part C (digest + public resolvers), Docker/check_m1/e2e.** Next steps:
+`docs/STATE_FOR_NEXT_SESSION.md` -> Session 13.
+
+Decisions (S13): sign-in mail failure answers 200 `mail_delayed` (was 503); the order_email audit result is the outbox's
+word (`sent`/`failed`, was `ok`); a refused mail sign-in is retried, not dead; practice mail doesn't count toward
+`SMTP_DAILY_LIMIT`; per-check watchdog 150 s (above the padlock check's 2-minute retry); monitoring is one
+`monitor_tick` a minute instead of two interval jobs.
+
 **Session 12 (Nov 16, Opus): the UI for everything Fable built, interactive landing sections, product photos. Parts A–D
 merged into `claude/jolly-bell-2bkweh`** (GitHub's `main` is 90+ commits behind; this session may only push its own branch).
 A: confidence tags, numbered steps, provider name, six distinct check states, the Doctor's trace as a timeline, "Describe

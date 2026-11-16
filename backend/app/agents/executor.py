@@ -12,7 +12,7 @@ resumed: finished steps are skipped.
 
 import json
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, select
@@ -60,6 +60,10 @@ class Ctx:
     plan: Plan
     business: Business
     run_id: int | None = None  # the CheckRun that check results belong to
+    # S13 B: monitoring doesn't wait for the inbox (it looks again in a later short pass)
+    inbox_wait: bool = True
+    pending_inbox: list = field(default_factory=list)  # test orders to look for in that later pass
+    abandoned: bool = False  # the watchdog stopped waiting for this check: it must not write proof any more
 
     @property
     def changes(self) -> list[dict]:

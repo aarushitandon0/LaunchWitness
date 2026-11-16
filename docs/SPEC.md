@@ -160,6 +160,28 @@ Light monitoring is core; full only if time permits. It re-runs launch checks on
 - A check fixed 3 times in a day that breaks again is no longer fixed automatically: one "keeps breaking" email, then it needs the owner.
 - An alert that couldn't be sent is recorded, retried on the next round, and shown to the team.
 
+**Email and scale (S13)**
+
+- Every email goes through the outbox (`app/outbox.py`): saved first under a unique key, tried at once, then retried
+  with growing waits (about 2 hours), then "gave up" and shown to the team. An order is always saved, whatever the mail
+  server does; the Orders page shows the email's real state (sent / retrying / failed). Sign-in links and orders are
+  never held back by `SMTP_DAILY_LIMIT`; from 80% of it test orders and the digest wait, at 100% alerts wait.
+- Shops are checked side by side by a small pool (`MONITOR_WORKERS=4`), each shop at its own stable minute of the
+  15 minutes and of the day (a one-minute beat), never two checks of one shop at once, never two rounds stacked.
+  Each check has a 150 s watchdog: one that overruns is "couldn't finish" (never passed, no alert). Python can't
+  stop a thread, so the late call keeps running until its own timeout; nobody waits for it and it can't write proof.
+- The daily test order records "accepted" at once and looks for "seen" in up to three later one-minute passes; still
+  missing after the last one, it fails and the usual re-check / Doctor / alert path takes over.
+- All GoDaddy API calls in the process share one limit (50 a minute; GoDaddy allows 60 per endpoint).
+- **How many shops one VPS can watch at this schedule.** Measured on the pretend world with realistic delays
+  (`tests/test_s13_scale.py`, 40 shops, some slow, one hanging, one failing): a quick round of all 40 at once took
+  534 s one after another before S13, 163 s with 4 workers (daily: 670 s → about 300 s). With the shops spread
+  over 15 minutes, each one-minute beat handles 1/15 of them; at about 2 s per shop for the quick checks, 4 workers
+  manage about 120 shops a minute, so the checks themselves would keep up with well over 1,000 shops. **The real
+  limit is email:** each live shop sends one test order a day, so one mailbox at `SMTP_DAILY_LIMIT` watches about
+  0.8 × that limit shops with a full daily proof (about 200 at the 250/day placeholder); beyond that the test orders
+  wait (shown as "couldn't finish", never failed). Not measured: the VPS's own CPU and memory, real network delays.
+
 **Honest framing:** in the demo everything sits in the app's GoDaddy account, so little can break after launch. Monitoring matters most once it runs on her own account. Pitch it as insurance, not the hero.
 
 ---

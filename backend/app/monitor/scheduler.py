@@ -15,8 +15,11 @@ the job methods directly.
 """
 
 import json
+import threading
+import zlib
 from collections.abc import Callable
-from datetime import timedelta
+from concurrent.futures import ThreadPoolExecutor, wait
+from datetime import datetime, timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy.engine import Engine
@@ -34,6 +37,14 @@ QUICK_MINUTES = 15
 OUTBOX_SECONDS = 20  # S13: how often the outbox's sender job looks for due email
 RECHECK_SECONDS = 60
 SHOP_BUDGET = {"quick": 90, "daily": 300, "recheck": 300}  # seconds one shop may take in a round
+# S13 B: one check may take at most this long before we stop waiting for it ("couldn't finish"). Above the padlock
+# check's own 2-minute retry for a certificate being issued, so a real slow issue is still seen as a failure.
+CHECK_WATCHDOG = 150
+ROUND_DEADLINE = {"quick": 12 * 60, "daily": 40 * 60}  # a round stops waiting for a shop after this (it keeps going)
+TICK_SECONDS = 60  # the scheduler beat: each tick checks only the shops whose slot it is
+DAILY_SLOTS = 24 * 60  # one slot a minute through the day
+OVERDUE = {"quick": timedelta(minutes=QUICK_MINUTES + 5), "daily": timedelta(hours=25)}
+INBOX_PASS_SECONDS, INBOX_PASSES = 60, 3  # the test order's later inbox look: every minute, three times
 FLAP_WINDOW = timedelta(days=1)
 QUICK_CHECKS = ["site_points", "https"]
 EMAIL_CHECKS = ["email_mx", "email_spf", "email_dkim", "email_dmarc"]  # read-only on shops under the app's domain
@@ -60,6 +71,13 @@ class Monitor:
         self.team = team  # the server's own integrations: the app domain, the team mailbox, the app zone
         self.mailer_for = mailer_for  # S13: outbox channel -> mailer, for the sender job
         self.scheduler = scheduler or BackgroundScheduler(timezone="UTC")
+        # S13 B: shops are checked side by side by a small pool (tests may scale these times down)
+        self.budgets, self.check_seconds = dict(SHOP_BUDGET), CHECK_WATCHDOG
+        self.round_deadline, self.inbox_pass_seconds = dict(ROUND_DEADLINE), INBOX_PASS_SECONDS
+        self.tick_wait = TICK_SECONDS * 0.8
+        self.pool = ThreadPoolExecutor(max_workers=max(1, settings.monitor_workers), thread_name_prefix="monitor")
+        self._round_lock, self._busy_lock = threading.Lock(), threading.Lock()
+        self._busy: set[int] = set()  # shops being checked right now (never two checks of one shop at once)
 
     # ---------- scheduler wiring ----------
 
@@ -67,9 +85,9 @@ class Monitor:
         if self.mailer_for is not None:  # S13: the outbox's sender job (the same one process, its own short beat)
             self.scheduler.add_job(self.send_mail, "interval", seconds=OUTBOX_SECONDS, id="outbox_send",
                                    replace_existing=True, max_instances=1, coalesce=True)
-        self.scheduler.add_job(self.run_quick, "interval", minutes=QUICK_MINUTES, id="monitor_quick",
-                               replace_existing=True, max_instances=1, coalesce=True)
-        self.scheduler.add_job(self.run_daily, "interval", days=1, id="monitor_daily",
+        # S13 B: one beat a minute; each shop has a stable slot, so the shops are spread over the 15 minutes
+        # (and the day) instead of all starting at once
+        self.scheduler.add_job(self.tick, "interval", seconds=TICK_SECONDS, id="monitor_tick",
                                replace_existing=True, max_instances=1, coalesce=True)
         if self.team is not None:
             self.scheduler.add_job(self.watch_addresses, "interval", days=1, id="watch_addresses",
@@ -86,6 +104,7 @@ class Monitor:
     def shutdown(self) -> None:
         if self.scheduler.running:
             self.scheduler.shutdown(wait=False)
+        self.pool.shutdown(wait=False, cancel_futures=True)
 
     def schedule_recheck(self, business_id: int, names: list[str]) -> None:
         self.scheduler.add_job(self.recheck, "date", run_date=utcnow() + timedelta(seconds=RECHECK_SECONDS),
@@ -102,22 +121,92 @@ class Monitor:
             return list(s.exec(select(Business.id).where(Business.status == "live", Business.paused == False,  # noqa: E712
                                                          Business.guest_hash == "")).all())
 
-    def run_quick(self) -> None:
-        self._round("quick")
+    def run_quick(self) -> dict:
+        return self._round("quick")
 
-    def run_daily(self) -> None:
-        self._round("daily")
+    def run_daily(self) -> dict:
+        return self._round("daily")
 
-    def _round(self, kind: str) -> None:
-        """Every live shop, one after the other. A shop whose check blows up is recorded as "couldn't finish"
-        (never as passed) and the round carries on with the next shop."""
-        for bid in self.live_business_ids():
-            try:
-                self.check_business(bid, kind)
-            except Exception as e:
+    @staticmethod
+    def slot(business_id: int, slots: int) -> int:
+        """A stable per-shop offset (the same in every process and after restarts; Python's hash() isn't)."""
+        return zlib.crc32(f"shop:{business_id}".encode()) % slots
+
+    def last_runs(self, kind: str) -> dict[int, datetime]:
+        with Session(self.engine) as s:
+            rows = s.exec(select(CheckRun.business_id, CheckRun.started_at).where(
+                CheckRun.trigger == f"monitor_{kind}")).all()
+        last: dict[int, datetime] = {}
+        for bid, at in rows:
+            at = proof_aware(at)
+            if bid not in last or at > last[bid]:
+                last[bid] = at
+        return last
+
+    def due(self, now: datetime | None = None) -> dict[str, list[int]]:
+        """Which shops this tick checks: those whose slot it is, plus any that missed theirs (overdue)."""
+        now = now or utcnow()
+        minute = now.hour * 60 + now.minute
+        ids = self.live_business_ids()
+        out: dict[str, list[int]] = {}
+        for kind, slots, at in (("daily", DAILY_SLOTS, minute), ("quick", QUICK_MINUTES, minute % QUICK_MINUTES)):
+            last = self.last_runs(kind)
+            out[kind] = [b for b in ids if self.slot(b, slots) == at
+                         or (b in last and now - last[b] > OVERDUE[kind])]
+        out["quick"] = [b for b in out["quick"] if b not in out["daily"]]  # daily includes the quick checks
+        return out
+
+    def tick(self, now: datetime | None = None) -> dict:
+        due = self.due(now)
+        got = {}
+        for kind in ("daily", "quick"):
+            if due[kind]:  # a beat waits at most most of a minute: a slow shop never makes the next beat skip
+                got[kind] = self._round(kind, due[kind], deadline=self.tick_wait)
+        return got
+
+    def _round(self, kind: str, ids: list[int] | None = None, deadline: float | None = None) -> dict:
+        """Live shops side by side in a small pool. A shop whose check blows up is recorded as "couldn't finish"
+        (never as passed); a shop still running at the deadline is recorded as unfinished and nobody waits for it.
+        A second round never stacks on one still running, and a shop is never checked twice at once."""
+        if not self._round_lock.acquire(blocking=False):
+            with Session(self.engine) as s:
+                audit.record(s, actor="monitor", action="monitor_round", target=kind, result="skipped",
+                             detail="the previous round is still running")
+            return {"skipped_round": True}
+        try:
+            futures, busy = {}, []
+            for bid in (self.live_business_ids() if ids is None else ids):
+                with self._busy_lock:
+                    if bid in self._busy:
+                        busy.append(bid)
+                        continue
+                    self._busy.add(bid)
+                futures[self.pool.submit(self._shop, bid, kind)] = bid
+            _done, late = wait(futures, timeout=deadline or self.round_deadline[kind])
+            for f in late:
+                bid = futures[f]
                 with Session(self.engine) as s:
-                    audit.record(s, actor="monitor", action="monitor_shop", target=f"business:{bid}", result="failed",
-                                 business_id=bid, detail=f"{kind} check couldn't finish: {type(e).__name__}")
+                    audit.record(s, actor="monitor", action="monitor_shop", target=f"business:{bid}", result="unfinished",
+                                 business_id=bid, detail=f"{kind} check still running when the round ended")
+            for bid in busy:
+                with Session(self.engine) as s:
+                    audit.record(s, actor="monitor", action="monitor_shop", target=f"business:{bid}", result="skipped",
+                                 business_id=bid, detail=f"{kind}: the previous check of this shop is still running")
+            return {"checked": len(futures) - len(late), "unfinished": sorted(futures[f] for f in late),
+                    "busy": sorted(busy)}
+        finally:
+            self._round_lock.release()
+
+    def _shop(self, bid: int, kind: str) -> None:
+        try:
+            self.check_business(bid, kind)
+        except Exception as e:
+            with Session(self.engine) as s:
+                audit.record(s, actor="monitor", action="monitor_shop", target=f"business:{bid}", result="failed",
+                             business_id=bid, detail=f"{kind} check couldn't finish: {type(e).__name__}")
+        finally:
+            with self._busy_lock:
+                self._busy.discard(bid)
 
     def _context(self, business_id: int):
         with Session(self.engine) as s:
@@ -138,7 +227,8 @@ class Monitor:
         try:
             summary = run_checks(self.engine, self.settings, self.integ_for(b), self.claude, plan.id,
                                  trigger=f"monitor_{kind}", names=names, fix=False,
-                                 budget_seconds=SHOP_BUDGET[kind])
+                                 budget_seconds=self.budgets[kind], check_seconds=self.check_seconds,
+                                 inbox_wait=False)
         except (NotLaunched, AlreadyChecking):  # e.g. the owner just pressed "Run checks now": skip this round
             return []
         # "couldn't finish" / "our lookup failed" is not a failure of the shop: no re-check as one, no alert,
@@ -146,6 +236,8 @@ class Monitor:
         failing = [f.check for f in summary.failed if not f.unfinished]
         if failing:
             self.schedule_recheck(business_id, failing)
+        for item in summary.inbox:  # S13 B: "accepted" is recorded; look for "seen" in a short later pass
+            self.schedule_inbox_pass(business_id, summary.run_id, item, 1)
         self.resolve(business_id, [n for n in names if n not in {f.check for f in summary.failed}])
         if kind == "daily":
             self.expiry_alerts(business_id, summary.run_id)
@@ -160,7 +252,7 @@ class Monitor:
         try:
             summary = run_checks(self.engine, self.settings, self.integ_for(b), self.claude, plan.id,
                                  trigger="monitor_recheck", names=names, fix=True,
-                                 budget_seconds=SHOP_BUDGET["recheck"])
+                                 budget_seconds=self.budgets["recheck"], check_seconds=self.check_seconds)
         except (NotLaunched, AlreadyChecking):
             return []
         still = [f for f in summary.failed if not f.unfinished]
@@ -168,6 +260,60 @@ class Monitor:
         for f in still:
             self.check_alert(business_id, plan.site_host, f)
         return [f.check for f in still]
+
+    # ---------- S13 B: the test order's later inbox look ----------
+
+    def schedule_inbox_pass(self, business_id: int, run_id: int, item: dict, n: int) -> None:
+        self.scheduler.add_job(self.inbox_pass, "date",
+                               run_date=utcnow() + timedelta(seconds=self.inbox_pass_seconds),
+                               args=[business_id, run_id, item, n], id=f"inbox-{business_id}-{item['nonce']}",
+                               replace_existing=True)
+
+    def inbox_pass(self, business_id: int, run_id: int, item: dict, n: int) -> str:
+        """Look for the daily test order in the inbox we can read. Found: proof (`imap_seen`, through the chain)
+        and the run's test-order row says so. Still missing after the last look: the row says so and the usual
+        re-check (blocking look, Doctor, alert) takes over. Returns "seen" | "later" | "missing" | "gone"."""
+        from app import proof
+        from app.models import CheckResult
+
+        found = self._context(business_id)
+        if found is None:
+            return "gone"
+        b, _plan = found
+        integ = self.integ_for(b)
+        since = datetime.fromisoformat(item["since"])
+        seen = integ.inbox.find(subject_contains=item["nonce"], since=since)
+        if not seen and n < INBOX_PASSES:
+            self.schedule_inbox_pass(business_id, run_id, item, n + 1)
+            return "later"
+        with Session(self.engine) as s:
+            row = s.exec(select(CheckResult).where(CheckResult.run_id == run_id, CheckResult.check == "test_order")
+                         .order_by(CheckResult.id.desc())).first()
+            biz = s.get(Business, business_id)
+            if seen:
+                proof.add(s, business=biz, run_id=run_id, check="test_order", step="imap_seen",
+                          practice=bool(integ.fake or biz.practice), nonce=item["nonce"],
+                          server="pretend inbox" if integ.fake else self.settings.imap_host,
+                          source=self.settings.imap_user)
+                plain, ok = "A test order reached your inbox.", True
+                detail = f"order {item['ref']} code {item['nonce']} found (look {n})"
+            else:
+                plain, ok = "A test order was sent but hasn't arrived in your inbox.", False
+                detail = f"order {item['ref']} code {item['nonce']} not found after {n} looks"
+            if row is not None:
+                row.passed, row.detail = ok, json.dumps({"plain": plain, "detail": detail, "waiting": False})
+                s.add(row)
+                if not ok:
+                    run = s.get(CheckRun, run_id)
+                    if run is not None:
+                        run.passed = False
+                        s.add(run)
+                s.commit()
+            audit.record(s, actor="monitor", action="inbox_pass", target=f"run:{run_id}",
+                         result="seen" if ok else "missing", business_id=business_id, detail=detail)
+        if not ok:
+            self.schedule_recheck(business_id, ["test_order"])
+        return "seen" if ok else "missing"
 
     def check_alert(self, business_id: int, host: str, f) -> None:
         """One email per problem. A problem that keeps coming back (fail → fine → fail again within a day, or

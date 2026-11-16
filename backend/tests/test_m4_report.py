@@ -423,11 +423,11 @@ def alerts(engine):
 
 
 def test_monitor_jobs_registered_15min_and_daily(monitor):
+    # S13 B: one beat a minute; each shop's stable slot spreads the 15-minute and daily checks (test_s13_scale.py)
     monitor.register()
     jobs = {j.id: j for j in monitor.scheduler.get_jobs()}
-    assert set(jobs) == {"monitor_quick", "monitor_daily"}
-    assert jobs["monitor_quick"].trigger.interval.total_seconds() == 15 * 60
-    assert jobs["monitor_daily"].trigger.interval.total_seconds() == 24 * 3600
+    assert set(jobs) == {"monitor_tick"}
+    assert jobs["monitor_tick"].trigger.interval.total_seconds() == 60
     assert not monitor.scheduler.running
 
 
@@ -440,8 +440,11 @@ def test_scheduler_is_off_when_disabled(monkeypatch, make_settings, engine):
     monkeypatch.setattr(main, "get_settings", lambda: make_settings(monitor_enabled=False))
     monkeypatch.setattr(main, "init_db", lambda: None)
     monkeypatch.setattr(main, "start_monitor", lambda _s: pytest.fail("scheduler started"))
+    started = []
+    monkeypatch.setattr(main, "start_mail_sender", lambda _s: started.append(1))  # S13: mail still goes out
     with TestClient(main.create_app()):
         pass
+    assert started == [1]
 
 
 def test_quick_check_ok_schedules_nothing(client, integ, monitor):

@@ -13,6 +13,7 @@ from typing import Protocol
 import httpx
 
 from app.config import Settings
+from app.godaddy.ratelimit import LIMITER
 
 BASE_URLS = {
     "ote": "https://api.ote-godaddy.com",
@@ -73,6 +74,8 @@ class GoDaddyClient:
             },
             timeout=20.0,
             transport=transport,
+            # S13: one shared per-process limit on GoDaddy calls (waits, never fails)
+            event_hooks={"request": [lambda _req: LIMITER.acquire()]},
         )
 
     def check_availability(self, domain: str) -> dict:
@@ -132,8 +135,11 @@ class FakeGoDaddyClient:
         self.calls: list[tuple] = []
         self.fail_next: dict[str, int] = {}  # method name -> number of upcoming calls that raise
         self.expires: dict[str, datetime] = {}  # domain -> registration end (default: a year from now)
+        self.limiter = None  # tests: a RateLimiter, used like the real client's
 
     def _maybe_fail(self, method: str) -> None:
+        if self.limiter is not None:
+            self.limiter.acquire()
         if self.fail_next.get(method, 0) > 0:
             self.fail_next[method] -= 1
             raise RuntimeError(f"fake {method} failure")
