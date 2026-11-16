@@ -1,0 +1,57 @@
+{
+ "kind": "web",
+ "host": "http.badssl.com",
+ "date": "2026-11-16",
+ "dns": {
+  "http.badssl.com A": [
+   "ok",
+   [
+    "104.154.89.105"
+   ]
+  ],
+  "http.badssl.com AAAA": [
+   "nodata",
+   []
+  ],
+  "http.badssl.com NS": [
+   "nodata",
+   []
+  ]
+ },
+ "web": {
+  "host": "http.badssl.com",
+  "dns": "ok",
+  "ips": [
+   "104.154.89.105"
+  ],
+  "fetch": "to_http",
+  "status": null,
+  "seconds": 0.0,
+  "hsts": false,
+  "final_host": "",
+  "tls": "ok",
+  "cert_days": 42,
+  "http": "serves",
+  "http_to": "200",
+  "note": "We only open secure (https) web addresses."
+ },
+ "twin": null,
+ "findings": [
+  [
+   "address",
+   "addr_ok",
+   true,
+   "seen"
+  ],
+  [
+   "https",
+   "web_https_to_http",
+   false,
+   "seen"
+  ]
+ ],
+ "plain": {
+  "address": "The address leads to a website server.",
+  "https": "The secure address sends visitors back to plain http, with no padlock: browsers warn visitors that it is not secure."
+ }
+}

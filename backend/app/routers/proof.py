@@ -14,7 +14,7 @@ from sqlmodel import Session, func, select
 from app import audit, proof
 from app.agents.launch_check import latest_launched_plan
 from app.checks.dns_resolver import DnsResolver, RealDnsResolver
-from app.checks.safe_fetch import Refused, SafeWeb
+from app.checks.safe_fetch import SafeWeb
 from app.config import Settings, get_settings
 from app.db import get_session
 from app.models import AddressCheck, Business, CheckRun, ReportShare, utcnow
@@ -165,7 +165,12 @@ def clean_address(raw: str) -> str | None:
     text = raw.strip().lower()
     if "://" not in text:
         text = "https://" + text
-    host = (urlsplit(text).hostname or "").rstrip(".")
+    try:
+        host = (urlsplit(text).hostname or "").rstrip(".")
+        if not host.isascii():  # an internationalised name (münchen.de): check its ASCII form, show it readably
+            host = host.encode("idna").decode("ascii")
+    except (ValueError, UnicodeError):
+        return None
     if not host or "." not in host or is_ip_literal(host) or not HOSTNAME.match(host) or host.endswith(".local"):
         return None
     return host
@@ -191,7 +196,9 @@ def check_address(body: Address, request: Request, settings: Annotated[Settings,
         raise HTTPException(status_code=429, detail="That's a lot of checks for now. Please try again in an hour.")
     session.add(AddressCheck(visitor=visitor))
     session.commit()
-    return {"address": host, "read_only": True, "results": address_results(host, dns, web)}
+    from app.checks.web_setup import readable
+
+    return {"address": host, "shown_as": readable(host), "read_only": True, "results": address_results(host, dns, web)}
 
 
 def dangling_cname(name: str, dns: DnsResolver, add) -> None:
@@ -206,41 +213,19 @@ def dangling_cname(name: str, dns: DnsResolver, add) -> None:
 
 
 def address_results(host: str, dns: DnsResolver, web: SafeWeb) -> list[dict]:
-    out = []
+    """Read-only findings for any address: the website (`web_setup`), then its email setup (`mail_setup`).
+    Each has ok (True / False a real problem / None a note or "not sure"), plain words, technical detail,
+    how sure we are, and the email service's own steps. Nothing here offers or applies a fix."""
+    from app.checks.mail_setup import SEEN, finding, mail_findings
+    from app.checks.web_setup import web_findings
+
+    out = web_findings(host, dns, web)
 
     def add(check: str, ok: bool | None, plain: str, detail: str = "") -> None:
-        out.append({"check": check, "ok": ok, "plain": plain, "detail": detail})
+        out.append(finding(check, ok, plain, detail, SEEN, check, "Remove that record where your domain is managed, "
+                           "or point it at a service you still use."))
 
-    a = dns.resolve(host, "A") + dns.resolve(host, "AAAA")
-    add("address", bool(a), "The address leads to a website server." if a else "The address doesn't lead anywhere.",
-        ", ".join(a))
-    if a:
-        try:
-            page = web.get(f"https://{host}/")
-            ok = page.status is not None and page.status < 400
-            add("https", ok, "The website opens securely." if ok else
-                "The website didn't open securely." if not page.cert_valid else "The website didn't open.",
-                f"status {page.status} {page.error}".strip())
-            end = web.cert_not_after(host) if ok else None
-            if end is not None:
-                days = (end - datetime.now(UTC)).days
-                add("certificate", days > 7, f"The security certificate is good for {days} more days."
-                    if days > 7 else f"The security certificate runs out in {days} days.", end.date().isoformat())
-        except Refused as e:
-            add("https", None, str(e))
     zone = host.removeprefix("www.")
     for name in dict.fromkeys((zone, f"www.{zone}")):  # only the names typed: the address itself and its www
         dangling_cname(name, dns, add)
-    mx = dns.resolve(zone, "MX")
-    # RFC 7505 "null MX" (`0 .`): the domain says it accepts no email at all
-    real_mx = [m for m in mx if m.split()[-1].rstrip(".") != ""]
-    add("email_mx", bool(real_mx), "Emails to this address have somewhere to go." if real_mx else
-        "This address says it doesn't accept email." if mx else "This address can't receive email.", ", ".join(mx))
-    txt = [t.strip('"') for t in dns.resolve(zone, "TXT")]
-    spf = [t for t in txt if t.lower().startswith("v=spf1")]
-    add("email_spf", bool(spf), "It says which servers may send its email." if spf else
-        "It doesn't say which servers may send its email, so its emails may land in spam.", "; ".join(spf))
-    dmarc = [t.strip('"') for t in dns.resolve(f"_dmarc.{zone}", "TXT") if "dmarc1" in t.lower()]
-    add("email_dmarc", bool(dmarc), "It is protected against fake emails in its name." if dmarc else
-        "It isn't protected against fake emails in its name.", "; ".join(dmarc))
-    return out
+    return out + mail_findings(host, dns)

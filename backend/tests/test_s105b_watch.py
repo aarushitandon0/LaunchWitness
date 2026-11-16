@@ -10,7 +10,7 @@ from tests.conftest import sign_in
 from tests.test_s9_phase3_proof import FakeDns, FakeWeb
 
 GOOD = {("shop.example.com", "A"): ["93.184.216.34"], ("shop.example.com", "MX"): ["10 mx.example.com."],
-        ("shop.example.com", "TXT"): ['"v=spf1 include:x -all"'],
+        ("shop.example.com", "TXT"): ['"v=spf1 ip4:93.184.216.34 -all"'], ("mx.example.com", "A"): ["93.184.216.40"],
         ("_dmarc.shop.example.com", "TXT"): ['"v=DMARC1; p=none"']}
 
 
@@ -122,5 +122,5 @@ def test_null_mx_means_no_email():
     dns = FakeDns({("x.example.com", "MX"): ["0 ."]})
     res = {r["check"]: r for r in address_results("x.example.com", dns, FakeWeb())}
     assert res["email_mx"]["ok"] is False and "doesn't accept email" in res["email_mx"]["plain"]
-    dns = FakeDns({("x.example.com", "MX"): ["10 mx.example.com."]})
+    dns = FakeDns({("x.example.com", "MX"): ["10 mx.example.com."], ("mx.example.com", "A"): ["93.184.216.40"]})
     assert {r["check"]: r for r in address_results("x.example.com", dns, FakeWeb())}["email_mx"]["ok"] is True

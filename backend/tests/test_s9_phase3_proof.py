@@ -305,7 +305,7 @@ def checker_app(make_settings, engine, mailer, claude, integ):
     app.dependency_overrides[get_public_web] = lambda: web
     app.dependency_overrides[get_public_dns] = lambda: FakeDns({
         ("shop.example.com", "A"): ["93.184.216.34"], ("shop.example.com", "MX"): ["10 mx.example.com."],
-        ("shop.example.com", "TXT"): ['"v=spf1 include:x -all"']})
+        ("shop.example.com", "TXT"): ['"v=spf1 ip4:93.184.216.34 -all"'], ("mx.example.com", "A"): ["93.184.216.40"]})
     return app, web
 
 

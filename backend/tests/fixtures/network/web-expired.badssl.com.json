@@ -1,0 +1,64 @@
+{
+ "kind": "web",
+ "host": "expired.badssl.com",
+ "date": "2026-11-16",
+ "dns": {
+  "expired.badssl.com A": [
+   "ok",
+   [
+    "104.154.89.105"
+   ]
+  ],
+  "expired.badssl.com AAAA": [
+   "nodata",
+   []
+  ],
+  "expired.badssl.com NS": [
+   "nodata",
+   []
+  ]
+ },
+ "web": {
+  "host": "expired.badssl.com",
+  "dns": "ok",
+  "ips": [
+   "104.154.89.105"
+  ],
+  "fetch": "cert",
+  "status": null,
+  "seconds": 0.6,
+  "hsts": false,
+  "final_host": "expired.badssl.com",
+  "tls": "expired",
+  "cert_days": null,
+  "http": "redirects_https",
+  "http_to": "expired.badssl.com",
+  "note": "SSLCertVerificationError: certificate has expired"
+ },
+ "twin": null,
+ "findings": [
+  [
+   "address",
+   "addr_ok",
+   true,
+   "seen"
+  ],
+  [
+   "https",
+   "cert_expired",
+   false,
+   "seen"
+  ],
+  [
+   "plain_http",
+   "http_redirects",
+   true,
+   "seen"
+  ]
+ ],
+ "plain": {
+  "address": "The address leads to a website server.",
+  "https": "The security certificate has expired, so browsers show a warning instead of the site.",
+  "plain_http": "Visitors who type the address without https are sent to the secure site."
+ }
+}

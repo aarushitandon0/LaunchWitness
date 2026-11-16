@@ -1,0 +1,94 @@
+{
+ "kind": "web",
+ "host": "neverssl.com",
+ "date": "2026-11-16",
+ "dns": {
+  "neverssl.com A": [
+   "ok",
+   [
+    "34.223.124.45"
+   ]
+  ],
+  "neverssl.com AAAA": [
+   "ok",
+   [
+    "2600:1f13:37c:1400:ba21:7165:5fc7:736e"
+   ]
+  ],
+  "neverssl.com NS": [
+   "ok",
+   [
+    "ns-320.awsdns-40.com.",
+    "ns-570.awsdns-07.net.",
+    "ns-1413.awsdns-48.org.",
+    "ns-1716.awsdns-22.co.uk."
+   ]
+  ],
+  "www.neverssl.com A": [
+   "ok",
+   [
+    "34.223.124.45"
+   ]
+  ],
+  "www.neverssl.com AAAA": [
+   "ok",
+   [
+    "2600:1f13:37c:1400:ba21:7165:5fc7:736e"
+   ]
+  ]
+ },
+ "web": {
+  "host": "neverssl.com",
+  "dns": "ok",
+  "ips": [
+   "34.223.124.45",
+   "2600:1f13:37c:1400:ba21:7165:5fc7:736e"
+  ],
+  "fetch": "error",
+  "status": null,
+  "seconds": 6.4,
+  "hsts": false,
+  "final_host": "neverssl.com",
+  "tls": "ok",
+  "cert_days": 190,
+  "http": "serves",
+  "http_to": "200",
+  "note": "RemoteProtocolError"
+ },
+ "twin": {
+  "host": "www.neverssl.com",
+  "dns": "ok",
+  "ips": [
+   "34.223.124.45",
+   "2600:1f13:37c:1400:ba21:7165:5fc7:736e"
+  ],
+  "fetch": "error",
+  "status": null,
+  "seconds": 6.5,
+  "hsts": false,
+  "final_host": "www.neverssl.com",
+  "tls": "",
+  "cert_days": null,
+  "http": "",
+  "http_to": "",
+  "note": "RemoteProtocolError"
+ },
+ "findings": [
+  [
+   "address",
+   "addr_ok",
+   true,
+   "seen"
+  ],
+  [
+   "https",
+   "web_http_only",
+   false,
+   "seen"
+  ]
+ ],
+ "plain": {
+  "address": "The address leads to a website server.",
+  "https": "This site answers only on plain http, with no padlock: browsers warn visitors that it is not secure."
+ }
+}

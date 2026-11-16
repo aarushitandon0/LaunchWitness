@@ -111,8 +111,49 @@ def investigate_and_repair(claude: Claude, ctx: Ctx, failed: Outcome, symptom: s
     return result
 
 
+def other_mail_service(ctx: Ctx):
+    """The email service that handles this shop's own domain NOW, if it isn't the one we set up (read-only)."""
+    from app.agents.checker import mail_zone
+    from app.checks.mail_setup import detect
+
+    if ctx.plan.mode != "full":
+        return None
+    d = detect(ctx.integ.dns.resolve(mail_zone(ctx), "MX"))
+    return None if d.key in ("no_mx", "couldnt_check", ctx.settings.mail_provider) else d
+
+
+def explain_other_service(ctx: Ctx, failed: Outcome, d) -> RepairResult:
+    """Another service runs her email: code (not the model) says so, gives THAT service's own steps, changes nothing."""
+    from app.agents.checker import mail_zone
+    from app.checks.mail_setup import UNKNOWN_STEPS, mail_findings
+
+    steps = next((f["steps"] for f in mail_findings(mail_zone(ctx), ctx.integ.dns)
+                  if f["check"] == failed.check and f["steps"]), "")
+    if d.service is None:
+        steps = steps if steps.startswith("This is a deliberate") else UNKNOWN_STEPS
+    instruction = (f"Email for your address is now handled by {d.label}, not by the mailbox we set up. We left its "
+                   "settings exactly as they are: we never change another email service's settings. If that is what "
+                   "you want, nothing needs doing." + (f" If email isn't working: {steps}" if steps else ""))
+    inv = {"finding": f"Your address's email now goes to {d.label}.", "fix_id": NEEDS_OWNER,
+           "owner_instruction": instruction, "source": "standard", "trace": []}
+    row = ctx.session.exec(select(CheckResult).where(CheckResult.run_id == ctx.run_id, CheckResult.check == failed.check,
+                                                     CheckResult.business_id == ctx.business.id)
+                           .order_by(CheckResult.id.desc())).first()
+    if row is not None:
+        row.doctor_json = json.dumps(inv)
+        ctx.session.add(row)
+        ctx.session.commit()
+    audit.record(ctx.session, actor="doctor", action="repair", target=failed.check, result="needs_owner",
+                 business_id=ctx.business.id, detail=f"mail is on {d.key}; nothing changed")
+    return RepairResult(failed.check, False, final=failed, doctor=inv)
+
+
 def repair(claude: Claude, ctx: Ctx, failed: Outcome, symptom: str = "") -> RepairResult:
     """`symptom`: the owner's own words about the problem, if any. Data for the investigation, never instructions."""
+    if failed.check.startswith("email_"):
+        other = other_mail_service(ctx)
+        if other is not None:
+            return explain_other_service(ctx, failed, other)
     if failed.check in INVESTIGATED:
         return investigate_and_repair(claude, ctx, failed, symptom)
     result = RepairResult(failed.check, False, final=failed)
