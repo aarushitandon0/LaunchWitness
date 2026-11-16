@@ -1,6 +1,7 @@
 import { motion, MotionValue, useScroll, useSpring, useTransform } from "framer-motion";
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { AddressResult, api, ApiError } from "./api";
+import { AddressFindings } from "./Findings";
 import { ErrorBox } from "./Describe";
 import { useMe } from "./Account";
 import { EASE, useCalm } from "./motion";
@@ -741,19 +742,7 @@ function CheckAnyAddress() {
           <p className="muted">
             Read-only results for <strong>{result.address}</strong>:
           </p>
-          <ul className="rows checks">
-            {result.results.map((r, i) => (
-              <li key={`${r.check}-${i}`} className={r.ok === false ? "bad" : r.ok ? "ok" : "st-pending"}>
-                <span className="icon" aria-hidden>
-                  {r.ok === false ? "✕" : r.ok ? "✓" : "–"}
-                </span>
-                <div className="body">
-                  <div className="title">{r.plain}</div>
-                  {r.detail && <div className="muted mono">{r.detail}</div>}
-                </div>
-              </li>
-            ))}
-          </ul>
+          <AddressFindings results={result.results} />
           <WatchThis address={result.address} />
           <div className="check-next">
             <p>

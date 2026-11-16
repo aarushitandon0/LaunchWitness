@@ -552,6 +552,6 @@ def mail_findings(host: str, dns: DnsResolver) -> list[dict]:
     domain = mail_domain(host, dns)
     mx, d = mx_finding(domain, dns)
     out = [mx, spf_finding(domain, dns, d), dkim_finding(domain, dns, d), dmarc_finding(domain, dns)]
-    for f in out:
-        f["domain"], f["provider"] = domain, d.key
+    for f in out:  # provider_label only for a service we recognise ("Your email runs on Google Workspace")
+        f["domain"], f["provider"], f["provider_label"] = domain, d.key, d.label if d.service else ""
     return out

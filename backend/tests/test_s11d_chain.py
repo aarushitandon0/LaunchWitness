@@ -261,7 +261,8 @@ def test_share_page_shows_the_receipt_and_verify_says_intact(client, new_client,
     visitor = new_client()
     want = state(engine, biz["id"])
     page = visitor.get(path).text
-    assert f"Receipt {want['head'][:12]} · <a href='{path}/verify'>verify</a>" in page
+    assert f"Receipt <code>{want['head'][:12]}</code>" in page  # S12: a Verify button that calls the same endpoint
+    assert f"data-href='{path}/verify'" in page and f"<a href='{path}/verify'>verify</a>" in page
     r = visitor.get(path + "/verify")
     assert r.status_code == 200 and r.json() == want and set(r.json()) == {"intact", "rows", "head"}
     assert r.headers["cache-control"] == "no-store"

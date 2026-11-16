@@ -22,7 +22,7 @@ from sqlmodel import select
 
 from app import audit, proof
 from app.agents.checker import Outcome, shop_web
-from app.agents.claude_client import Claude, ClaudeError
+from app.agents.claude_client import Claude, ClaudeError, FixtureClaudeClient
 from app.agents.executor import Ctx
 from app.agents.playbook import PLAYBOOK, fixes_for
 from app.models import Evidence
@@ -274,8 +274,19 @@ def loop(ask, failed: Outcome, mode: str, symptom: str, tool, host: str = "") ->
     return {}, trace
 
 
-def fixture_name(check: str, turn: int) -> str:
-    return f"investigate_{check}_t{turn}"
+MARKER_MISSING = "shop marker missing"
+FIXTURE_HOST = "meera.localhost"  # the shop the saved (fixture) conversations were recorded on
+
+
+def variant(failed: Outcome, symptom: str = "") -> str:
+    """Which saved conversation a fixture-mode run replays: the padlock check failing because the page isn't her
+    shop (marker missing) is a different case from a broken padlock, and the owner's own words change the question."""
+    return ("_marker" if failed.check == "https" and MARKER_MISSING in failed.detail else "") + \
+        ("_symptom" if symptom.strip() else "")
+
+
+def fixture_name(check: str, turn: int, var: str = "") -> str:
+    return f"investigate_{check}{var}_t{turn}"
 
 
 def investigate(claude: Claude, ctx: Ctx, failed: Outcome, symptom: str = "") -> Investigation:
@@ -283,8 +294,11 @@ def investigate(claude: Claude, ctx: Ctx, failed: Outcome, symptom: str = "") ->
     trace: list[dict] = []
 
     def ask(turn: int, user: str) -> dict:
-        return live.ask_json(fixture=fixture_name(failed.check, turn), tier="cheap", system=SYSTEM, user=user,
-                             schema=ANSWER_SCHEMA, max_tokens=TOKENS_PER_TURN)
+        data = live.ask_json(fixture=fixture_name(failed.check, turn, variant(failed, symptom)), tier="cheap",
+                             system=SYSTEM, user=user, schema=ANSWER_SCHEMA, max_tokens=TOKENS_PER_TURN)
+        if isinstance(live, FixtureClaudeClient):  # saved conversations were recorded on FIXTURE_HOST: replay on this shop
+            data = {k: v.replace(FIXTURE_HOST, ctx.plan.site_host) if isinstance(v, str) else v for k, v in data.items()}
+        return data
 
     def tool(name: str, data: dict) -> dict:
         trace.append(run_tool(ctx, failed.check, name, data))

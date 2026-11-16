@@ -11,6 +11,8 @@ export default defineConfig({
   workers: 1, // one app process, one SQLite writer: run the flows one after another
   reporter: [["list"]],
   use: {
+    // LW_CHROME: a pre-installed Chromium to use instead of the one this Playwright version downloads.
+    launchOptions: process.env.LW_CHROME ? { executablePath: process.env.LW_CHROME } : {},
     baseURL: base,
     // ONLY for the local stack: Caddy's own local CA isn't in the system trust store. Never against the VPS.
     ignoreHTTPSErrors: base.includes(".localhost"),
