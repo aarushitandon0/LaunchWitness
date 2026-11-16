@@ -44,7 +44,7 @@ const STEPS: { title: string; text: string; icon: ReactNode }[] = [
   },
   {
     title: "Keep checking and fixing",
-    text: "After launch we keep checking quietly. If something breaks we explain it in plain words and repair it, or undo it, and tell you.",
+    text: "After launch we keep checking quietly. If something breaks we explain it in plain words, repair it when a safe fix exists, and tell you.",
     icon: (
       <svg viewBox="0 0 64 64" className="step-icon" aria-hidden>
         <path d="M32 7l20 7v15c0 13-8.5 23-20 28C20.5 52 12 42 12 29V14z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
@@ -55,18 +55,78 @@ const STEPS: { title: string; text: string; icon: ReactNode }[] = [
 ];
 
 const PIECES = [
-  ["Domains", "Your own name, found, priced and adopted"],
+  ["Domains", "A free shop address now; your own name, found and priced, in practice"],
   ["DNS", "Every setting backed up before it changes"],
-  ["Email", "orders@ your name, signed and protected"],
+  ["Email", "Order emails from our mailbox, with its anti-spam settings checked daily"],
   ["VPS", "Your shop served from a GoDaddy server"],
   ["HTTPS", "A secure padlock, checked for real"],
   ["Monitoring", "Quiet checks every 15 minutes after launch"],
 ];
 
-const WHO = [
-  ["Home food", "Cakes, tiffin, pickles and snacks, made in your kitchen and ordered ahead."],
-  ["Handmade goods", "Candles, crafts, jewellery and gift hampers, made in small batches."],
-  ["Custom work", "Tailoring, embroidery and art commissions, made to each customer's order."],
+const WHO: { id: string; title: string; text: string; demos: [string, string][] }[] = [
+  {
+    id: "who-food",
+    title: "Home food",
+    text: "Cakes, tiffin, pickles and snacks, made in your kitchen and ordered ahead.",
+    demos: [["/demo/meera", "a home baker"], ["/demo/sunita", "a tiffin service"]],
+  },
+  {
+    id: "who-handmade",
+    title: "Handmade goods",
+    text: "Candles, crafts, jewellery and gift hampers, made in small batches.",
+    demos: [],
+  },
+  {
+    id: "who-custom",
+    title: "Custom work",
+    text: "Tailoring, embroidery and art commissions, made to each customer's order.",
+    demos: [["/demo/imran", "a tailor"]],
+  },
+];
+
+/** The proof, hop by hop: the same six hops as the hero's layers (bottom to top). */
+export const HOPS: { name: string; text: string }[] = [
+  { name: "Address", text: "Your shop's address leads to our GoDaddy server." },
+  { name: "Secure page", text: "It opens securely, with a valid padlock." },
+  { name: "Your shop", text: "The page that opens is really your shop: we look for its own hidden marker." },
+  { name: "Order form", text: "A real test order goes in through your shop's own order form, like a customer's." },
+  { name: "Mail server", text: "The mail server accepts the order email for you." },
+  { name: "Your inbox", text: "It reaches you: you tap “Yes, I got it” in that email." },
+];
+
+/** What runs after launch. Matches monitor/scheduler.py (QUICK_MINUTES, daily jobs, RECHECK_SECONDS) and
+ * renewals.py (THRESHOLDS 30/7/1, CERT_THRESHOLDS 7/1). Change both together. */
+const WATCH: { when: string; title: string; text: string }[] = [
+  {
+    when: "Every 15 minutes",
+    title: "Your shop opens",
+    text: "Your address still leads to your shop, and it opens securely.",
+  },
+  {
+    when: "Every day",
+    title: "The whole order path",
+    text:
+      "Everything above, plus: the settings that keep order emails out of spam are still there, nothing we set at " +
+      "launch has changed, and a real test order goes through your order form. The daily run proves your form took " +
+      "the order and the mail server accepted it. That it reached your inbox is proven at launch, and again whenever " +
+      "you tap “Yes, I got it”.",
+  },
+  {
+    when: "Before things run out",
+    title: "Renewals",
+    text:
+      "The padlock renews itself for free; if it hasn't with 7 days left, you hear from us (and again at 1 day). " +
+      "Your shop's address and our order mailbox are renewed by our team, who are warned 30, 7 and 1 days ahead. " +
+      "We never renew or pay for anything by ourselves.",
+  },
+  {
+    when: "When something breaks",
+    title: "Check, fix, tell you",
+    text:
+      "We check again a minute later, to rule out a blip. If it's still broken, the Doctor works out what broke and " +
+      "applies a safe fix if one is allowed; otherwise your report says exactly what to do. Then we check again; " +
+      "if it's still broken, we email you once about that problem. Money is never spent without you.",
+  },
 ];
 
 const PROMISES = [
@@ -84,6 +144,13 @@ export default function Landing() {
   const scale = useTransform(p, [0, 1], [1, calm ? 1 : 0.88]);
   const y = useTransform(p, [0, 1], [0, calm ? 0 : -36]);
   const dim = useTransform(p, [0, 1], [0, calm ? 0 : 0.55]);
+  useEffect(() => {
+    const h = window.location.hash;
+    if (h.length > 1 && !h.startsWith("#/")) {
+      const t = window.setTimeout(() => document.getElementById(h.slice(1))?.scrollIntoView({ block: "start" }), 120);
+      return () => window.clearTimeout(t);
+    }
+  }, []);
 
   return (
     <div className="landing">
@@ -154,6 +221,61 @@ export default function Landing() {
         </section>
       </div>
 
+      <section className="dark dark-cont on-dark" id="proof" aria-labelledby="proof-title">
+        <div className="wrap">
+          <SectionHead id="proof-title" title="How the proof works" label="/ one real test order, hop by hop">
+            Before we call your shop ready, a real test order travels the same path a customer's would. Each hop is saved
+            with its time and the server that answered, and your report only claims what was saved.
+          </SectionHead>
+          <ol className="hops">
+            {HOPS.map((h, i) => (
+              <Reveal as="li" key={h.name} delay={i * 0.05} className="hop">
+                <span className="label">/0{i + 1}</span>
+                <strong>{h.name}</strong>
+                <span>{h.text}</span>
+              </Reveal>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section className="dark dark-cont on-dark" id="watch" aria-labelledby="watch-title">
+        <div className="wrap">
+          <SectionHead id="watch-title" title="We keep watching after launch" label="/ not a one-off check">
+            Launch day isn't the end. For every live shop, we keep checking on a schedule, fix what we safely can, and tell
+            you about the rest.
+          </SectionHead>
+          <ol className="watch-grid">
+            {WATCH.map((w, i) => (
+              <Reveal as="li" key={w.title} delay={i * 0.06} className={`watch-item${i === 3 ? " watch-fix" : ""}`}>
+                <span className="label">{w.when}</span>
+                <strong id={i === 3 ? "fix" : undefined}>{w.title}</strong>
+                <p>{w.text}</p>
+              </Reveal>
+            ))}
+          </ol>
+          <details className="tech-details">
+            <summary>Technical details</summary>
+            <ul>
+              <li>Every 15 minutes: the shop's A record points at our server, and HTTPS answers with a valid certificate.</li>
+              <li>
+                Daily: the same, plus MX, SPF, DKIM and DMARC records, a comparison of the DNS records against the backup
+                taken at launch, and a test order with a fresh code through the public form (proof: form POST accepted,
+                SMTP accepted; IMAP or the owner's tap for delivery).
+              </li>
+              <li>
+                Failures are re-checked after 60 seconds. The Doctor (Claude) only chooses from a fixed playbook in code:
+                re-point the A record, re-add MX, re-add SPF/DKIM/DMARC, retry the certificate, or restore the DNS backup.
+                Code applies it and re-checks.
+              </li>
+              <li>Alerts go to the owner's sign-in email, once per problem until it passes again.</li>
+              <li>Renewal warnings: certificate at 7 and 1 days left; domain and team mailbox at 30, 7 and 1 days.</li>
+            </ul>
+          </details>
+          <div style={{ height: "clamp(3rem, 7vw, 6rem)" }} />
+        </div>
+      </section>
+
       <section className="dark dark-cont on-dark" aria-labelledby="pieces-title">
         <div className="wrap">
           <SectionHead id="pieces-title" title="Built on GoDaddy" label="/ the pieces we set up for you">
@@ -188,6 +310,24 @@ export default function Landing() {
         </div>
       </section>
 
+      <section className="security-sec" id="security" aria-labelledby="security-title">
+        <div className="wrap">
+          <Reveal>
+            <p className="eyebrow">Security &amp; privacy</p>
+            <h2 id="security-title">Your shop is yours alone.</h2>
+            <ul className="security-list">
+              <li>No passwords: you sign in with a link we email you.</li>
+              <li>Only you can open your shop's details, orders and reports. Anyone else just gets “not found”.</li>
+              <li>Nothing is bought and no setting changes without your approval, and settings are backed up first.</li>
+              <li>We never ask for Aadhaar, PAN, bank or card numbers, or your home address.</li>
+            </ul>
+            <p className="small">
+              Read our <a href="#/privacy">Privacy page</a> and <a href="#/terms">Terms</a>.
+            </p>
+          </Reveal>
+        </div>
+      </section>
+
       <section className="closing" id="contact" aria-labelledby="who-title">
         <div className="wrap closing-grid">
           <Reveal>
@@ -198,10 +338,21 @@ export default function Landing() {
               without learning how websites work.
             </p>
             <ul className="who-groups">
-              {WHO.map(([title, text]) => (
-                <li key={title}>
-                  <strong>{title}</strong>
-                  <span>{text}</span>
+              {WHO.map((g) => (
+                <li key={g.id} id={g.id}>
+                  <strong>{g.title}</strong>
+                  <span>{g.text}</span>
+                  {g.demos.length > 0 && (
+                    <span className="small">
+                      Demo:{" "}
+                      {g.demos.map(([href, label], i) => (
+                        <span key={href}>
+                          {i > 0 && " · "}
+                          <a href={href}>{label}</a>
+                        </span>
+                      ))}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -213,9 +364,7 @@ export default function Landing() {
                 See a demo shop
               </a>
             </div>
-            <p className="small demo-others">
-              More demo shops: <a href="/demo/imran">a tailor in Lucknow</a> · <a href="/demo/sunita">a tiffin service in Bengaluru</a>
-            </p>
+
           </Reveal>
           <Reveal delay={0.1}>
             <p className="eyebrow">Contact us</p>
