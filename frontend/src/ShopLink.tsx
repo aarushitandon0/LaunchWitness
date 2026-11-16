@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api";
 
 /**
@@ -20,13 +20,27 @@ export function ShopLink({
   const [html, setHtml] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const frame = useRef<HTMLIFrameElement>(null);
+  const open_ = html !== null;
 
   useEffect(() => {
-    if (html === null) return;
+    if (!open_) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setHtml(null);
+    // The shop page asks for its own pages (home, privacy) by name. Only a message from OUR preview frame counts,
+    // and only those two names; nothing else in the message is used.
+    const onMessage = (e: MessageEvent) => {
+      if (!frame.current || e.source !== frame.current.contentWindow) return;
+      const page = (e.data as { lwPreview?: unknown } | null)?.lwPreview;
+      if (page !== "home" && page !== "privacy") return;
+      api.preview(businessId, page).then(setHtml).catch(() => setError("We couldn't load that page of the preview."));
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [html]);
+    window.addEventListener("message", onMessage);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("message", onMessage);
+    };
+  }, [open_, businessId]);
 
   if (isPublic && siteUrl) {
     return (
@@ -66,8 +80,15 @@ export function ShopLink({
               Close
             </button>
           </div>
-          {/* sandbox without allow-same-origin: the page can run its own basket script but can't touch this app */}
-          <iframe title="Preview of your shop" sandbox="allow-scripts" srcDoc={html} />
+          {/* sandbox WITHOUT allow-same-origin: the shop page gets an opaque origin, so it can run its own basket and
+              link script but can't read this app, its cookies or its storage. allow-popups(+to-escape-sandbox): WhatsApp,
+              Instagram and phone links open as normal new tabs (noopener). No allow-forms / allow-top-navigation. */}
+          <iframe
+            ref={frame}
+            title="Preview of your shop"
+            sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+            srcDoc={html}
+          />
         </div>
       )}
     </>
