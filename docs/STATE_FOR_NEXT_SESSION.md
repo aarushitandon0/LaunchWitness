@@ -56,8 +56,7 @@ unknown).
 - `frontend/src/ProductMenu.tsx` (top bar, both signed in and out). Anchors from app pages land via Landing's mount effect.
 - `app/watch.py`, `routers/watch.py` (`/api/watches`, 3 AUTH routes), `WatchedAddress`, monitor job `watch_addresses`
   (registered with the team jobs, i.e. on the server, not in tests).
-- `frontend/src/hero/scene.ts` (three@0.169.0, lazy chunk), `HeroScene.tsx`, `still.webp` (re-render: open `/?hero-still`
-  and save `window.__lwHeroStill`, see `e2e/screens/s105b.spec.ts` notes). Real GPU only.
+- The three.js hero was built and then removed at the owner's request (S10.5c); the S10.5 SVG hero is live. History: `820e824`.
 
 ## New in S10.5, in one line each
 

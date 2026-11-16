@@ -1,8 +1,7 @@
-import { motion, useScroll, useSpring, useTransform } from "framer-motion";
+import { motion, MotionValue, useScroll, useSpring, useTransform } from "framer-motion";
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { AddressResult, api, ApiError } from "./api";
 import { ErrorBox } from "./Describe";
-import { HeroScene } from "./hero/HeroScene";
 import { useMe } from "./Account";
 import { EASE, useCalm } from "./motion";
 
@@ -181,7 +180,7 @@ export default function Landing() {
                 <Line i={2}>for customers?</Line>
               </h1>
             </div>
-            <HeroScene progress={p} />
+            <HeroShape progress={p} />
             <motion.div
               className="hero-copy"
               initial={calm ? false : { opacity: 0, y: 12 }}
@@ -506,6 +505,136 @@ function Marquee() {
         {group(true)}
       </div>
     </div>
+  );
+}
+
+/** Abstract "launch layers": six soft, rounded layers (site, name, email, order, proof…) that breathe gently and
+ * fan apart as you scroll. Each layer is a static SVG on its own GPU layer; only transforms animate, so it stays smooth. */
+const LAYERS = [
+  { fill: "url(#lw-g-ink)", side: "#141412" },
+  { fill: "url(#lw-g-plum)", side: "#7a4a63" },
+  { fill: "url(#lw-g-amber)", side: "#cf7a33" },
+  { fill: "url(#lw-g-coral)", side: "#d9776a" },
+  { fill: "url(#lw-g-lime)", side: "#a6bb34" },
+  { fill: "url(#lw-g-paper)", side: "#d6cab4" },
+];
+const BASE_Y = 340; // centre of the lowest layer
+const STEP = 42; // gap between layers at rest
+
+function HeroShape({ progress }: { progress: MotionValue<number> }) {
+  const calm = useCalm();
+  // One scroll value drives everything; each layer reads it through a cheap linear map.
+  const spread = useTransform(progress, [0, 1], [0, calm ? 0 : 1]);
+  const ys = LAYERS.map((_, i) => useTransform(spread, (v) => -v * i * 22)); // eslint-disable-line react-hooks/rules-of-hooks
+  const ringY = useTransform(spread, (v) => -v * 150);
+  const tilt = useTransform(spread, (v) => -v * 6);
+  return (
+    <motion.div
+      className="hero-shape"
+      aria-hidden
+      initial={calm ? false : { opacity: 0, y: 30, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 1.2, delay: 0.2, ease: EASE }}
+    >
+      <motion.div className="shape-rot" style={{ rotate: tilt }}>
+        <svg className="shape-layer" viewBox="0 0 400 460">
+          <Defs />
+          <ellipse cx="200" cy="420" rx="168" ry="30" fill="url(#lw-g-shadow)" />
+        </svg>
+        {LAYERS.map((l, i) => (
+          <motion.div key={i} className="shape-layer" style={{ y: ys[i] }}>
+            <div className={calm ? "shape-layer" : "shape-layer breathe"} style={{ animationDelay: `${-i * 0.45}s` }}>
+              <svg viewBox="0 0 400 460">
+                <Pebble cy={BASE_Y - i * STEP} fill={l.fill} side={l.side} size={1 - i * 0.035} />
+                {i === LAYERS.length - 1 && <Seal cy={BASE_Y - i * STEP} />}
+              </svg>
+            </div>
+          </motion.div>
+        ))}
+        <motion.div className="shape-layer" style={{ y: ringY }}>
+          <div className={calm ? "shape-layer" : "shape-layer orbit"}>
+            <svg viewBox="0 0 400 460">
+              <ellipse cx="200" cy="40" rx="122" ry="26" fill="none" stroke="url(#lw-g-ring)" strokeWidth="3" />
+              <circle cx="312" cy="30" r="20" fill="url(#lw-g-ball)" />
+              <circle cx="90" cy="50" r="9" fill="url(#lw-g-ball2)" />
+            </svg>
+          </div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/** An isometric rounded square ("pebble") with a smooth extruded edge. */
+function Pebble({ cy, fill, side, size }: { cy: number; fill: string; side: string; size: number }) {
+  const half = 104 * size, r = 46 * size, depth = 16;
+  const iso = (y: number) => `translate(200 ${y}) scale(1 0.56) rotate(45)`;
+  const rect = (paint: string, y: number, key?: number) => (
+    <rect key={key} x={-half} y={-half} width={half * 2} height={half * 2} rx={r} fill={paint} transform={iso(y)} />
+  );
+  return (
+    <g>
+      {/* the edge: a few copies stepping down, so the side reads as one smooth curved band */}
+      {Array.from({ length: 6 }, (_, k) => rect(side, cy + depth - k * (depth / 6), k))}
+      {rect(fill, cy)}
+      <rect
+        x={-half + 6}
+        y={-half + 6}
+        width={half * 2 - 12}
+        height={half * 2 - 12}
+        rx={r - 4}
+        fill="none"
+        stroke="rgba(255,255,255,0.35)"
+        strokeWidth="2"
+        transform={iso(cy)}
+      />
+    </g>
+  );
+}
+
+function Seal({ cy }: { cy: number }) {
+  return (
+    <g>
+      <ellipse cx="200" cy={cy} rx="42" ry="24" fill="#161614" />
+      <path d={`M183 ${cy + 1} q6 4 11 7 q10 -8 22 -15`} fill="none" stroke="#dcf06a" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+    </g>
+  );
+}
+
+function Defs() {
+  const lin = (id: string, a: string, b: string) => (
+    <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stopColor={a} />
+      <stop offset="1" stopColor={b} />
+    </linearGradient>
+  );
+  return (
+    <defs>
+      {lin("lw-g-ink", "#4a4a45", "#191917")}
+      {lin("lw-g-plum", "#f0c9dc", "#b7799a")}
+      {lin("lw-g-amber", "#ffd9ad", "#f09a50")}
+      {lin("lw-g-coral", "#ffd0c4", "#ee8f80")}
+      {lin("lw-g-lime", "#f6fcc4", "#cde353")}
+      {lin("lw-g-paper", "#ffffff", "#efe6d6")}
+      <linearGradient id="lw-g-ring" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stopColor="rgba(31,31,29,0)" />
+        <stop offset="0.5" stopColor="rgba(31,31,29,0.45)" />
+        <stop offset="1" stopColor="rgba(31,31,29,0)" />
+      </linearGradient>
+      <radialGradient id="lw-g-ball" cx="0.35" cy="0.3" r="0.75">
+        <stop offset="0" stopColor="#fbffd9" />
+        <stop offset="0.45" stopColor="#dcf06a" />
+        <stop offset="1" stopColor="#7f8f1f" />
+      </radialGradient>
+      <radialGradient id="lw-g-ball2" cx="0.35" cy="0.3" r="0.75">
+        <stop offset="0" stopColor="#ffe7d1" />
+        <stop offset="1" stopColor="#e0803d" />
+      </radialGradient>
+      <radialGradient id="lw-g-shadow" cx="0.5" cy="0.5" r="0.5">
+        <stop offset="0" stopColor="rgba(60,40,10,0.26)" />
+        <stop offset="1" stopColor="rgba(60,40,10,0)" />
+      </radialGradient>
+    </defs>
   );
 }
 
