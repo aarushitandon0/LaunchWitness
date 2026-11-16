@@ -33,15 +33,16 @@ def test_contact_honeypot_sends_nothing(client, mailer):
     assert r.status_code == 200 and mailer.sent == []
 
 
-def test_contact_mail_failure_is_a_plain_error(client, mailer, engine):
+def test_contact_mail_failure_keeps_the_message_and_says_so(client, mailer, engine):
     def boom(**_kw):
         raise OSError("smtp down")
 
     mailer.send = boom
     r = client.post("/api/contact", json=FORM)
-    assert r.status_code == 503 and "couldn't send" in r.json()["detail"]
+    # S13: the message is kept in the outbox (retried later); the answer is honest that it's slow, not "sent"
+    assert r.status_code == 200 and "We have your message" in r.json()["message"] and "was sent" not in r.json()["message"]
     with Session(engine) as s:
-        assert s.exec(select(AuditEvent).where(AuditEvent.action == "contact_form")).one().result == "failed"
+        assert s.exec(select(AuditEvent).where(AuditEvent.action == "contact_form")).one().result == "queued"
 
 
 def test_contact_daily_limit_per_visitor(client, mailer, make_settings):

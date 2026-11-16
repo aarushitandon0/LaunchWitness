@@ -36,4 +36,10 @@ def reconcile(engine: Engine) -> dict:
             audit.record(s, actor="system", action="reconcile", target=f"run:{run.id}", result="failed",
                          business_id=run.business_id, detail="server restarted while these checks were running")
         s.commit()
-        return {"plans": len(plans), "check_runs": len(runs)}
+        from app import outbox
+
+        mail = outbox.reconcile(s)  # S13: email left "sending" by a crash goes back to the queue
+        if mail:
+            audit.record(s, actor="system", action="reconcile", target="outbox", result="requeued",
+                         detail=f"{mail} email(s) were being sent when the server stopped")
+        return {"plans": len(plans), "check_runs": len(runs), "outbox": mail}

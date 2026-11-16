@@ -103,6 +103,7 @@ class Settings(BaseSettings):
     # (e.g. `mailpit` in deploy/docker-compose.local.yml). Refused for any real host name.
     smtp_security: Literal["ssl", "starttls", "plain"] = "ssl"
     smtp_user: str = "hello@example.com"
+    smtp_daily_limit: int = 250  # S13 placeholder: the owner sets GoDaddy's real per-day send limit
     smtp_password: SecretStr = SecretStr("")
     imap_host: str = "imap.secureserver.net"
     imap_port: int = 993

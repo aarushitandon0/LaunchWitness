@@ -6,6 +6,7 @@ from env only. Per-visitor daily limit; honeypot field against bots; audited.
 """
 
 import re
+import secrets
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -56,13 +57,16 @@ def contact(body: ContactForm, request: Request, settings: Annotated[Settings, D
                             "We'll reply soon — please try again tomorrow if it's urgent.")
     subject = f"[LaunchWitness contact] {name[:60]}"
     text = f"From: {name} <{email}>\n\n{message}\n\n— sent from the LaunchWitness contact form"
-    try:
-        mailer.send(to=settings.smtp_user, subject=subject, body=text)
-    except Exception as e:
-        audit.record(session, actor="visitor", action="contact_form", target=visitor, result="failed",
-                     detail=type(e).__name__)
-        raise HTTPException(status_code=503, detail="Sorry, we couldn't send your message right now. "
-                            "Please try again in a few minutes.") from e
+    from app import outbox
+
+    # S13: the message is kept in the outbox, so a mail outage never loses it (the outbox keeps trying)
+    row = outbox.send(session, settings, mailer, kind="contact", key=f"contact:{secrets.token_hex(12)}",
+                      to=settings.smtp_user, subject=subject, body=text)
+    if row.status != "sent":
+        audit.record(session, actor="visitor", action="contact_form", target=visitor, result="queued",
+                     detail=f"outbox:{row.id} {row.last_error}")
+        return {"ok": True, "message": "Thank you! We have your message. Our email is slow right now, so it may "
+                "take a little while to reach us; we'll reply by email."}
     audit.record(session, actor="visitor", action="contact_form", target=visitor, result="sent",
                  detail=f"to app mailbox, {len(message)} chars")
     return {"ok": True, "message": "Thank you! Your message was sent. We'll reply by email."}

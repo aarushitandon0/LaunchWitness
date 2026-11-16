@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from urllib.parse import urljoin
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app import audit, proof
 from app.agents.executor import Ctx
@@ -21,7 +21,7 @@ from app.agents.planner import DKIM_PENDING
 from app.agents.reader import Profile
 from app.checks.dns_resolver import lookup
 from app.mail.providers import provider_for
-from app.models import CheckResult, Order, utcnow
+from app.models import CheckResult, Order, Outbox, utcnow
 from app.sites.orders import order_recipients
 
 
@@ -207,12 +207,21 @@ def check_test_order(ctx: Ctx) -> Outcome:
                        f"POST {form.action}: status {sent.status} {sent.error}".strip())
     evidence(ctx, "test_order", "form_post", status_code=sent.status, nonce=ticket.nonce, source=web.source,
              server=sent.server, answer=f"order {order.ref}")
-    if order.email_status != "sent":
+    sent_row = ctx.session.exec(select(Outbox).where(Outbox.key == f"order:{order.id}")).first()
+    if order.email_status == "queued":  # S13: held back by our daily send budget (or not tried yet): our side
+        return Outcome("test_order", False, "Your order form works. Our test email is waiting its turn to be sent, "
+                       "so we'll finish this check on the next round.",
+                       f"order {order.ref}: test email queued ({sent_row.last_error if sent_row else 'not tried'})",
+                       unfinished=True)
+    if order.email_status != "sent" or sent_row is None or sent_row.status != "sent":
         return Outcome("test_order", False, "Your order form works, but we couldn't send the order email.",
-                       f"order {order.ref}: mail server refused or unreachable")
+                       f"order {order.ref}: mail server refused or unreachable"
+                       f"{f' ({sent_row.last_error})' if sent_row and sent_row.last_error else ''}")
     fake = ctx.integ.fake
-    evidence(ctx, "test_order", "smtp_accepted", message_id=order.email_message_id, nonce=ticket.nonce,
-             server="pretend mail server" if fake else ctx.settings.smtp_host, source="our mail server")
+    # the outbox's real send result: the Message-ID the mail server accepted, and which try it was
+    evidence(ctx, "test_order", "smtp_accepted", message_id=sent_row.message_id, nonce=ticket.nonce,
+             server="pretend mail server" if fake else ctx.settings.smtp_host, source="our mail server",
+             answer=f"outbox {sent_row.id}, try {sent_row.attempts}")
     recipients = [r.lower() for r in order_recipients(ctx.session, ctx.settings, ctx.business)]
     readable = fake or ctx.settings.imap_user.lower() in recipients
     if not readable:  # her own inbox: only she can prove it arrived

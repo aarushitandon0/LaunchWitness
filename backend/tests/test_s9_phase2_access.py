@@ -282,9 +282,10 @@ def test_signin_smtp_down_says_so(make_settings, engine, claude, integ):
     app, _ = make_app(make_settings, engine, DownMailer(), claude, integ, dev_mode=False)
     with AppClient(app) as c:
         r = c.post("/api/auth/request-link", json={"email": "m@example.org"})
-    assert r.status_code == 503
-    assert r.json()["detail"] == "We couldn't send the email right now. Please try again in a few minutes."
-    assert "sent" not in r.json()["detail"]
+    # S13: the link is kept in the outbox and retried; the answer says so and never says "sent"
+    assert r.status_code == 200 and r.json()["mail_delayed"] is True
+    assert r.json()["message"].startswith("We're having trouble sending email right now. We'll keep trying")
+    assert "sent" not in r.json()["message"]
     assert [e.result for e in events(engine, "login_email")] == ["failed"]
 
 

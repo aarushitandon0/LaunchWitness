@@ -27,6 +27,15 @@ const when = (iso: string) =>
   });
 
 /** A shop's orders, newest first, for its owner (test orders are left out by the server). Mobile-first. */
+// S13: the order's email goes through the outbox; this is its real state (the order itself is always saved)
+const EMAIL_WORDS: Record<string, string> = {
+  sent: "sent",
+  queued: "sending",
+  retrying: "retrying (our email is slow right now; your order is safe here)",
+  failed: "failed: we couldn't email this order to you, but it's saved here",
+  pending: "not recorded",
+};
+
 export function OrdersPage({ businessId }: { businessId: number }) {
   const [biz, setBiz] = useState<Business | null>(null);
   const [orders, setOrders] = useState<Order[] | null>(null);
@@ -103,7 +112,9 @@ export function OrdersPage({ businessId }: { businessId: number }) {
             </ul>
             {o.note && <p className="order-note">“{o.note}”</p>}
             <p className="order-phone">{o.tel_url ? <a href={o.tel_url}>{o.customer_phone}</a> : o.customer_phone}</p>
-            {o.email_status === "failed" && <p className="warn">We couldn't email this order to you.</p>}
+            <p className={`order-email ${o.email_status === "failed" ? "warn" : "muted"}`}>
+              Email to you: {EMAIL_WORDS[o.email_status] ?? o.email_status}
+            </p>
             <div className="order-actions">
               {o.whatsapp_url && (
                 <a className="btn btn-wa btn-sm" href={o.whatsapp_url} target="_blank" rel="noopener noreferrer">

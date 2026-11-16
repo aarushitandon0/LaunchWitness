@@ -22,7 +22,8 @@ TIMEOUT_S = 30
 
 
 class Mailer(Protocol):
-    def send(self, *, to: str, subject: str, body: str, html: str | None = None) -> str: ...
+    def send(self, *, to: str, subject: str, body: str, html: str | None = None, message_id: str | None = None,
+             timeout: float | None = None) -> str: ...
 
 
 class SmtpMailer:
@@ -33,18 +34,18 @@ class SmtpMailer:
         self._password = settings.smtp_password
         self.security = settings.smtp_security
 
-    def _connect(self) -> smtplib.SMTP:
+    def _connect(self, timeout: float = TIMEOUT_S) -> smtplib.SMTP:
         if self.security == "plain":  # local catch-all only (config refuses it for real host names)
-            return smtplib.SMTP(self.host, self.port, timeout=TIMEOUT_S)
+            return smtplib.SMTP(self.host, self.port, timeout=timeout)
         context = ssl.create_default_context()
         if self.port != STARTTLS_PORT and self.security == "ssl":
             try:
-                return smtplib.SMTP_SSL(self.host, self.port, context=context, timeout=TIMEOUT_S)
+                return smtplib.SMTP_SSL(self.host, self.port, context=context, timeout=timeout)
             except (ConnectionError, TimeoutError, ssl.SSLError, smtplib.SMTPConnectError,
                     smtplib.SMTPServerDisconnected) as e:
                 log.warning("SMTP SSL to %s:%s failed (%s); trying port %s with STARTTLS",
                             self.host, self.port, type(e).__name__, STARTTLS_PORT)
-        s = smtplib.SMTP(self.host, STARTTLS_PORT if self.security == "ssl" else self.port, timeout=TIMEOUT_S)
+        s = smtplib.SMTP(self.host, STARTTLS_PORT if self.security == "ssl" else self.port, timeout=timeout)
         try:
             s.starttls(context=context)
         except Exception:
@@ -52,16 +53,19 @@ class SmtpMailer:
             raise
         return s
 
-    def send(self, *, to: str, subject: str, body: str, html: str | None = None) -> str:
+    def send(self, *, to: str, subject: str, body: str, html: str | None = None, message_id: str | None = None,
+             timeout: float | None = None) -> str:
+        """`message_id`: the outbox plans it, so a retry after an unclear failure carries the same id (mail apps
+        show one copy). `timeout`: seconds per network step (a sign-in tries briefly while the person waits)."""
         msg = EmailMessage()
         msg["From"] = self.user
         msg["To"] = to
         msg["Subject"] = subject
-        msg["Message-ID"] = make_msgid(domain=self.user.split("@")[-1])
+        msg["Message-ID"] = message_id or make_msgid(domain=self.user.split("@")[-1])
         msg.set_content(body)
         if html:
             msg.add_alternative(html, subtype="html")
-        with self._connect() as s:
+        with self._connect(timeout or TIMEOUT_S) as s:
             if self.security != "plain" or self._password.get_secret_value():
                 s.login(self.user, self._password.get_secret_value())
             s.send_message(msg)
@@ -88,7 +92,8 @@ class FakeMailer:
     def login_test(self) -> str:
         return "ok: connected and signed in"
 
-    def send(self, *, to: str, subject: str, body: str, html: str | None = None) -> str:
+    def send(self, *, to: str, subject: str, body: str, html: str | None = None, message_id: str | None = None,
+             timeout: float | None = None) -> str:
         if self.fail:
             raise ConnectionError("mail service unreachable")
         message_id = f"<fake-{len(self.sent) + 1}@launchwitness.test>"

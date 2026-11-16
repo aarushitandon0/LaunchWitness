@@ -1,6 +1,7 @@
 """Sign-in by emailed link, sessions, "who am I", and deleting the account."""
 
 import logging
+from datetime import timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -12,7 +13,7 @@ from app.config import Settings, get_settings
 from app.db import get_session
 from app.integrations import Integrations, for_business, get_integrations, get_practice_integrations
 from app.mail.smtp import Mailer, get_mailer
-from app.models import Business, Membership, User
+from app.models import Business, Membership, User, utcnow
 from app.safety.access import ACTIVE, COOKIE_VALUE, ActorDep, csrf_for, require_user, visitor_id
 from app.tenancy import purge_business
 
@@ -21,6 +22,8 @@ router = APIRouter(prefix="/api", tags=["auth"])
 
 EXPIRED = "This link has expired or was already used. Please ask for a new one."
 NO_EMAIL = "We couldn't send the email right now. Please try again in a few minutes."
+DELAYED = ("We're having trouble sending email right now. We'll keep trying for a few minutes: if the email "
+           "arrives, its link works as usual. If nothing comes in 15 minutes, please ask for a new link.")
 
 
 class LinkRequest(BaseModel):
@@ -31,19 +34,23 @@ class LinkRequest(BaseModel):
 def send_link(settings: Settings, mailer: Mailer, session: Session, *, kind: str, email: str, page: str, raw: str,
               next_: str = "") -> dict:
     """Email the link. In DEV_MODE (local only) nothing is emailed and the link is returned instead.
-    If the mail server is down we say so: we never pretend an email went out."""
+
+    S13: the link is saved in the outbox and tried at once with a short timeout. If that fails we say so plainly
+    (we never say "sent" when it wasn't) and the outbox keeps trying until the link would arrive expired."""
+    from app import outbox
+
     url = accounts.link_url(settings, page, raw, next_)
     if settings.dev_mode:
         return {"dev_link": url}
     subject, text, html = accounts.link_email(kind, url)
-    try:
-        mailer.send(to=email, subject=subject, body=text, html=html)
-    except Exception as e:
-        log.warning("could not send %s email: %s", kind, type(e).__name__)
-        audit.record(session, actor="system", action=f"{kind}_email", result="failed", detail=type(e).__name__)
-        raise HTTPException(status_code=503, detail=NO_EMAIL) from e
-    audit.record(session, actor="system", action=f"{kind}_email", result="sent")
-    return {}
+    row = outbox.send(session, settings, mailer, kind="login", key=f"{kind}:{accounts.sha(raw)[:32]}", to=email,
+                      subject=subject, body=text, html=html,
+                      expires_at=utcnow() + timedelta(minutes=accounts.TOKEN_MINUTES) - outbox.LINK_MARGIN,
+                      ref={"audit": {"actor": "system", "action": f"{kind}_email"}})
+    if row.status == "sent":
+        return {}
+    log.warning("could not send %s email at once: %s", kind, row.last_error)
+    return {"mail_delayed": True, "message": DELAYED}
 
 
 @router.post("/auth/request-link")

@@ -202,7 +202,7 @@ def test_order_is_stored_and_emailed(client, engine, mailer, meera, settings):
         assert (order.business_id, order.total_inr, order.email_status) == (meera["id"], 1490, "sent")
         assert order.email_message_id == mail["message_id"]
         actions = {e.action: e.result for e in s.exec(select(AuditEvent)).all()}
-        assert actions["order_placed"] == "ok" and actions["order_email"] == "ok"
+        assert actions["order_placed"] == "ok" and actions["order_email"] == "sent"  # S13: the outbox's words
 
     assert client.get(f"/api/businesses/{meera['id']}/orders").json()[0]["total_inr"] == 1490
 
@@ -241,7 +241,8 @@ def test_order_saved_even_if_email_fails(client, engine, mailer, meera):
     mailer.send = boom
     assert client.post("/order", data=order_form(), headers={"host": MEERA}).status_code == 200
     with Session(engine) as s:
-        assert s.exec(select(Order)).one().email_status == "failed"
+        # S13: kept and retried by the outbox (dead letters are "failed": test_s13_outbox.py)
+        assert s.exec(select(Order)).one().email_status == "retrying"
         assert s.exec(select(AuditEvent).where(AuditEvent.action == "order_email")).one().result == "failed"
 
 

@@ -36,6 +36,15 @@ def health(settings: Annotated[Settings, Depends(get_settings)], actor: ActorDep
         texts.append(f"{unsent} alert email{'s' if unsent != 1 else ''} couldn't be sent in the last day (our mail "
                      "service refused or was unreachable). Each is tried again on the next monitoring round.")
         codes.append("alerts_unsent")
+    if actor.is_admin:  # S13: email the outbox gave up on (dead letters), the team only
+        from app import outbox
+
+        dead = outbox.dead_recently(session)
+        if dead:
+            texts.append(f"{dead} email{'s' if dead != 1 else ''} couldn't be delivered in the last day and won't be "
+                         "tried again (the mail server refused it, or it kept failing for about 2 hours). See the "
+                         "team page, Email outbox.")
+            codes.append("outbox_dead")
     if texts:
         out["warnings"], out["warning_codes"] = texts, codes
     return out

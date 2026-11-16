@@ -133,8 +133,10 @@ class PracticeShopWeb:
 
     source = "practice: the shop page and form handler, in-process"
 
-    def __init__(self, session: Session, settings: Settings, mailer, business: Business, host: str):
+    def __init__(self, session: Session, settings: Settings, mailer, business: Business, host: str,
+                 channel: str = "practice"):
         self.session, self.settings, self.mailer, self.business, self.host = session, settings, mailer, business, host
+        self.channel = channel
 
     def _mine(self, url: str) -> bool:
         from urllib.parse import urlsplit
@@ -158,13 +160,16 @@ class PracticeShopWeb:
             return Page(404, "", url, error="not this shop")
         profile = Profile.model_validate_json(self.business.profile_json)
         status, html = accept_order_form(self.session, self.settings, self.mailer, business=self.business,
-                                         profile=profile, form=fields, visitor="")
+                                         profile=profile, form=fields, visitor="", channel=self.channel)
         return Page(status, html, url, server="in-process")
 
 
 def in_process(ctx) -> PracticeShopWeb:
     """The fake world's way to reach a shop (also used by tests that stand in for the real server)."""
-    return PracticeShopWeb(ctx.session, ctx.settings, ctx.integ.mailer, ctx.business, ctx.plan.site_host)
+    from app.outbox import channel_of
+
+    return PracticeShopWeb(ctx.session, ctx.settings, ctx.integ.mailer, ctx.business, ctx.plan.site_host,
+                           channel=channel_of(ctx.integ))
 
 
 # ---------- reading the order form like a browser would ----------
