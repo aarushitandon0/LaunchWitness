@@ -2,8 +2,9 @@ import { FormEvent, useEffect, useState } from "react";
 import { api, ApiError, Sample } from "./api";
 import { goTo } from "./App";
 import { rememberNote } from "./Report";
+import { StepHeader } from "./Steps";
 
-export default function Describe() {
+export default function Describe({ guest = false }: { guest?: boolean }) {
   const [description, setDescription] = useState("");
   const [priceList, setPriceList] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
@@ -32,8 +33,15 @@ export default function Describe() {
 
   return (
     <>
-      <p className="eyebrow">Step 1 of 5 · describe</p>
+      <StepHeader current="describe" />
+      <p className="eyebrow">Step 1 of 5 · describe{guest ? " · practice" : ""}</p>
       <h1>Describe your business</h1>
+      {guest && (
+        <p className="practice" role="note">
+          Practice only, without an account: your shop can't go live and is deleted after 24 hours.{" "}
+          <a href="#/signin?next=new">Sign in</a> to keep it and launch for real.
+        </p>
+      )}
       <p className="tagline">
         Tell us in your own words what you sell, where, and when you're open. Paste your price list or add a photo of
         it. We'll turn it into your website — you can check and change everything next.
@@ -90,7 +98,7 @@ export default function Describe() {
       </form>
 
       <p className="muted">
-        Already made one? <a href="#/shops">See your shops</a>.
+        Already made one? <a href="#/shops">{guest ? "See your practice shops" : "See your shops"}</a>.
       </p>
     </>
   );
@@ -100,6 +108,11 @@ export function ErrorBox({ error }: { error: ApiError }) {
   return (
     <div className="status status-error" role="alert">
       <p>{error.message}</p>
+      {error.status === 404 && (
+        <p>
+          <a href="#/shops">Back to My shops</a>
+        </p>
+      )}
       {error.details !== null && typeof error.details !== "string" && (
         <details>
           <summary>Details</summary>

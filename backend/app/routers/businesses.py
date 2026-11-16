@@ -17,7 +17,7 @@ from app.agents.reader import MAX_IMAGE_BYTES, Profile, ReaderError, read_busine
 from app.config import Settings, get_settings
 from app.db import get_engine, get_session
 from app.integrations import Integrations, for_business, get_integrations, get_practice_integrations
-from app.models import Business, Membership, Order
+from app.models import Business, Membership, Order, Plan
 from app.safety.access import (
     ActorDep,
     csrf_for,
@@ -56,9 +56,18 @@ def unique_subdomain(session: Session, base: str) -> str:
     return candidate
 
 
+def latest_plan(session: Session | None, b: Business) -> dict | None:
+    """The shop's newest launch plan, so the app can resume the 5-step flow at the right step."""
+    if session is None:
+        return None
+    p = session.exec(select(Plan).where(Plan.business_id == b.id).order_by(Plan.id.desc())).first()
+    return {"id": p.id, "status": p.status, "practice": p.practice} if p else None
+
+
 def business_out(b: Business, settings: Settings, session: Session | None = None) -> dict:
     owners = owner_emails(session, b.id) if session is not None else []
     return {
+        "latest_plan": latest_plan(session, b),
         "name": b.name,
         "guest": bool(b.guest_hash),  # made without signing in: practice only, kept for 24 hours
         "paused": b.paused,

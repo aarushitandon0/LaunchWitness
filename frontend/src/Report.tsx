@@ -1,3 +1,4 @@
+import { StepHeader } from "./Steps";
 import { AnimatePresence, motion } from "framer-motion";
 import { ShopLink } from "./ShopLink";
 import { useEffect, useState } from "react";
@@ -230,6 +231,7 @@ export function ReportPage({ businessId }: { businessId: number }) {
 
   return (
     <>
+      <StepHeader current="report" businessId={businessId} />
       <p className="eyebrow report-name">Step 5 of 5 · proof · {rep.business.name}</p>
       <motion.div className={`headline ${headClass}`} layout="position" transition={{ duration: 0.4, ease: EASE }}>
         <span className="icon">{waiting ? <Spinner size={30} /> : rep.ready ? <Tick size={30} /> : <Cross size={30} />}</span>

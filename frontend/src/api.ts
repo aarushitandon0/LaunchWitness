@@ -56,6 +56,7 @@ export type Renewal = {
 
 export type Business = {
   renewal?: Renewal | null; // My shops: the renewal that needs attention soonest
+  latest_plan: { id: number; status: Plan["status"]; practice: boolean } | null; // resume the 5-step flow here
   id: number;
   name: string;
   subdomain: string;
@@ -306,7 +307,7 @@ export class ApiError extends Error {
 export let lastAssistantNote: string | null = null;
 
 /** Pages that work without signing in. A 401 anywhere else sends the person to sign in. */
-const OPEN_PAGES = /^#\/(try|signin.*|check|got-it)?$/;
+const OPEN_PAGES = /^#\/(try|new|signin.*|check|got-it|privacy|terms)?$/;
 
 function toSignIn() {
   const here = window.location.hash || "#/";

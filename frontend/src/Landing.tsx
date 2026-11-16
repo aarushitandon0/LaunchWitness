@@ -124,7 +124,7 @@ export default function Landing() {
                 what breaks, and keeps checking.
               </p>
               <div className="hero-meta">
-                <a className="btn btn-primary" href="#/try">
+                <a className="btn btn-primary" href="#/new">
                   Start
                 </a>
                 <a className="dotlink" href="/demo/meera">
@@ -132,8 +132,8 @@ export default function Landing() {
                 </a>
               </div>
               <p className="small">
-                Just looking? You can try it without an account, in practice mode: nothing is bought and nothing goes on
-                the internet.
+                Just looking? <a href="#/try">Try it without an account</a>, in practice mode: nothing is bought and
+                nothing goes on the internet.
               </p>
             </motion.div>
           </div>
@@ -206,7 +206,7 @@ export default function Landing() {
               ))}
             </ul>
             <div className="actions">
-              <a className="btn btn-primary" href="#/try">
+              <a className="btn btn-primary" href="#/new">
                 Try it yourself
               </a>
               <a className="btn btn-ghost" href="/demo/meera">
@@ -357,19 +357,26 @@ function Marquee() {
   );
 }
 
-/** Abstract "launch layers": four slabs (site, name, email, proof) that drift apart as you scroll. Pure SVG. */
+/** Abstract "launch layers": six soft, rounded layers (site, name, email, order, proof…) that breathe gently and
+ * fan apart as you scroll. Each layer is a static SVG on its own GPU layer; only transforms animate, so it stays smooth. */
+const LAYERS = [
+  { fill: "url(#lw-g-ink)", side: "#141412" },
+  { fill: "url(#lw-g-plum)", side: "#7a4a63" },
+  { fill: "url(#lw-g-amber)", side: "#cf7a33" },
+  { fill: "url(#lw-g-coral)", side: "#d9776a" },
+  { fill: "url(#lw-g-lime)", side: "#a6bb34" },
+  { fill: "url(#lw-g-paper)", side: "#d6cab4" },
+];
+const BASE_Y = 340; // centre of the lowest layer
+const STEP = 42; // gap between layers at rest
+
 function HeroShape({ progress }: { progress: MotionValue<number> }) {
   const calm = useCalm();
-  const spread = (k: number) => useTransform(progress, [0, 1], [0, calm ? 0 : -k]);
-  const ys = [spread(0), spread(26), spread(56), spread(92)];
-  const ballY = useTransform(progress, [0, 1], [0, calm ? 0 : -140]);
-  const rot = useTransform(progress, [0, 1], [0, calm ? 0 : -8]);
-  const slabs = [
-    { cy: 330, top: "url(#lw-g-ink)", left: "#0d0d0c", right: "#2a2a27" },
-    { cy: 272, top: "url(#lw-g-amber)", left: "#c9772c", right: "#e3934a" },
-    { cy: 214, top: "url(#lw-g-lime)", left: "#a9bd3a", right: "#c3d851" },
-    { cy: 156, top: "url(#lw-g-paper)", left: "#d8cdb8", right: "#ece3d2" },
-  ];
+  // One scroll value drives everything; each layer reads it through a cheap linear map.
+  const spread = useTransform(progress, [0, 1], [0, calm ? 0 : 1]);
+  const ys = LAYERS.map((_, i) => useTransform(spread, (v) => -v * i * 22)); // eslint-disable-line react-hooks/rules-of-hooks
+  const ringY = useTransform(spread, (v) => -v * 150);
+  const tilt = useTransform(spread, (v) => -v * 6);
   return (
     <motion.div
       className="hero-shape"
@@ -378,36 +385,27 @@ function HeroShape({ progress }: { progress: MotionValue<number> }) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 1.2, delay: 0.2, ease: EASE }}
     >
-      {/* Each layer is its own HTML element so the browser can move it on the GPU without repainting the drawing. */}
-      <motion.div className="shape-rot" style={{ rotate: rot }}>
+      <motion.div className="shape-rot" style={{ rotate: tilt }}>
         <svg className="shape-layer" viewBox="0 0 400 460">
           <Defs />
-          <ellipse cx="200" cy="420" rx="170" ry="34" fill="url(#lw-g-shadow)" />
+          <ellipse cx="200" cy="420" rx="168" ry="30" fill="url(#lw-g-shadow)" />
         </svg>
-        {slabs.map((s, i) => (
+        {LAYERS.map((l, i) => (
           <motion.div key={i} className="shape-layer" style={{ y: ys[i] }}>
-            <svg viewBox="0 0 400 460">
-              <Slab cy={s.cy} top={s.top} left={s.left} right={s.right} />
-              {i === 3 && (
-                <g>
-                  <ellipse cx="200" cy={s.cy} rx="44" ry="25" fill="#161614" />
-                  <path
-                    d={`M182 ${s.cy + 1} l12 6 l22 -14`}
-                    fill="none"
-                    stroke="#dcf06a"
-                    strokeWidth="5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </g>
-              )}
-            </svg>
+            <div className={calm ? "shape-layer" : "shape-layer breathe"} style={{ animationDelay: `${-i * 0.45}s` }}>
+              <svg viewBox="0 0 400 460">
+                <Pebble cy={BASE_Y - i * STEP} fill={l.fill} side={l.side} size={1 - i * 0.035} />
+                {i === LAYERS.length - 1 && <Seal cy={BASE_Y - i * STEP} />}
+              </svg>
+            </div>
           </motion.div>
         ))}
-        <motion.div className="shape-layer" style={{ y: ballY }}>
-          <div className="shape-layer float">
+        <motion.div className="shape-layer" style={{ y: ringY }}>
+          <div className={calm ? "shape-layer" : "shape-layer orbit"}>
             <svg viewBox="0 0 400 460">
-              <circle cx="292" cy="70" r="24" fill="url(#lw-g-ball)" />
+              <ellipse cx="200" cy="40" rx="122" ry="26" fill="none" stroke="url(#lw-g-ring)" strokeWidth="3" />
+              <circle cx="312" cy="30" r="20" fill="url(#lw-g-ball)" />
+              <circle cx="90" cy="50" r="9" fill="url(#lw-g-ball2)" />
             </svg>
           </div>
         </motion.div>
@@ -416,46 +414,76 @@ function HeroShape({ progress }: { progress: MotionValue<number> }) {
   );
 }
 
+/** An isometric rounded square ("pebble") with a smooth extruded edge. */
+function Pebble({ cy, fill, side, size }: { cy: number; fill: string; side: string; size: number }) {
+  const half = 104 * size, r = 46 * size, depth = 16;
+  const iso = (y: number) => `translate(200 ${y}) scale(1 0.56) rotate(45)`;
+  const rect = (paint: string, y: number, key?: number) => (
+    <rect key={key} x={-half} y={-half} width={half * 2} height={half * 2} rx={r} fill={paint} transform={iso(y)} />
+  );
+  return (
+    <g>
+      {/* the edge: a few copies stepping down, so the side reads as one smooth curved band */}
+      {Array.from({ length: 6 }, (_, k) => rect(side, cy + depth - k * (depth / 6), k))}
+      {rect(fill, cy)}
+      <rect
+        x={-half + 6}
+        y={-half + 6}
+        width={half * 2 - 12}
+        height={half * 2 - 12}
+        rx={r - 4}
+        fill="none"
+        stroke="rgba(255,255,255,0.35)"
+        strokeWidth="2"
+        transform={iso(cy)}
+      />
+    </g>
+  );
+}
+
+function Seal({ cy }: { cy: number }) {
+  return (
+    <g>
+      <ellipse cx="200" cy={cy} rx="42" ry="24" fill="#161614" />
+      <path d={`M183 ${cy + 1} q6 4 11 7 q10 -8 22 -15`} fill="none" stroke="#dcf06a" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+    </g>
+  );
+}
+
 function Defs() {
+  const lin = (id: string, a: string, b: string) => (
+    <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stopColor={a} />
+      <stop offset="1" stopColor={b} />
+    </linearGradient>
+  );
   return (
     <defs>
-      <linearGradient id="lw-g-ink" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stopColor="#3b3b37" />
-        <stop offset="1" stopColor="#151513" />
-      </linearGradient>
-      <linearGradient id="lw-g-amber" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stopColor="#ffd2a1" />
-        <stop offset="1" stopColor="#f29a52" />
-      </linearGradient>
-      <linearGradient id="lw-g-lime" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stopColor="#f3fbb8" />
-        <stop offset="1" stopColor="#cfe556" />
-      </linearGradient>
-      <linearGradient id="lw-g-paper" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stopColor="#ffffff" />
-        <stop offset="1" stopColor="#efe6d6" />
+      {lin("lw-g-ink", "#4a4a45", "#191917")}
+      {lin("lw-g-plum", "#f0c9dc", "#b7799a")}
+      {lin("lw-g-amber", "#ffd9ad", "#f09a50")}
+      {lin("lw-g-coral", "#ffd0c4", "#ee8f80")}
+      {lin("lw-g-lime", "#f6fcc4", "#cde353")}
+      {lin("lw-g-paper", "#ffffff", "#efe6d6")}
+      <linearGradient id="lw-g-ring" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stopColor="rgba(31,31,29,0)" />
+        <stop offset="0.5" stopColor="rgba(31,31,29,0.45)" />
+        <stop offset="1" stopColor="rgba(31,31,29,0)" />
       </linearGradient>
       <radialGradient id="lw-g-ball" cx="0.35" cy="0.3" r="0.75">
         <stop offset="0" stopColor="#fbffd9" />
         <stop offset="0.45" stopColor="#dcf06a" />
         <stop offset="1" stopColor="#7f8f1f" />
       </radialGradient>
+      <radialGradient id="lw-g-ball2" cx="0.35" cy="0.3" r="0.75">
+        <stop offset="0" stopColor="#ffe7d1" />
+        <stop offset="1" stopColor="#e0803d" />
+      </radialGradient>
       <radialGradient id="lw-g-shadow" cx="0.5" cy="0.5" r="0.5">
-        <stop offset="0" stopColor="rgba(60,40,10,0.28)" />
+        <stop offset="0" stopColor="rgba(60,40,10,0.26)" />
         <stop offset="1" stopColor="rgba(60,40,10,0)" />
       </radialGradient>
     </defs>
-  );
-}
-
-function Slab({ cy, top, left, right }: { cy: number; top: string; left: string; right: string }) {
-  const cx = 200, w = 150, h = 86, t = 20;
-  return (
-    <g strokeLinejoin="round">
-      <path d={`M${cx - w} ${cy} L${cx} ${cy + h} L${cx} ${cy + h + t} L${cx - w} ${cy + t} Z`} fill={left} stroke={left} strokeWidth="6" />
-      <path d={`M${cx} ${cy + h} L${cx + w} ${cy} L${cx + w} ${cy + t} L${cx} ${cy + h + t} Z`} fill={right} stroke={right} strokeWidth="6" />
-      <path d={`M${cx} ${cy - h} L${cx + w} ${cy} L${cx} ${cy + h} L${cx - w} ${cy} Z`} fill={top} stroke={top} strokeWidth="6" />
-    </g>
   );
 }
 

@@ -264,7 +264,7 @@ input[type="checkbox"] { accent-color: var(--ink); width: 18px; height: 18px; }
 }
 .with-notch .hero-card { border-top-left-radius: var(--r-xl); }
 .hero-inner {
-  position: relative; height: 100%; display: grid; grid-template-columns: 1fr; align-content: center;
+  position: relative; height: 100%; display: grid; grid-template-columns: 1fr; align-content: safe center;
   padding: var(--s-6) var(--gutter) var(--s-7); gap: var(--s-5); max-width: 1320px; margin: 0 auto;
 }
 .display {
@@ -284,10 +284,14 @@ input[type="checkbox"] { accent-color: var(--ink); width: 18px; height: 18px; }
 .hero-shape { position: absolute; right: -8%; bottom: -6%; width: min(82vw, 440px); aspect-ratio: 1; pointer-events: none; opacity: 0.95; }
 .hero-shape svg { width: 100%; height: 100%; overflow: visible; display: block; }
 .hero-dim { position: absolute; inset: 0; background: var(--ink); pointer-events: none; opacity: 0; will-change: opacity; }
+.hero-shape { contain: layout paint; }
 .shape-rot { position: absolute; inset: 0; will-change: transform; }
-.shape-layer { position: absolute; inset: 0; will-change: transform; }
-.hero-shape .float { animation: float 6s var(--ease-in-out) infinite; }
-@keyframes float { 50% { transform: translateY(-10px); } }
+.shape-layer { position: absolute; inset: 0; will-change: transform; backface-visibility: hidden; }
+/* idle motion: transform-only keyframes, run by the compositor */
+.hero-shape .breathe { animation: breathe 5.5s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+@keyframes breathe { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(0, -7px, 0); } }
+.hero-shape .orbit { animation: orbit 9s cubic-bezier(0.45, 0, 0.55, 1) infinite; transform-origin: 50% 9%; }
+@keyframes orbit { 0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); } 50% { transform: translate3d(0, -12px, 0) rotate(-4deg); } }
 .scroll-cue { position: absolute; right: var(--gutter); bottom: var(--s-5); font-size: var(--fs-xs); color: var(--muted); display: none; align-items: center; gap: 0.5rem; }
 .scroll-cue span { width: 1px; height: 28px; background: currentColor; transform-origin: top; animation: cue 2.4s var(--ease-in-out) infinite; }
 @keyframes cue { 0% { transform: scaleY(0); } 50% { transform: scaleY(1); transform-origin: top; } 51% { transform-origin: bottom; } 100% { transform: scaleY(0); transform-origin: bottom; } }
@@ -295,7 +299,8 @@ input[type="checkbox"] { accent-color: var(--ink); width: 18px; height: 18px; }
   .hero-inner { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); grid-template-areas: "head shape" "copy shape"; align-content: center; column-gap: var(--s-6); }
   .hero-head { grid-area: head; align-self: end; }
   /* two columns: the headline column is ~half the screen, so the type must not outgrow it */
-  .display { font-size: min(var(--fs-display), 6.9vw, 6rem); }
+  /* …and must fit the screen's height too, so nothing is cut off at the top on shorter laptop screens */
+  .display { font-size: min(var(--fs-display), 6.9vw, 6rem, 12svh); }
   .hero-copy { grid-area: copy; align-self: start; }
   .hero-shape { grid-area: shape; position: relative; right: auto; bottom: auto; top: auto; width: 100%; max-width: 520px; justify-self: end; align-self: center; }
   .scroll-cue { display: flex; }
@@ -462,3 +467,26 @@ input[type="checkbox"] { accent-color: var(--ink); width: 18px; height: 18px; }
 .who-groups strong { font-weight: 600; }
 .who-groups span { opacity: .8; }
 .demo-others a { text-decoration: underline; }
+
+/* S10.5: small screens get the main links as a row under the top bar (the notch is hidden there) */
+.mobile-nav { display: none; }
+@media (max-width: 760px) {
+  .mobile-nav { display: flex; gap: 0.35rem; overflow-x: auto; padding: 0 var(--s-3) var(--s-3); scrollbar-width: none; }
+  .mobile-nav a { flex: none; display: inline-flex; align-items: center; height: 32px; padding: 0 0.8rem; border-radius: var(--r-pill);
+    color: var(--on-ink); font-size: var(--fs-sm); text-decoration: none; border: 1px solid rgba(255,255,255,.28); }
+  .mobile-nav a[aria-current="page"] { background: var(--cream); color: var(--text); border-color: var(--cream); }
+}
+.status-info { background: var(--paper); border-color: var(--line-strong); color: var(--text); }
+.practice-mini { font-size: var(--fs-sm); padding: 6px 12px; margin-bottom: var(--s-3); }
+/* the 5-step header */
+.stepper ol { list-style: none; display: flex; flex-wrap: wrap; gap: 0.35rem; padding: 0; margin: 0 0 var(--s-4); }
+.stepper li > a, .stepper li > span { display: inline-flex; align-items: center; gap: 0.4rem; height: 30px; padding: 0 0.75rem;
+  border-radius: var(--r-pill); font-size: var(--fs-sm); text-decoration: none; border: 1px solid var(--line-strong); color: var(--text); }
+.stepper .n { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; font-size: 11px; background: var(--line); }
+.stepper-here > span { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+.stepper-here .n { background: var(--accent); color: var(--accent-ink); }
+.stepper-done > a:hover { background: var(--paper); border-color: var(--text); }
+.stepper-done .n { background: var(--success-soft); color: var(--success); }
+.stepper-todo > span { opacity: 0.55; }
+.shop-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
+.new-count { display: inline-block; margin-left: 0.4rem; padding: 0 0.5rem; border-radius: var(--r-pill); background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 600; }

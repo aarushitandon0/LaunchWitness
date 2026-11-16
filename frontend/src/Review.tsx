@@ -3,6 +3,7 @@ import { ShopLink } from "./ShopLink";
 import { api, ApiError, Business, inr, Order, Product, Profile } from "./api";
 import { ErrorBox } from "./Describe";
 import { takeNote } from "./Report";
+import { StepHeader } from "./Steps";
 
 type TextKey = {
   [K in keyof Profile]: Profile[K] extends string ? (K extends "kind" | "not_supported_reason" ? never : K) : never;
@@ -92,7 +93,8 @@ export default function Review({ id }: { id: number }) {
 
   return (
     <form onSubmit={save}>
-      <p className="eyebrow">Step 2 of 5 · check</p>
+      <StepHeader current="review" businessId={id} />
+      <p className="eyebrow">Step 2 of 5 · review</p>
       <h1>Check your details</h1>
       <p className="tagline">This is what we understood. Fix anything that's wrong, then save — your website updates straight away.</p>
       {note && (

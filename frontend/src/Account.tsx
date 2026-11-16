@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { api, ApiError, BusinessSummary, Me, session } from "./api";
 import { goTo } from "./App";
 import { ErrorBox } from "./Describe";
+import { resumeHash, resumeLabel } from "./Steps";
 
 /** The signed-in account (null while loading). The server decides what anyone may do; this is only for display. */
 export function useMe(fresh = false): Me | null {
@@ -75,7 +76,13 @@ export function SignInPage() {
     <>
       <p className="eyebrow">Sign in</p>
       <h1>Sign in to LaunchWitness</h1>
-      <p className="tagline">We'll email you a link. Your shop's orders and warnings go to this address.</p>
+      {next === "new" && (
+        <p className="status status-info" role="note">
+          Your shop and its orders belong to your account, so please sign in first. After you tap the link in the
+          email you'll come straight back to describing your business.
+        </p>
+      )}
+      <p className="tagline">We'll email you a link. No password needed. Your shop's orders and warnings go to this address.</p>
       <form className="card" onSubmit={submit}>
         <label className="field">
           <span>Your email</span>
@@ -95,8 +102,8 @@ export function SignInPage() {
           {busy ? "Sending…" : "Email me a link"}
         </button>
       </form>
-      <p className="muted">
-        Just looking? You can <a href="#/try">try it without signing in</a>. Practice shops are kept for a day.
+      <p className="muted try-guest">
+        Just looking? <a href="#/try">Try it without an account</a> (practice only, deleted after 24 hours).
       </p>
       <p className="muted">
         By signing in you agree to our <a href="#/terms">Terms of use</a>. Our <a href="#/privacy">Privacy page</a> says
@@ -185,7 +192,7 @@ export function MyShopsPage() {
       {shops.length === 0 ? (
         <section className="card">
           <p>No shops yet.</p>
-          <a className="btn btn-primary" href="#/try">
+          <a className="btn btn-primary" href={user ? "#/new" : "#/try"}>
             Describe your business
           </a>
         </section>
@@ -211,16 +218,18 @@ export function MyShopsPage() {
                   </>
                 )}
               </span>
-              <a className="btn btn-ghost btn-sm" href={`#/b/${b.id}/report`}>
-                Report
-              </a>
+              <span className="shop-actions">
+                <a className="btn btn-ghost btn-sm" href={resumeHash(b)}>
+                  {resumeLabel(b)}
+                </a>
+              </span>
             </li>
           ))}
         </ul>
       )}
       {user && shops.length > 0 && shops.length < me.limits.shops && (
         <p>
-          <a href="#/try">Make another shop</a> <span className="muted">(up to {me.limits.shops})</span>
+          <a href="#/new">Make another shop</a> <span className="muted">(up to {me.limits.shops})</span>
         </p>
       )}
     </>

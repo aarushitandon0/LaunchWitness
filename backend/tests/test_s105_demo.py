@@ -52,3 +52,14 @@ def test_demo_has_no_contact_details_even_if_a_sample_gains_them():
     for name in DEMOS:
         p = demo_profile(name)
         assert (p.phone, p.whatsapp, p.upi_id) == ("", "", "")
+
+
+def test_shop_says_where_to_resume(client):
+    """S10.5 §2: My shops resumes a half-finished shop at the right step, from the shop's latest plan."""
+    from tests.test_m3_launch import meera, plan
+
+    biz = meera(client)
+    assert biz["latest_plan"] is None  # → resume at Review
+    p = plan(client, biz)
+    listed = {b["id"]: b for b in client.get("/api/businesses").json()}
+    assert listed[biz["id"]]["latest_plan"] == {"id": p["id"], "status": "draft", "practice": True}  # → Approve
