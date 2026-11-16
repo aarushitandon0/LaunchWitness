@@ -2,7 +2,7 @@
 `backend/tests/fixtures/claude/investigate_<check>_t<turn>.json` (one file per turn).
 
 Run on the owner's laptop:  cd backend && CLAUDE_MODE=live ../.venv/Scripts/python ../scripts/capture_doctor_investigation.py [--dry-run] [--cap 0.30]
-S12 (parked-page fault + "Describe the problem", 5 conversations, cap $0.10):  … capture_doctor_investigation.py --s12 [--dry-run]
+S12 (parked-page fault + "Describe the problem", 5 conversations, cap $0.10):  … capture_doctor_investigation.py --s12 [--dry-run] [--only key,key]
 
 The tools are NOT run for real here: each fault has the exact results the pretend world gives in the tests
 (same shop `meera.localhost`, same texts), so the saved turns replay against that world. Only Claude is live.
@@ -73,7 +73,7 @@ S12 = {
     "https_symptom": {**SCENARIOS["https"], "symptom": "Customers see a security warning"},
     "https_marker_symptom": {"failed": Outcome("https", False, "Your address opens a page, but it isn't your shop.",
                                                "status=200 cert_valid=True; shop marker missing (page status 200)"),
-                             "tools": {"fetch": MARKER_PAGE, "resolve": GOOD_A},
+                             "tools": {"fetch": MARKER_PAGE, "resolve": GOOD_A, "evidence": "site_points:dns_answer"},
                              "expect": "repoint_site", "symptom": "My address opens someone else's page"},
     "test_order_symptom": {**SCENARIOS["test_order"], "symptom": "Order emails aren't reaching me"},
 }
@@ -90,6 +90,9 @@ def main(args: list[str]) -> int:
     settings = get_settings()
     s12 = "--s12" in args
     scenarios = S12 if s12 else SCENARIOS
+    if "--only" in args:  # re-run some scenarios only (e.g. after a stop), keeping the others' saved files
+        wanted = set(args[args.index("--only") + 1].split(","))
+        scenarios = {k: v for k, v in scenarios.items() if k in wanted}
     cap = float(args[args.index("--cap") + 1]) if "--cap" in args else (0.10 if s12 else 0.30)
     turns = inv.MAX_TOOL_CALLS + 1
     longest = max(inv.investigator_user(sc["failed"], MODE, "", [{"tool": "resolve", "args": {}, "short_result": "x" * 200}] * 4)

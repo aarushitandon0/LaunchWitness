@@ -1,0 +1,10 @@
+{
+  "action": "answer",
+  "name": "",
+  "type": "",
+  "authoritative": false,
+  "url": "",
+  "finding": "Your address is pointing to a page that is not your shop, so customers are reaching the wrong site.",
+  "fix_id": "repoint_site",
+  "owner_instruction": ""
+}

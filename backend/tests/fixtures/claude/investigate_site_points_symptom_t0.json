@@ -1,9 +1,8 @@
 {
-  "_note": "hand-written placeholder (S12, cloud session has no key): re-capture live with scripts/capture_doctor_investigation.py --s12",
   "action": "resolve",
   "name": "meera.localhost",
   "type": "A",
-  "authoritative": true,
+  "authoritative": false,
   "url": "",
   "finding": "",
   "fix_id": "",

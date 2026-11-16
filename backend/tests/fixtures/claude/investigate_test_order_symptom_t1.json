@@ -1,11 +1,10 @@
 {
-  "_note": "hand-written placeholder (S12, cloud session has no key): re-capture live with scripts/capture_doctor_investigation.py --s12",
   "action": "answer",
   "name": "",
   "type": "",
   "authoritative": false,
   "url": "",
-  "finding": "You said order emails aren't arriving: our mail service refused our sign-in, so they couldn't be sent. Your orders are still saved on your Orders page.",
+  "finding": "Your order form is working, but emails about new orders aren't reaching you right now. Your orders are still saved on your Orders page.",
   "fix_id": "needs_owner",
-  "owner_instruction": "Nothing is needed from you on the mail side. Please check your Orders page for new orders in the meantime."
+  "owner_instruction": "No action is needed from you on the mail side; our team is looking into the mail service sign-in problem. Please keep checking your Orders page for new orders until we confirm emails are working again."
 }
