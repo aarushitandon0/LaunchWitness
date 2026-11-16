@@ -1,7 +1,5 @@
 """Fetch a URL over HTTPS and report status + certificate validity (for launch checks)."""
 
-import socket
-import ssl
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
@@ -29,31 +27,39 @@ class HttpProbe(Protocol):
 
 
 class RealHttpProbe:
-    def __init__(self, timeout: float = 10.0, transport: httpx.BaseTransport | None = None):
-        self._http = httpx.Client(timeout=timeout, follow_redirects=True, transport=transport)
+    """The checker's own look at a shop over HTTPS. Every request goes through `SafeWeb` (S11b): only the host
+    being checked is allowed, redirects to any other host or to plain http are refused, the address must be
+    public, and the page is capped in size and time. A fresh fetcher per call, so nothing is shared between runs."""
+
+    def __init__(self, timeout: float = 10.0, transport: httpx.BaseTransport | None = None, resolve=None,
+                 allow_private: bool = False):
+        self.timeout, self._transport, self._resolve, self._allow_private = timeout, transport, resolve, allow_private
+
+    def _web(self, host: str):
+        from app.checks.safe_fetch import SafeWeb
+
+        kw = {"resolve": self._resolve} if self._resolve else {}
+        return SafeWeb(lambda h: h == host, timeout=self.timeout, transport=self._transport,
+                       allow_private=self._allow_private, **kw)
 
     def fetch(self, url: str) -> ProbeResult:
+        from app.checks.safe_fetch import Refused
+
         try:
-            r = self._http.get(url)
-        except httpx.ConnectError as e:
-            cert_bad = isinstance(e.__cause__, ssl.SSLError) or "CERTIFICATE" in str(e).upper()
-            return ProbeResult(False, None, not cert_bad, error=type(e).__name__)
-        except httpx.HTTPError as e:
-            return ProbeResult(False, None, False, error=type(e).__name__)
-        https = urlsplit(str(r.url)).scheme == "https"
-        return ProbeResult(https and r.status_code < 400, r.status_code, https, r.text[:2000])
+            page = self._web((urlsplit(url).hostname or "").lower()).get(url)
+        except Refused as e:
+            return ProbeResult(False, None, True, error=f"refused: {e}"[:150])
+        if page.status is None:
+            return ProbeResult(False, None, page.cert_valid, error=page.error)
+        return ProbeResult(page.status < 400, page.status, True, page.html[:2000])
 
     def cert_expires(self, host: str) -> datetime | None:
-        """TODO(real): verify against a real Caddy-served host."""
-        try:
-            from app.checks.safe_fetch import tls_context
+        from app.checks.safe_fetch import Refused
 
-            ctx = tls_context()
-            with socket.create_connection((host, 443), timeout=10) as raw, ctx.wrap_socket(raw, server_hostname=host) as tls:
-                not_after = tls.getpeercert().get("notAfter")
-        except (OSError, ssl.SSLError):
+        try:
+            return self._web(host.lower()).tls_look(host).not_after
+        except Refused:
             return None
-        return datetime.fromtimestamp(ssl.cert_time_to_seconds(not_after), UTC) if not_after else None
 
 
 class FakeHttpProbe:

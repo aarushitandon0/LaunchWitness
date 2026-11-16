@@ -85,6 +85,10 @@ def run_daily(engine: Engine, mailer: Mailer, dns: DnsResolver, web: SafeWeb) ->
                 sent += 1
             except Exception as e:
                 result = f"failed: {type(e).__name__}"
+                # not sent: forget that we "know" these problems, so tomorrow's run tries the email again
+                w.problems_json = json.dumps(sorted(set(json.loads(w.problems_json or "[]")) - set(new)))
+                s.add(w)
+                s.commit()
             audit.record(s, actor="monitor", action="watch_alert", target=f"watch:{w.id}", result=result.split(":")[0],
                          user_id=user.id, detail=", ".join(sorted(new)))
     return sent

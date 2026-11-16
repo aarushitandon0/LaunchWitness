@@ -32,6 +32,8 @@ from app.safety.access import owner_emails
 
 QUICK_MINUTES = 15
 RECHECK_SECONDS = 60
+SHOP_BUDGET = {"quick": 90, "daily": 300, "recheck": 300}  # seconds one shop may take in a round
+FLAP_WINDOW = timedelta(days=1)
 QUICK_CHECKS = ["site_points", "https"]
 EMAIL_CHECKS = ["email_mx", "email_spf", "email_dkim", "email_dmarc"]  # read-only on shops under the app's domain
 DOMAIN_WARN_DAYS = renewals.THRESHOLDS  # one set for everything a person renews (S10)
@@ -42,6 +44,11 @@ def daily_checks(mode: str) -> list[str]:
     # The daily test order carries a fresh code. For an inbox we can't read it proves "form accepted ->
     # mail server accepted" only (the report says so); delivery needs the owner's tap on that email.
     return QUICK_CHECKS + EMAIL_CHECKS + ["settings_match", "test_order"]
+
+
+def proof_aware(when):
+    """SQLite hands datetimes back without a timezone; ours are always UTC."""
+    return when if when.tzinfo is not None else when.replace(tzinfo=utcnow().tzinfo)
 
 
 class Monitor:
@@ -87,12 +94,21 @@ class Monitor:
                                                          Business.guest_hash == "")).all())
 
     def run_quick(self) -> None:
-        for bid in self.live_business_ids():
-            self.check_business(bid, "quick")
+        self._round("quick")
 
     def run_daily(self) -> None:
+        self._round("daily")
+
+    def _round(self, kind: str) -> None:
+        """Every live shop, one after the other. A shop whose check blows up is recorded as "couldn't finish"
+        (never as passed) and the round carries on with the next shop."""
         for bid in self.live_business_ids():
-            self.check_business(bid, "daily")
+            try:
+                self.check_business(bid, kind)
+            except Exception as e:
+                with Session(self.engine) as s:
+                    audit.record(s, actor="monitor", action="monitor_shop", target=f"business:{bid}", result="failed",
+                                 business_id=bid, detail=f"{kind} check couldn't finish: {type(e).__name__}")
 
     def _context(self, business_id: int):
         with Session(self.engine) as s:
@@ -112,14 +128,16 @@ class Monitor:
         names = QUICK_CHECKS if kind == "quick" else daily_checks(plan.mode)
         try:
             summary = run_checks(self.engine, self.settings, self.integ_for(b), self.claude, plan.id,
-                                 trigger=f"monitor_{kind}", names=names, fix=False)
+                                 trigger=f"monitor_{kind}", names=names, fix=False,
+                                 budget_seconds=SHOP_BUDGET[kind])
         except (NotLaunched, AlreadyChecking):  # e.g. the owner just pressed "Run checks now": skip this round
             return []
-        failing = [f.check for f in summary.failed]
+        # "couldn't finish" / "our lookup failed" is not a failure of the shop: no re-check as one, no alert,
+        # and it doesn't clear an open alert either (we simply don't know)
+        failing = [f.check for f in summary.failed if not f.unfinished]
         if failing:
             self.schedule_recheck(business_id, failing)
-        else:
-            self.resolve(business_id, names)
+        self.resolve(business_id, [n for n in names if n not in {f.check for f in summary.failed}])
         if kind == "daily":
             self.expiry_alerts(business_id, summary.run_id)
         return failing
@@ -132,18 +150,55 @@ class Monitor:
         b, plan = found
         try:
             summary = run_checks(self.engine, self.settings, self.integ_for(b), self.claude, plan.id,
-                                 trigger="monitor_recheck", names=names, fix=True)
+                                 trigger="monitor_recheck", names=names, fix=True,
+                                 budget_seconds=SHOP_BUDGET["recheck"])
         except (NotLaunched, AlreadyChecking):
             return []
-        still = summary.failed
-        self.resolve(business_id, [n for n in names if n not in {f.check for f in still}])
+        still = [f for f in summary.failed if not f.unfinished]
+        self.resolve(business_id, [n for n in names if n not in {f.check for f in summary.failed}])
         for f in still:
+            self.check_alert(business_id, plan.site_host, f)
+        return [f.check for f in still]
+
+    def check_alert(self, business_id: int, host: str, f) -> None:
+        """One email per problem. A problem that keeps coming back (fail → fine → fail again within a day, or
+        fixed by us too many times today) gets ONE "keeps breaking" email, then silence for the rest of the day."""
+        since = utcnow() - FLAP_WINDOW
+        with Session(self.engine) as s:
+            rows = s.exec(select(Alert).where(Alert.business_id == business_id, Alert.key == f.check,
+                                              Alert.kind.in_(("check_failed", "check_flapping")))).all()
+            if any(a.kind == "check_failed" and a.resolved_at is None for a in rows):
+                return  # already told, still open
+            recent = [a for a in rows if proof_aware(a.created_at) >= since]
+            came_back = any(a.kind == "check_failed" for a in recent)
+            told_flapping = any(a.kind == "check_flapping" for a in recent)
+            for a in rows:  # yesterday's "keeps breaking" no longer blocks a new one
+                if a.kind == "check_flapping" and a.resolved_at is None and proof_aware(a.created_at) < since:
+                    a.resolved_at = utcnow()
+                    s.add(a)
+            s.commit()
+        if not (f.keeps_breaking or came_back):
             self.alert(business_id, "check_failed", f.check,
-                       subject=f"Something needs attention on {plan.site_host}",
+                       subject=f"Something needs attention on {host}",
                        body=(f"Hello,\n\nOur regular check of your website found a problem we couldn't fix by ourselves:\n\n"
                              f"  {f.plain}\n\nSign in to LaunchWitness and open your shop's report to see the details, and "
                              f"press \"Run checks now\" after any change.\n\n— LaunchWitness"))
-        return [f.check for f in still]
+            return
+        note = "(already told today: keeps breaking)"
+        if not told_flapping:
+            why = ("We fixed it several times today and it broke again, so we've stopped fixing it automatically."
+                   if f.keeps_breaking else "It was fine for a while and has now broken again.")
+            if not self.alert(business_id, "check_flapping", f.check,
+                              subject=f"Something keeps breaking on {host}",
+                              body=(f"Hello,\n\nThis keeps breaking on your website:\n\n  {f.plain}\n\n{why} Something "
+                                    "outside LaunchWitness is probably changing it back. Sign in to LaunchWitness and open "
+                                    "your shop's report for the exact next step. We won't email you about this one again "
+                                    "today.\n\n— LaunchWitness")):
+                return  # couldn't send: nothing is marked, so the next round tries again
+            note = "(in the keeps-breaking email)"
+        with Session(self.engine) as s:  # keep the problem itself on record as open, without another email
+            s.add(Alert(business_id=business_id, kind="check_failed", key=f.check, sent_to=note))
+            s.commit()
 
     # ---------- alerts ----------
 

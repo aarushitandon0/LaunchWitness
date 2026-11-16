@@ -30,6 +30,36 @@ Tests on main: **607 passed, 2 skipped** (`cd backend && ../.venv/Scripts/python
 Docker stack and on the dev server (`e2e/README.md`). Ruff, `npx tsc --noEmit`, `npm run build` clean. Keep the stash
 `fable-p2-wip-backup` (never drop it).
 
+## Session 11b (Fable, 2026-11-16): checks right for every website and mail setup; Doctor + monitoring gaps
+
+Merged on `main`: S11b P1 (checks + validation matrix), S11b P2 (Doctor + monitoring gaps). Tests: **891 passed, 2 skipped, 19 deselected**
+(1 slow, 18 network); ruff, `tsc --noEmit`, `npm run build` clean. No e2e, Docker, screenshots or live Claude this session ($0 spent).
+**The table of every case, what we show and the test that proves it is `docs/CHECKS_MATRIX.md`: read that, not the code.**
+
+What's new, one line each:
+- `app/checks/mail_setup.py`: the one provider table (`SERVICES`: Google, Microsoft 365, Zoho .com/.in, GoDaddy, Titan, Hostinger, Cloudflare routing) + null MX / no MX / unknown / mixed; SPF walk (10-lookup and 2-void limits, loops, depth 10, 30 questions at most), DMARC, DKIM ("found" or "couldn't check", never "missing"), MX problems.
+- `app/checks/web_setup.py`: `observe()` (read-only) → `Seen` → `judge()`; certificate kinds, http only, https→http, redirects, slow, www vs bare, IDN.
+- `dns_resolver.lookup()` → `Answer(status, values)`; status `error` = OUR lookup failed. `txt_value()` joins split TXT strings.
+- `safe_fetch.py`: `tls_look`, `http_first` (one pinned plain-http request, nothing followed), `Page.kind/seconds/hsts`, `PrivateAddress` / `NotHttps` / `TooManyRedirects`; handshakes use the same trust list as the page fetch (`tls_context`).
+- Findings JSON (check-address, watches): the old keys plus `sure`, `code`, `steps`, `action` ("explain" or "none"), `domain`, `provider`; the response has `shown_as` (readable IDN). **The UI doesn't show `sure` or `steps` yet** (UI work is yours). `ok: null` = a note or "not sure": it never sends a watch email.
+- Doctor: an own-domain shop whose mail is on another service gets a code-written "needs you" with that service's own steps, nothing written (`doctor.other_mail_service`). A shared SPF line and TXT records added after launch are kept.
+- `RealHttpProbe` now goes through `SafeWeb` (your P1, fixed). `/r/<token>` is 404 for a paused shop (P1, fixed).
+- Check runner: `Outcome.unfinished` (our lookup failed / out of time: not passed, no fix, no alert), `budget_seconds`, `MAX_AUTO_FIXES_PER_DAY = 3` → "keeps breaking", and a code-written next step for every failed check with no fix (`investigator.next_step`). The one-shot Doctor falls back to the single allowed fix when Claude is down.
+- Monitor: `SHOP_BUDGET`, one shop's crash doesn't stop the round (`monitor_shop` audit row), `check_alert` (one "keeps breaking" email per check per day; `Alert.kind = "check_flapping"`), unsent alerts retried and shown as `alerts_unsent` on the admin's `/api/health`.
+- Real-network run: `pytest -m network tests/test_s11b_network.py` (18 tests, about 3 minutes, read-only; `LW_SAVE_FIXTURES=1` re-saves `tests/fixtures/network/`). Results and the 7 bugs it found are in CHECKS_MATRIX §4.
+
+Still open (one line each):
+- Hostinger and Cloudflare Email Routing patterns are from memory of their docs: I found no domain to confirm them on. Offline-proven only.
+- Zoho's and GoDaddy Professional Email's signing labels aren't publicly fixed, so those always answer "couldn't check" (honest, but not useful).
+- No thread watchdog: a call that ignored its own timeout would still hold a round. Every outside call has a timeout (tested), and the budget is checked between checks, so one check can still overrun (the padlock check alone may wait 2 minutes).
+- A shop whose mail lookup fails on our side keeps any open alert open (we don't know); it isn't shown as "stale" differently from other results.
+- Invariant 10 (unfinished never passed) is asserted in the random test, but none of its 12 fault kinds makes our resolver fail; `test_s11b_gaps.py` covers it directly.
+- A failed check with no fix now writes one `repair / needs_owner` audit row per run (every 15 minutes while it stays broken). Harmless, a little noisy.
+- The mail domain of a subdomain is "the nearest parent with nameservers", not the public-suffix list; DMARC is looked for on each parent.
+- "Check any address" makes up to about 30 DNS questions and 4 web requests per address; the existing rate limits are unchanged.
+- P1s from S11 not touched: zone-hygiene ignore list; preview HTML without `Content-Security-Policy: sandbox`; demo faults `dmarc`/`mx` on own-domain shops. P2s unchanged.
+- `RealHttpProbe` refuses private addresses, so a real (non-fake) stack on a private network can't pass the padlock check; pass `allow_private=True` there if that is ever needed.
+
 ## Session 11 (Fable, 2026-11-16): review + the investigating Doctor
 
 Merged on `main`: `bb3d985` (S11 review fixes), `0cd8603` (S11: investigating Doctor), then the invariant test. Tests now:

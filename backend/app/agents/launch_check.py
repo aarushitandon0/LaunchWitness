@@ -7,6 +7,7 @@ Used after a launch finishes, by "Run checks now", and by monitoring.
 
 import json
 import smtplib
+import time
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlsplit
@@ -15,15 +16,16 @@ from sqlalchemy.engine import Engine
 from sqlmodel import Session, select
 
 from app import audit
-from app.agents.checker import Outcome, checks_for, run_check
+from app.agents.checker import OUT_OF_TIME, Outcome, checks_for, run_check, save
 from app.agents.claude_client import Claude
-from app.agents.doctor import repair
+from app.agents.doctor import needs_you, repair
 from app.agents.executor import Ctx, StepFailed, assert_can_write
+from app.agents.investigator import KEEPS_BREAKING, next_step
 from app.agents.playbook import fixes_for
 from app.checks.http_probe import ProbeResult
 from app.config import Settings
 from app.integrations import Integrations
-from app.models import Business, CheckRun, Plan, utcnow
+from app.models import AuditEvent, Business, CheckRun, Plan, utcnow
 from app.safety.access import run_by_team
 
 DEMO_FAULTS = {"dmarc": ("TXT", "_dmarc"), "mx": ("MX", "@")}
@@ -31,6 +33,19 @@ STAGED_FAULTS = ("a_record", "smtp_login", "cert")  # S11: for the investigating
 
 
 STALE_RUN = timedelta(minutes=15)  # a "running" row older than this lost its worker
+
+
+MAX_AUTO_FIXES_PER_DAY = 3  # per check per shop; after that it "keeps breaking" and needs the owner
+clock = time.monotonic
+
+
+def fixes_today(session: Session, business_id: int, check: str) -> int:
+    """How often the Doctor fixed this check for this shop in the last 24 hours."""
+    rows = session.exec(select(AuditEvent.id).where(
+        AuditEvent.business_id == business_id, AuditEvent.actor == "doctor", AuditEvent.action == "repair",
+        AuditEvent.target == check, AuditEvent.result == "fixed",
+        AuditEvent.created_at >= utcnow() - timedelta(days=1))).all()
+    return len(rows)
 
 
 class NotLaunched(Exception):
@@ -204,8 +219,11 @@ def expiry_info(ctx: Ctx) -> dict:
 
 def run_checks(engine: Engine, settings: Settings, integ: Integrations, claude: Claude, plan_id: int, *,
                trigger: str, names: list[str] | None = None, fix: bool = True, run_id: int | None = None,
-               symptom: str = "") -> RunSummary:
-    """`symptom`: the owner's own words about what's wrong (optional). Data for the Doctor, never instructions."""
+               symptom: str = "", budget_seconds: float | None = None) -> RunSummary:
+    """`symptom`: the owner's own words about what's wrong (optional). Data for the Doctor, never instructions.
+    `budget_seconds`: once this much time is used, the remaining checks are recorded as "couldn't finish"
+    (never as passed), so one slow shop can't hold up a monitoring round."""
+    started = clock()
     with Session(engine) as session:
         plan = session.get(Plan, plan_id)
         business = session.get(Business, plan.business_id)
@@ -220,11 +238,31 @@ def run_checks(engine: Engine, settings: Settings, integ: Integrations, claude: 
             apply_demo_fault(ctx)
             repairs, failed = [], []
             for name in names or checks_for(ctx):  # check, and repair right away, so later checks see the fix
+                if budget_seconds is not None and clock() - started > budget_seconds:
+                    out = Outcome(name, False, OUT_OF_TIME, f"time budget of {budget_seconds:.0f}s used up",
+                                  unfinished=True)
+                    save(session, ctx, out, 0)
+                    outs.append(out)
+                    failed.append(out)
+                    continue
                 out = run_check(ctx, name)
                 outs.append(out)
                 if out.passed:
                     continue
-                if fix and (fixes_for(out.check, plan.mode) or needs_a_look(out)):
+                if out.unfinished:  # we don't know: nothing to fix, nobody to blame
+                    failed.append(out)
+                    continue
+                fixable = fixes_for(out.check, plan.mode) or needs_a_look(out)
+                done = fixes_today(session, business.id, out.check) if fix and fixable else 0
+                if done >= MAX_AUTO_FIXES_PER_DAY:  # flapping: stop the fix loop, hand it to the owner
+                    out.keeps_breaking = True
+                    repairs.append({"check": out.check, "fixed": False, "attempts": [], "doctor": needs_you(
+                        ctx, out.check, "This keeps breaking, so we've stopped fixing it automatically.",
+                        KEEPS_BREAKING.format(n=done))})
+                elif not fixable:  # no automatic fix exists: the owner still gets exact plain steps
+                    repairs.append({"check": out.check, "fixed": False, "attempts": [], "doctor": needs_you(
+                        ctx, out.check, out.plain, next_step(out.check, plan.mode))})
+                elif fix:
                     r = repair(claude, ctx, out, symptom)
                     repairs.append({"check": r.check, "fixed": r.fixed, "attempts": r.attempts,
                                     **({"doctor": r.doctor} if r.doctor else {})})
