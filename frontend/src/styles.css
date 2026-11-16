@@ -571,3 +571,10 @@ input[type="checkbox"] { accent-color: var(--ink); width: 18px; height: 18px; }
   .product-cols { grid-template-columns: 1fr; gap: var(--s-4); }
   .product-col a { font-size: var(--fs-base); padding: 0.55rem 0.5rem; }
 }
+
+/* S10.5b: check-any next step + watch */
+.check-next { display: flex; flex-wrap: wrap; gap: var(--s-3); align-items: center; justify-content: space-between;
+  margin-top: var(--s-4); padding: var(--s-4); border-radius: var(--r-md); background: var(--cream); border: 1px solid var(--line); }
+.check-next p { margin: 0; max-width: 46ch; }
+.watch-this { margin-top: var(--s-3); }
+.watched { margin-top: var(--s-5); }

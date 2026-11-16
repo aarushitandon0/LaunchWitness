@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { api, ApiError, BusinessSummary, Me, session } from "./api";
+import { api, ApiError, BusinessSummary, Me, session, Watch } from "./api";
 import { goTo } from "./App";
 import { ErrorBox } from "./Describe";
 import { resumeHash, resumeLabel } from "./Steps";
@@ -235,12 +235,69 @@ export function MyShopsPage() {
           ))}
         </ul>
       )}
+      {user && <WatchedAddresses />}
       {user && shops.length > 0 && shops.length < me.limits.shops && (
         <p>
           <a href="#/new">Make another shop</a> <span className="muted">(up to {me.limits.shops})</span>
         </p>
       )}
     </>
+  );
+}
+
+/** Addresses the user asked us to watch (read-only daily checks, S10.5b). */
+function WatchedAddresses() {
+  const [data, setData] = useState<{ limit: number; watches: Watch[] } | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    api.watches().then(setData).catch(() => setData(null));
+  }, []);
+  if (!data || data.watches.length === 0) return null;
+  return (
+    <section className="watched">
+      <h2>Addresses we watch for you</h2>
+      <p className="muted small">
+        Checked once a day, read-only (up to {data.limit}). We email you once when something new goes wrong.
+      </p>
+      <ul className="names">
+        {data.watches.map((w) => (
+          <li key={w.id}>
+            <span>
+              <strong>{w.address}</strong>
+              <br />
+              <span className={w.problems.length ? "warn" : "muted"}>
+                {w.problems.length === 0
+                  ? "All fine at the last check"
+                  : `${w.problems.length} thing${w.problems.length === 1 ? "" : "s"} to look at: ` +
+                    w.results.filter((r) => r.ok === false).map((r) => r.plain).join(" ")}
+              </span>
+            </span>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={async () => {
+                try {
+                  await api.removeWatch(w.id);
+                  setData({ ...data, watches: data.watches.filter((x) => x.id !== w.id) });
+                } catch {
+                  setError("We couldn't remove it. Please try again.");
+                }
+              }}
+            >
+              Remove
+            </button>
+          </li>
+        ))}
+      </ul>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      <p className="small">
+        <a href="#check">Check and watch another address</a>
+      </p>
+    </section>
   );
 }
 

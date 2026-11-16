@@ -17,7 +17,7 @@ from sqlmodel import Session
 
 from app.config import REPO_ROOT, Settings, get_settings
 from app.db import get_session, init_db
-from app.routers import admin, auth, businesses, contact, health, internal, launch, proof, report
+from app.routers import admin, auth, businesses, contact, health, internal, launch, proof, report, watch
 from app.safety.request_guard import request_guard
 from app.sites import demo as demo_routes
 from app.sites import routes as seller_routes
@@ -99,6 +99,7 @@ def create_app(*, frontend_dist: Path = FRONTEND_DIST, replay_page: Path = REPLA
     app.include_router(report.router)
     app.include_router(contact.router)
     app.include_router(proof.router)
+    app.include_router(watch.router)
     app.include_router(seller_routes.router)
     app.include_router(demo_routes.router)
 

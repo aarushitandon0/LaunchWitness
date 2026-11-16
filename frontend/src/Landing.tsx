@@ -2,6 +2,7 @@ import { motion, MotionValue, useScroll, useSpring, useTransform } from "framer-
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { AddressResult, api, ApiError } from "./api";
 import { ErrorBox } from "./Describe";
+import { useMe } from "./Account";
 import { EASE, useCalm } from "./motion";
 
 const STEPS: { title: string; text: string; icon: ReactNode }[] = [
@@ -303,7 +304,8 @@ export default function Landing() {
             <p className="tagline">
               Already have a website? Type its address and we'll look, from the outside, at whether it opens securely and
               whether its email is set up so orders don't land in spam. We only read public information: we change
-              nothing, send no email and keep nothing about the address.
+              nothing, send no email and keep nothing about the address. Signed in, you can ask us to watch up to three
+              addresses this way every day.
             </p>
             <CheckAnyAddress />
           </Reveal>
@@ -752,7 +754,66 @@ function CheckAnyAddress() {
               </li>
             ))}
           </ul>
+          <WatchThis address={result.address} />
+          <div className="check-next">
+            <p>
+              <strong>Want this checked every day, with a fix when it breaks?</strong> Launch your shop on LaunchWitness:
+              we watch it from day one.
+            </p>
+            <a className="btn btn-primary" href="#/new">
+              Start
+            </a>
+          </div>
         </>
+      )}
+    </div>
+  );
+}
+
+/** "Watch this address" (signed in): the same read-only checks once a day, an email once per new problem. */
+function WatchThis({ address }: { address: string }) {
+  const me = useMe();
+  const [state, setState] = useState<"idle" | "busy" | "done">("idle");
+  const [error, setError] = useState("");
+  if (!me) return null;
+  if (!me.user)
+    return (
+      <p className="muted small watch-this">
+        <a href={`#/signin?next=shops`}>Sign in</a> to have us watch {address} every day (read-only, up to 3 addresses).
+      </p>
+    );
+  if (state === "done")
+    return (
+      <p className="status status-ok watch-this" role="status">
+        We'll check {address} once a day and email you if something new goes wrong. See it on{" "}
+        <a href="#/shops">My shops</a>.
+      </p>
+    );
+  return (
+    <div className="watch-this">
+      <button
+        type="button"
+        className="btn btn-ghost btn-sm"
+        disabled={state === "busy"}
+        onClick={async () => {
+          setState("busy");
+          setError("");
+          try {
+            await api.addWatch(address);
+            setState("done");
+          } catch (e) {
+            setError(e instanceof ApiError ? e.message : "That didn't work. Please try again.");
+            setState("idle");
+          }
+        }}
+      >
+        {state === "busy" ? "Adding…" : "Watch this address every day"}
+      </button>
+      <span className="muted small"> Read-only: we never fill in its forms, email it, or change anything there.</span>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
       )}
     </div>
   );

@@ -284,6 +284,18 @@ class ReportShare(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
 
 
+class WatchedAddress(SQLModel, table=True):
+    """S10.5b "Watch this address": a signed-in user's address, checked read-only once a day (app/watch.py)."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    host: str  # cleaned host name, e.g. myshop.com
+    problems_json: str = "[]"  # check names failing at the last look (an email goes out only for NEW ones)
+    results_json: str = "[]"  # the last look's plain results, shown on My shops
+    last_checked_at: datetime | None = None
+    created_at: datetime = Field(default_factory=utcnow)
+
+
 class AddressCheck(SQLModel, table=True):
     """Rate limit for the public "Check any address" tool: hashed visitor + time only, never the address."""
 

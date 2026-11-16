@@ -59,6 +59,8 @@ class Monitor:
         self.scheduler.add_job(self.run_daily, "interval", days=1, id="monitor_daily",
                                replace_existing=True, max_instances=1, coalesce=True)
         if self.team is not None:
+            self.scheduler.add_job(self.watch_addresses, "interval", days=1, id="watch_addresses",
+                                   replace_existing=True, max_instances=1, coalesce=True)
             self.scheduler.add_job(self.team_renewals, "interval", days=1, id="team_renewals",
                                    replace_existing=True, max_instances=1, coalesce=True)
             self.scheduler.add_job(self.zone_hygiene, "interval", days=1, id="zone_hygiene",
@@ -217,6 +219,15 @@ class Monitor:
                         s.add(Alert(business_id=business_id, kind=kind, key=f"{t}d", sent_to="(skipped)"))
                 s.commit()
 
+
+    def watch_addresses(self) -> int:
+        """S10.5b: read-only daily checks of the addresses users asked us to watch; one email per new problem,
+        sent from the team mailbox to the user's own sign-in address."""
+        from app import watch
+        from app.checks.safe_fetch import SafeWeb
+        from app.routers.proof import get_public_dns
+
+        return watch.run_daily(self.engine, self.team.mailer, get_public_dns(), SafeWeb(lambda _h: True, timeout=8.0))
 
     # ---------- the team's own renewals (S10): the app domain and the team mailbox ----------
 
