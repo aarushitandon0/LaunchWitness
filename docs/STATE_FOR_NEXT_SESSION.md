@@ -30,6 +30,63 @@ Tests on main: **607 passed, 2 skipped** (`cd backend && ../.venv/Scripts/python
 Docker stack and on the dev server (`e2e/README.md`). Ruff, `npx tsc --noEmit`, `npm run build` clean. Keep the stash
 `fable-p2-wip-backup` (never drop it).
 
+## Session 11 (Fable, 2026-11-16): review + the investigating Doctor
+
+Merged on `main`: `bb3d985` (S11 review fixes) and `0cd8603` (S11: investigating Doctor). Tests now:
+**645 passed, 2 skipped**; ruff, `tsc --noEmit`, `npm run build` clean. **No e2e, Docker or screenshots were run this
+session** (left for the next one): the report page change is unverified in a browser.
+
+### Review (P0 hunt over everything since Phase 1)
+
+Looked at: route gates + the matrix test, the preview message bridge and sandbox, `safe_fetch.py` and its three
+callers, honest-claims paths (proof states, share page, demo shops, owner confirmations), all four token kinds.
+Those held up. **One P0 fixed:** `SafeWeb` read a whole response into memory with no total time limit, so anyone
+could aim the public "Check any address" (or a watched address, daily in the background) at an endless or dripping
+page and exhaust the one app process that serves every shop. Now: streamed, 300 KB cap, 20 s per page,
+`Accept-Encoding: identity` (2 tests in `test_s9_phase3_proof.py`).
+
+Open, not fixed (one line each):
+- P1: `RealHttpProbe` (https check, `cert_expires`, `retry_certificate`, the Doctor's `fetch` first step) follows redirects with no SSRF guard; safe only while every shop host is under our own domain. Route it through `SafeWeb` before own-domain real launches.
+- P1: `/r/<token>` still shows "Proven" for a shop the team has paused.
+- P1: zone hygiene proposes "delete" for any shop-shaped A record no live shop has (a hand-made `status` record, a shop mid-launch); the admin's approval is the only guard. Add an ignore list.
+- P1: the owner preview HTML is served on the app's own origin without `Content-Security-Policy: sandbox`; safe only because every seller field is escaped.
+- P1: demo faults `dmarc`/`mx` can be armed on any own-domain shop (practice-only today because own-domain real is cut); the three new faults are restricted properly.
+- P2: a server that ignores `identity` can still expand one compressed chunk in memory before the cap applies.
+- P2: `is_global` lets NAT64/6to4 addresses through (only matters on a host with such routing).
+- P2: `test_session_new_id_each_sign_in_sliding_expiry_logout` failed once in a full run, passed alone and on the rerun (intermittent, not investigated).
+- P2: Claude spend figures come from the app's own price table (`PRICES_PER_MTOK`, Haiku 0.10/0.50 per MTok); not checked against the real price list.
+
+### The investigating Doctor
+
+- `app/agents/investigator.py`: the loop (`loop`, `investigate`), the five read-only tools, `checked` (the answer → what code may do), `fallback` (plain rules). `doctor.repair(claude, ctx, failed, symptom="")` uses it for `site_points`, `https`, `test_order` (`INVESTIGATED`); the email-setting checks keep the one-shot Doctor and their old fixtures.
+- Limits: 4 tool calls; 5 turns × `max_tokens=300` = 1,500 **output** tokens (input isn't counted in that number).
+- Tools refuse anything but the shop's own address. `fetch` and `resolve` on other names answer "refused" (in the trace).
+- Approval: fixes allowed for the check+mode minus `OWNER_APPROVAL` (`restore_backup`) are automatic; `restore_backup` → "needs you"; anything else → refused + audited; there is no money fix.
+- Fallback (Claude unavailable / over budget / bad answer / asks for a 5th tool): exactly one automatic fix → applied, `source: "standard"`; else needs you with `DEFAULT_INSTRUCTION[check]`. Sample fixtures are never used as a stand-in here (it calls `claude.live` directly).
+- Mail sign-in refused (seen by `smtp_test`): the owner instruction is always the code's `MAIL_SIGN_IN_REFUSED` (the model first told the seller to "check your mail password", which is false: the mailbox is ours). Any model instruction containing a link or address is replaced by the default.
+- `symptom` is accepted by `run_checks(..., symptom=)` and `repair`; **no route passes it yet** (the box + route field are yours). It is fenced `<<<…>>>` and labelled as data; tests: `test_symptom_is_fenced…`, `test_injected_symptom…`.
+- `needs_a_look()` in `launch_check.py` sends a `test_order` failure to the Doctor even with no fix, when the detail says the mail server refused (string match on the checker's text: fragile, keep in sync).
+
+**Trace format for the UI** (report JSON, `run.checks[i].doctor`, also `run.repairs[j].doctor`; `null` when the Doctor didn't investigate; stored in `CheckResult.doctor_json`):
+```json
+{"finding": "one plain sentence", "fix_id": "repoint_site | retry_certificate | … | needs_owner",
+ "owner_instruction": "only with needs_owner", "source": "assistant | standard",
+ "trace": [{"tool": "resolve", "args": {"name": "meera.launchwitness.com", "type": "A", "authoritative": true},
+            "short_result": "A meera.… = nothing (authoritative; our server is 1.2.3.4)"}]}
+```
+`short_result` is technical (≤200 chars): keep it inside "Details". Smallest UI is in `Report.tsx` (`doctor-found`, `doctor-trace`, `LOOKS` labels; no CSS written for those classes).
+
+**How to stage each fault** (team only; the report page's switch still offers only the two old faults, so use the command line until the UI has them):
+1. The shop must be launched. `a_record`: any practice shop, or a real shop the team runs. `smtp_login`, `cert`: practice shops only (answer 409 otherwise).
+2. `curl -X PUT $URL/api/admin/businesses/<id>/demo-fault -H "X-Admin-Token: $ADMIN_TOKEN" -H "Content-Type: application/json" -d '{"fault":"a_record"}'` (or `smtp_login`, `cert`; `""` disarms).
+3. Press "Check again" on the shop's report (or `POST /api/businesses/<id>/checks`). The fault is used up by that one run.
+- `a_record`: the shop's A record is really removed (guarded write) → Doctor resolves, re-points, green ("Fixed by us").
+- `smtp_login`: mail sign-in refused for that run only (pretend) → test order fails → "needs you" + the exact instruction. The next run is green.
+- `cert`: the padlock fails until asked again (pretend) → Doctor fetches, retries the certificate, green.
+The marker-missing half of fault 3 has no staged switch; the Doctor sees `shop_marker=MISSING` from `fetch` but no fixture covers it.
+
+**Live Claude spend this session: $0.0042** by the app's price table (24 Haiku calls over 4 capture runs, about 1.2k tokens in / 80 out each; cap was $0.30). `.env` is back on `CLAUDE_MODE=fixture` (it was only overridden per command). Re-capture: `cd backend && CLAUDE_MODE=live ../.venv/Scripts/python ../scripts/capture_doctor_investigation.py [--dry-run]`.
+
 ## Proven in Docker on the laptop (S10)
 
 Clean-clone image build (frontend + `/build` baked in, no pytest/ruff, no `.env`, uid 10001) · app + Caddy healthy,
