@@ -1,0 +1,110 @@
+{
+ "kind": "web",
+ "host": "example.com",
+ "date": "2026-11-16",
+ "dns": {
+  "example.com A": [
+   "ok",
+   [
+    "104.20.23.154",
+    "172.66.147.243"
+   ]
+  ],
+  "example.com AAAA": [
+   "ok",
+   [
+    "2606:4700:8d75:72db:f29e:4c0:ef6b:ff98"
+   ]
+  ],
+  "example.com NS": [
+   "ok",
+   [
+    "hera.ns.cloudflare.com.",
+    "elliott.ns.cloudflare.com."
+   ]
+  ],
+  "www.example.com A": [
+   "ok",
+   [
+    "172.66.147.243",
+    "104.20.23.154"
+   ]
+  ],
+  "www.example.com AAAA": [
+   "ok",
+   [
+    "2606:4700:8d75:72db:f242:4ba:ef6b:ff98"
+   ]
+  ]
+ },
+ "web": {
+  "host": "example.com",
+  "dns": "ok",
+  "ips": [
+   "104.20.23.154",
+   "172.66.147.243",
+   "2606:4700:8d75:72db:f29e:4c0:ef6b:ff98"
+  ],
+  "fetch": "ok",
+  "status": 200,
+  "seconds": 0.1,
+  "hsts": false,
+  "final_host": "example.com",
+  "tls": "ok",
+  "cert_days": 39,
+  "http": "serves",
+  "http_to": "200",
+  "note": ""
+ },
+ "twin": {
+  "host": "www.example.com",
+  "dns": "ok",
+  "ips": [
+   "172.66.147.243",
+   "104.20.23.154",
+   "2606:4700:8d75:72db:f242:4ba:ef6b:ff98"
+  ],
+  "fetch": "ok",
+  "status": 200,
+  "seconds": 0.0,
+  "hsts": false,
+  "final_host": "www.example.com",
+  "tls": "",
+  "cert_days": null,
+  "http": "",
+  "http_to": "",
+  "note": ""
+ },
+ "findings": [
+  [
+   "address",
+   "addr_ok",
+   true,
+   "seen"
+  ],
+  [
+   "https",
+   "web_ok",
+   true,
+   "seen"
+  ],
+  [
+   "certificate",
+   "cert_days_ok",
+   true,
+   "seen"
+  ],
+  [
+   "plain_http",
+   "http_no_redirect",
+   null,
+   "seen"
+  ]
+ ],
+ "plain": {
+  "address": "The address leads to a website server.",
+  "https": "The home page answered over a secure connection (code 200).",
+  "certificate": "The security certificate is good for 39 more days.",
+  "plain_http": "The site also answers on plain http without sending visitors to the secure version."
+ }
+}

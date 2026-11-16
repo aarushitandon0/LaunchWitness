@@ -1,0 +1,152 @@
+{
+ "kind": "mail",
+ "host": "titan.email",
+ "date": "2026-11-16",
+ "dns": {
+  "titan.email MX": [
+   "ok",
+   [
+    "20 mx2.titan.email.",
+    "10 mx1.titan.email."
+   ]
+  ],
+  "mx2.titan.email CNAME": [
+   "nodata",
+   []
+  ],
+  "mx2.titan.email A": [
+   "ok",
+   [
+    "32.198.149.193",
+    "98.95.157.19",
+    "44.198.236.164"
+   ]
+  ],
+  "mx2.titan.email AAAA": [
+   "nodata",
+   []
+  ],
+  "mx1.titan.email CNAME": [
+   "nodata",
+   []
+  ],
+  "mx1.titan.email A": [
+   "ok",
+   [
+    "44.198.236.164",
+    "32.198.149.193",
+    "98.95.157.19"
+   ]
+  ],
+  "mx1.titan.email AAAA": [
+   "nodata",
+   []
+  ],
+  "titan.email TXT": [
+   "ok",
+   [
+    "\"v=spf1 include:spf.titan.email include:mail.zendesk.com include:_spf.google.com include:u13219.wl220.sendgrid.net -all\"",
+    "\"zoom-domain-verification=ZOOM_verify_75ec25765f4d4f439a73a680e838aad8\"",
+    "\"atlassian-domain-verification=xJakUHuooY7P6XMpMpCprfOAnOSXDteXELfPyXjEdComTlFJpubxtvWop7dHM9Qe\"",
+    "\"figma-domain-verification=eb4a852a1bcb676243902728940a2eee8d10f914c0d0e2e04688487dac8bfb01-1765172308\"",
+    "\"google-site-verification=44XaKyUjt_yS9_-v-VKOMylie3Q3_5-Ub2Uyhqy6X24\"",
+    "\"google-site-verification=WNrjWQxz8Ye7kVyCdzLir75QBIwuLvZvKUErfrvMtFY\"",
+    "\"google-site-verification=yBW21IAhmRbNX2cUl7nmzV3790gXw_R5Miiiwgb4rzQ\""
+   ]
+  ],
+  "spf.titan.email TXT": [
+   "ok",
+   [
+    "\"v=spf1 include:_spf1.titan.email include:_spf2.titan.email include:_spf3.titan.email ip4:3.216.99.48/28 ip4:209.209.25.0/24 ip4:44.218.186.97 ip4:107.23.70.138 ip4:44.211.5.39 ip4:44.220.5.39 ip4:44.210.203.104 ip4:44.217.104.25 ip4:34.197.244.225\" \" ip4:3.230.178.173 ip4:3.95.73.217 ip4:3.208.11.156 ip4:54.173.78.241 ip4:107.21.18.53 ip4:54.208.145.58 ip4:3.233.41.74 ~all\""
+   ]
+  ],
+  "_spf1.titan.email TXT": [
+   "ok",
+   [
+    "\"v=spf1 ip4:3.93.85.209 ip4:3.212.108.224 ip4:3.215.71.165 ip4:3.216.154.55 ip4:3.220.132.193 ip4:3.226.109.223 ip4:3.226.153.83 ip4:3.232.215.110 ip4:3.232.242.252 ip4:18.204.122.208 ip4:18.208.113.204 ip4:18.213.226.178 ip4:18.215.190.59\" \" ip4:23.23.7.130 ip4:34.202.218.147 ip4:34.203.82.151 ip4:34.227.236.38 ip4:34.235.186.108 ip4:35.153.42.126 ip4:35.175.0.24 ip4:44.195.191.162 -all\""
+   ]
+  ],
+  "_spf2.titan.email TXT": [
+   "ok",
+   [
+    "\"v=spf1 ip4:44.199.128.152 ip4:44.205.83.93 ip4:44.210.205.39 ip4:52.7.194.170 ip4:52.45.85.111 ip4:52.206.209.181 ip4:54.86.250.16 ip4:54.161.96.10 ip4:54.208.48.90 ip4:44.215.226.106 ip4:52.22.41.156 ip4:34.226.145.254 ip4:54.235.81.176\" \" ip4:44.220.0.195 ip4:3.219.11.208 ip4:54.147.227.70 ip4:34.193.64.254 ip4:3.213.253.100 ip4:44.221.193.147 ip4:52.45.239.238 ip4:34.226.11.255 -all\""
+   ]
+  ],
+  "_spf3.titan.email TXT": [
+   "ok",
+   [
+    "\"v=spf1 ip4:34.198.80.90 ip4:34.196.250.6 ip4:54.87.205.207 ip4:3.225.65.124 ip4:107.21.232.249 ip4:52.70.93.249 ip4:54.144.89.95 ip4:98.80.1.160/27 -all\""
+   ]
+  ],
+  "mail.zendesk.com TXT": [
+   "ok",
+   [
+    "\"v=spf1 ip4:103.151.192.0/23 ip4:185.12.80.0/22 ip4:188.172.128.0/20 ip4:192.161.144.0/20 ip4:216.198.0.0/18 ~all\""
+   ]
+  ],
+  "_spf.google.com TXT": [
+   "ok",
+   [
+    "\"v=spf1 ip4:74.125.0.0/16 ip4:192.178.47.0/24 ip4:192.179.92.0/22 ip4:209.85.128.0/17 ip6:2001:4860:4864::/56 ip6:2404:6800:4864::/56 ip6:2607:f8b0:4864::/56 ip6:2800:3f0:4864::/56 ip6:2a00:1450:4864::/56 ip6:2c0f:fb50:4864::/56 ~all\""
+   ]
+  ],
+  "u13219.wl220.sendgrid.net TXT": [
+   "ok",
+   [
+    "\"v=spf1 ip4:134.128.67.140 ip4:149.72.54.28 ip4:167.89.0.174 ip4:167.89.101.100 ip4:167.89.103.169 ip4:167.89.110.157 ip4:167.89.110.71 ip4:167.89.29.131 ip4:167.89.33.242 ip4:167.89.99.108 -all\""
+   ]
+  ],
+  "lw-no-such-label._domainkey.titan.email TXT": [
+   "nxdomain",
+   []
+  ],
+  "titan1._domainkey.titan.email TXT": [
+   "ok",
+   [
+    "\"v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCpXZMbnRjhfMFEsNNzyG1Dtd9vVrjwj5H1Sx802DLDsqKiYi2ULsRs5F0t9xUN4c8URAXYr7AlVfJxR+FxrLuN6TLVrml2U384LKF7vJSj4c3Fd2J+izG9vdzhGLt/qldhc2ujnnKuZj/X1uXNVycMPGnaXx3682h8AzoAxxFRwwIDAQAB\""
+   ]
+  ],
+  "titan1._domainkey.titan.email CNAME": [
+   "nodata",
+   []
+  ],
+  "_dmarc.titan.email TXT": [
+   "ok",
+   [
+    "\"v=DMARC1; p=reject; rua=mailto:someone@flock.com; ruf=mailto:someone@flock.com; aspf=s;  adkim=r; sp=none; fo=1; ri=86400\""
+   ]
+  ]
+ },
+ "findings": [
+  [
+   "email_mx",
+   "mx_ok",
+   true,
+   "seen"
+  ],
+  [
+   "email_spf",
+   "spf_ok_hard",
+   true,
+   "seen"
+  ],
+  [
+   "email_dkim",
+   "dkim_found",
+   true,
+   "seen"
+  ],
+  [
+   "email_dmarc",
+   "dmarc_reject",
+   true,
+   "seen"
+  ]
+ ],
+ "plain": {
+  "email_mx": "Emails to this address have somewhere to go: Titan Email.",
+  "email_spf": "It says which servers may send its email, and tells mail services to refuse all others.",
+  "email_dkim": "Its emails can be signed: we found a signing key.",
+  "email_dmarc": "It is protected against fake emails in its name: they are refused. Reports about it are sent to an address its owner chose."
+ }
+}

@@ -1,0 +1,58 @@
+{
+ "kind": "mail",
+ "host": "example.com",
+ "date": "2026-11-16",
+ "dns": {
+  "example.com MX": [
+   "ok",
+   [
+    "0 ."
+   ]
+  ],
+  "example.com TXT": [
+   "ok",
+   [
+    "\"_k2n1y4vw3qtb4skdx9e7dxt97qrmmq9\"",
+    "\"v=spf1 -all\""
+   ]
+  ],
+  "_dmarc.example.com TXT": [
+   "ok",
+   [
+    "\"v=DMARC1;p=reject;sp=reject;adkim=s;aspf=s\""
+   ]
+  ]
+ },
+ "findings": [
+  [
+   "email_mx",
+   "mx_null",
+   false,
+   "seen"
+  ],
+  [
+   "email_spf",
+   "spf_ok_hard",
+   true,
+   "seen"
+  ],
+  [
+   "email_dkim",
+   "dkim_not_applicable",
+   null,
+   "seen"
+  ],
+  [
+   "email_dmarc",
+   "dmarc_reject",
+   true,
+   "seen"
+  ]
+ ],
+ "plain": {
+  "email_mx": "This address says it doesn't accept email.",
+  "email_spf": "It says which servers may send its email, and tells mail services to refuse all others.",
+  "email_dkim": "This address isn't set up for email, so there is no email signing to check.",
+  "email_dmarc": "It is protected against fake emails in its name: they are refused."
+ }
+}

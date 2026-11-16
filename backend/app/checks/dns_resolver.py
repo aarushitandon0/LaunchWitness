@@ -1,5 +1,7 @@
 """Public DNS lookups (dnspython) for launch checks."""
 
+import re
+from dataclasses import dataclass
 from typing import Protocol
 
 import dns.exception
@@ -8,6 +10,32 @@ import dns.resolver
 
 class DnsResolver(Protocol):
     def resolve(self, name: str, rtype: str) -> list[str]: ...
+
+
+@dataclass(frozen=True)
+class Answer:
+    """One lookup, with HOW it ended. "error" means OUR lookup failed (timeout, no nameserver answered):
+    it says nothing about the name, so a check must answer "couldn't check", never "missing"."""
+    status: str  # "ok" | "nodata" (the name exists, no such record) | "nxdomain" (no such name) | "error"
+    values: tuple[str, ...] = ()
+
+
+def lookup(dns_: DnsResolver, name: str, rtype: str) -> Answer:
+    """`Answer` from any resolver: its own `lookup` if it has one, else `resolve` (empty = no such record)."""
+    own = getattr(dns_, "lookup", None)
+    try:
+        if own is not None:
+            return own(name, rtype)
+        values = dns_.resolve(name, rtype)
+    except Exception:  # a resolver that breaks is a failure on our side
+        return Answer("error")
+    return Answer("ok", tuple(values)) if values else Answer("nodata")
+
+
+def txt_value(text: str) -> str:
+    """A TXT answer as one string: DNS splits long values into quoted pieces (`"abc" "def"` -> `abcdef`)."""
+    parts = re.findall(r'"([^"]*)"', text)
+    return "".join(parts) if parts else text.strip()
 
 
 class RealDnsResolver:
@@ -20,9 +48,20 @@ class RealDnsResolver:
     def resolve(self, name: str, rtype: str) -> list[str]:
         try:
             answer = self._r.resolve(name, rtype)
-        except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.exception.Timeout):
+        except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.exception.DNSException):
             return []
         return [r.to_text() for r in answer]
+
+    def lookup(self, name: str, rtype: str) -> Answer:
+        try:
+            answer = self._r.resolve(name, rtype)
+        except dns.resolver.NXDOMAIN:
+            return Answer("nxdomain")
+        except dns.resolver.NoAnswer:
+            return Answer("nodata")
+        except dns.exception.DNSException:  # timeout, SERVFAIL, no nameserver reachable: our lookup failed
+            return Answer("error")
+        return Answer("ok", tuple(r.to_text() for r in answer))
 
     def exists(self, name: str) -> bool | None:
         """False only for NXDOMAIN (the name doesn't exist at all); None when DNS didn't answer."""
@@ -40,6 +79,18 @@ class RealDnsResolver:
 class FakeDnsResolver:
     def __init__(self, records: dict[tuple[str, str], list[str]] | None = None):
         self.records = dict(records or {})
+        self.errors: set[str] = set()  # names whose lookups fail on OUR side (tests)
+        self.queries: list[tuple[str, str]] = []
+
+    def lookup(self, name: str, rtype: str) -> Answer:
+        n, t = name.lower().rstrip("."), rtype.upper()
+        self.queries.append((n, t))
+        if n in self.errors or "*" in self.errors:
+            return Answer("error")
+        values = self.records.get((n, t), [])
+        if values:
+            return Answer("ok", tuple(values))
+        return Answer("nodata" if any(k == n for k, _t in self.records) else "nxdomain")
 
     def set(self, name: str, rtype: str, values: list[str]) -> None:
         self.records[(name.lower().rstrip("."), rtype.upper())] = values

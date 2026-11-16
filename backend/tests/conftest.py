@@ -37,9 +37,11 @@ def _host_of(address) -> str | None:
 
 
 @pytest.fixture(autouse=True)
-def no_network(monkeypatch) -> list[str]:
+def no_network(monkeypatch, request) -> list[str]:
     """Block (and record) every non-local connection. Returns the list of blocked hosts."""
     blocked: list[str] = []
+    if request.node.get_closest_marker("network"):  # the opt-in real-network run (pytest -m network): read-only
+        return blocked
 
     # A local proxy would turn a "localhost" connection into a real outbound one.
     for var in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):

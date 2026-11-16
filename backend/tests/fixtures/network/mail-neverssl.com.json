@@ -1,0 +1,64 @@
+{
+ "kind": "mail",
+ "host": "neverssl.com",
+ "date": "2026-11-16",
+ "dns": {
+  "neverssl.com MX": [
+   "nodata",
+   []
+  ],
+  "neverssl.com CNAME": [
+   "nodata",
+   []
+  ],
+  "neverssl.com NS": [
+   "ok",
+   [
+    "ns-1413.awsdns-48.org.",
+    "ns-1716.awsdns-22.co.uk.",
+    "ns-320.awsdns-40.com.",
+    "ns-570.awsdns-07.net."
+   ]
+  ],
+  "neverssl.com TXT": [
+   "nodata",
+   []
+  ],
+  "_dmarc.neverssl.com TXT": [
+   "nodata",
+   []
+  ]
+ },
+ "findings": [
+  [
+   "email_mx",
+   "mx_none",
+   false,
+   "not_seen"
+  ],
+  [
+   "email_spf",
+   "spf_missing",
+   false,
+   "not_seen"
+  ],
+  [
+   "email_dkim",
+   "dkim_not_applicable",
+   null,
+   "seen"
+  ],
+  [
+   "email_dmarc",
+   "dmarc_missing",
+   false,
+   "not_seen"
+  ]
+ ],
+ "plain": {
+  "email_mx": "This address has no mail servers listed, so emails sent to it will almost certainly not arrive.",
+  "email_spf": "It doesn't say which servers may send its email, so its emails may land in spam.",
+  "email_dkim": "This address isn't set up for email, so there is no email signing to check.",
+  "email_dmarc": "It isn't protected against fake emails in its name."
+ }
+}

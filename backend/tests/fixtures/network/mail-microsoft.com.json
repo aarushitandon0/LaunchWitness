@@ -1,0 +1,206 @@
+{
+ "kind": "mail",
+ "host": "microsoft.com",
+ "date": "2026-11-16",
+ "dns": {
+  "microsoft.com MX": [
+   "ok",
+   [
+    "10 microsoft-com.mail.protection.outlook.com."
+   ]
+  ],
+  "microsoft-com.mail.protection.outlook.com CNAME": [
+   "error",
+   []
+  ],
+  "microsoft-com.mail.protection.outlook.com A": [
+   "ok",
+   [
+    "52.101.9.18",
+    "52.101.41.58",
+    "52.101.41.24",
+    "52.101.40.3"
+   ]
+  ],
+  "microsoft-com.mail.protection.outlook.com AAAA": [
+   "ok",
+   [
+    "2a01:111:f403:f805::2",
+    "2a01:111:f403:f909::5",
+    "2a01:111:f403:c902::7",
+    "2a01:111:f403:f908::8"
+   ]
+  ],
+  "microsoft.com TXT": [
+   "ok",
+   [
+    "\"MS=ms79629062\"",
+    "\"d365mktkey=3l6dste9txazu0Qd2zu4135PUB4E35txLxyzJxjkPbsx\"",
+    "\"d365mktkey=wbU64GRacxVEQxwcLSQnx0zisXLYzgUbfvsufIqO9ZUx\"",
+    "\"linear-domain-verification=iuq6saifcnbe\"",
+    "\"d365mktkey=ZGFU0tlXPekPusNHPo5QQQWpVf0gic0xpuKroNy3NQEx\"",
+    "\"d365mktkey=JlXV17lfZjyvWxNje1qiP390ACSKzTxo5mGqZ3V2BmYx\"",
+    "\"d365mktkey=PNcDqkW71x8VOUhcE96aGM4l5PYX1gnlRl6ieXUl5eMx\"",
+    "\"d365mktkey=Fu49WtSTeClkHtK7S14227RIVpGwwGrzEsO6RVs1I2Ax\"",
+    "\"ms-domain-verification=25524f4b-1476-489c-a086-30f4c5016ecc\"",
+    "\"ms-domain-verification=1c4e4677-e58f-4117-8d61-e5b2810388c2\"",
+    "\"mixpanel-domain-verify=5803bc4c-5bb6-4ce1-8076-753800097373\"",
+    "\"sitecore-domain-verification=1d46cb5467624e33a408d14324874088\"",
+    "\"ms-domain-verification=478640ad-6524-43d5-86c4-a914804b9e93\"",
+    "\"ms-domain-verification=561512fc-b4ba-4ac7-a946-e464c8f49f1b\"",
+    "\"_zx2p8gpzv720db2aqmozy4jhwk2nl43\"",
+    "\"airtable-verification=79a09e4a8013ff5737798ffb4ea88eee\"",
+    "\"1password-site-verification=35ZTURTFFFDC5BW7GFQKRJ77QM\"",
+    "\"d365mktkey=8fEQahTresJms7tZGxGFr94T1zDz36oCbUt1LJc99mox\"",
+    "\"d365mktkey=heYmJ57sWrwMjCgIG1xRwTREJrQokUIDtBcNfGuxoWQx\"",
+    "\"ms-domain-verification=d6545068-89f7-4432-b947-0b137e8a9fe3\"",
+    "\"hcp-domain-verification=3ce174a8b9fba88909633ab13eb1d81ce0123454745d66e500052ed84b7248a1\"",
+    "\"v=MCPv1; k=ecdsap384; p=As/XxnDWZFxFwHvRZj+HbG5/ImtAeabLkiOWu1h7wCJQFAR216E9HoYQ5Hy6o7StoQ==\"",
+    "\"v=MCPv1; k=ecdsap384; p=AoHTKEi2W8L2P8cf9CoDicIxYiuttTkwtIeFOqYCewBGoRZiiF+9/92saUkIDERGAA==\"",
+    "\"ms-domain-verification=65f91178-9dfb-41cd-929d-08d1a38ed607\"",
+    "\"v=MCPv1; k=ecdsap384; p=Asc8WWov6gsmCCzn4CSrwRuJIh5SqvaitKz/LlTW+SD54lLC52wzcnWhlTI416p2vw==\"",
+    "\"liveramp-site-verification=kxcV8fDH_FUNUZQEcAO6lwgim47f_hNLgMP4VG0PF_Q\"",
+    "\"v=MCPv1; k=ecdsap384; p=AqXeTHJ/1FCYeuvJ8dc1B+X3uHaa7m2W0s31vzL4opnrJlSaBdtbWTY8Ti5WiZnu9Q==\"",
+    "\"v=MCPv1; k=ecdsap384; p=An4mJIFLRys9h1EvjX18SJs5p1uEF5MHcs2JJLYPrI48C5Qt9FpaZEM0sQTV4JvNYw==\"",
+    "\"v=MCPv1; k=ecdsap384; p=A/Mf6IKdZzcHfBvpiVz9rkdPTIcCP5IbRDdEkeP3PgXEXF3mNjorahOwaYlMINBF5A==\"",
+    "\"v=MCPv1; k=ecdsap384; p=A8qndBCDJGtFF2+3v/IPIMmM0SaVcrJBoSue7rKob6sUeK7QGeFuWkrtvze3AiqUDA==\"",
+    "\"zoom-domain-verification=ZOOM_verify_e97a3d385acb4c47b9b924609a280524\"",
+    "\"anthropic-domain-verification-phksss=GZrrKDUR4klRLFCvxyOvqcNGE\"",
+    "\"v=MCPv1; k=ecdsap384; p=Azw9+u4M8RoH+bxJidKAZzGDmsPkzY1N4cO7rB/uC5x1RBoNfMyBlH/ott0lpo4pOQ==\"",
+    "\"dobtdihqagnr18hea8uv1h1mvq\"",
+    "\"atlassian-domain-verification=Sn5AwyIdVgkaRaJA/IKj7ZFMnWeCBnppa9bXGLuJvsakRHH4lYoBxS8g7GVlud9M\"",
+    "\"openai-domain-verification=dv-sFtCvKOlWoe31gpoSvs7cqsP\"",
+    "\"hpe-greenlake-domain-verification=495143304a3330533363357a57684f6335556f316f55654675523541464d3954\"",
+    "\"v=MCPv1; k=ecdsap384; p=A5JeyhIFWFj4/epHJwt29GRUSrFwGSwXhrhDMAUSklMhfXjI7gi/ekY/fQSWToZdCw==\"",
+    "\"v=MCPv1; k=ecdsap384; p=A/78JIxAOlNwq8f0T/l50w7zhwQFpEuB8/Jz9CafdXNX7ewOluYpS/EEcSmLgxsHXg==\"",
+    "\"docker-verification=b912d2f3-8614-4591-962b-9e07dbf7c047\"",
+    "\"_ij59qjkrntjw3gpjplj3or17mo3xxvt\"",
+    "\"google-site-verification=jwrHU99GU8HSXlRFeywLDZmVawD2DWVCebQ41shKK0M\"",
+    "\"v=spf1 include:_spf-a.microsoft.com include:_spf-b.microsoft.com include:_spf-ssg-a.msft.net include:_spf1-meo.microsoft.com -all\"",
+    "\"google-gws-recovery-domain-verification=77163048\"",
+    "\"google-gws-recovery-domain-verification=77417634\"",
+    "\"d365mktkey=3uc1cf82cpv750lzk70v9bvf2\"",
+    "\"facebook-domain-verification=fwzwhbbzwmg5fzgotc2go51olc3566\"",
+    "\"google-site-verification=pjPOauSPcrfXOZS9jnPPa5axowcHGCDAl1_86dCqFpk\"",
+    "\"fg2t0gov9424p2tdcuo94goe9j\"",
+    "\"t7sebee51jrj7vm932k531hipa\"",
+    "\"google-site-verification=M--CVfn_YwsV-2FGbCp_HFaEj23BmT0cTF4l8hXgpvM\"",
+    "\"google-site-verification=GfDnTUdATPsK1230J0mXbfsYw-3A9BVMVaKSd4DcKgI\"",
+    "\"d365mktkey=SxDf1EZxLvMwx6eEZUxzjFFgHoapF8DvtWEUjwq7ZTwx\"",
+    "\"hubspot-developer-verification=OTQ5NGIwYWEtODNmZi00YWE1LTkyNmQtNDhjMDMxY2JjNDAx\"",
+    "\"d365mktkey=QDa792dLCZhvaAOOCe2Hz6WTzmTssOp1snABhxWibhMx\"",
+    "\"d365mktkey=6358r1b7e13hox60tl1uagv14\"",
+    "\"google-site-verification=uFg3wr5PWsK8lV029RoXXBBUW0_E6qf1WEWVHhetkOY\"",
+    "\"docusign=d5a3737c-c23c-4bd0-9095-d2ff621f2840\"",
+    "\"d365mktkey=j2qHWq9BHdaa3ZXZH8x64daJZxEWsFa0dxDeilxDoYYx\"",
+    "\"atlassian-domain-verification=xvoaqRfxSg3PnlVnR4xCSOlKyw1Aln0MMxRiKXnwWroFG7vI76TUC8xYb03MwMXv\"",
+    "\"workplace-domain-verification=lK0QDLk73xymCYMKUXNpfKAT8TY5Mx\"",
+    "\"google-site-verification=uhh5_jbxpcQgnb-A7gDIjlrr5Ef34lA2t2_BAveYpnk\""
+   ]
+  ],
+  "_spf-a.microsoft.com TXT": [
+   "ok",
+   [
+    "\"v=spf1 ip4:216.99.5.67 ip4:216.99.5.68 ip4:202.177.148.100 ip4:203.122.32.250 ip4:202.177.148.110 ip4:213.199.128.139 ip4:213.199.128.145 ip4:207.46.50.72 ip4:207.46.50.82 ip4:65.55.42.224/28 include:spf.protection.outlook.com ~all\""
+   ]
+  ],
+  "spf.protection.outlook.com TXT": [
+   "ok",
+   [
+    "\"v=spf1 ip4:40.92.0.0/15 ip4:40.107.0.0/16 ip4:52.100.0.0/15 ip4:52.102.0.0/16 ip4:52.103.0.0/17 ip4:104.47.0.0/17 ip6:2a01:111:f400::/48 ip6:2a01:111:f403::/49 ip6:2a01:111:f403:8000::/51 ip6:2a01:111:f403:c000::/51 ip6:2a01:111:f403:f000::/52 -all\""
+   ]
+  ],
+  "_spf-b.microsoft.com TXT": [
+   "ok",
+   [
+    "\"v=spf1 include:_spf-mdm.microsoft.com ip4:207.46.22.35 ip4:207.46.22.98/29 ip4:217.77.141.52 ip4:217.77.141.59 ip4:203.32.4.25 ip4:23.103.224.0/19 ip4:206.191.224.0/19 ip4:65.52.80.137/32 ~all\""
+   ]
+  ],
+  "_spf-mdm.microsoft.com TXT": [
+   "ok",
+   [
+    "\"v=spf1 ip4:134.170.113.0/26 ip4:131.253.30.0/24 ip4:157.56.120.128/26 ip4:134.170.174.0/24 ip4:134.170.141.64/26 ip4:134.170.143.0/24 ip4:157.58.249.3 ip4:65.55.29.77 ip4:131.253.121.0/26 -all\""
+   ]
+  ],
+  "_spf-ssg-a.msft.net TXT": [
+   "ok",
+   [
+    "\"v=spf1 ip4:104.44.112.128/25 ip4:134.170.27.8 ip4:157.58.30.128/25 ip4:20.63.210.192/28 ip4:20.94.180.64/28 ip4:40.112.65.63 ip4:52.185.106.240/28 ip4:52.234.172.96/28 ip4:52.236.28.240/28 ip4:66.119.150.192/26 ~all\""
+   ]
+  ],
+  "_spf1-meo.microsoft.com TXT": [
+   "ok",
+   [
+    "\"v=spf1 ip4:52.235.253.128 ip4:20.141.10.196 ip4:20.118.139.208/30 ip4:20.98.194.68/30 ip4:20.83.222.104/30 ip4:20.88.157.184/30 ip4:20.59.80.4/30 ip4:20.51.6.32/30 ip4:20.97.34.220/30 ip4:20.107.239.64/30 ip4:20.105.209.76/30 ip4:20.98.148.156/30 ip4:20.\" \"69.8.108/30 ~all\""
+   ]
+  ],
+  "lw-no-such-label._domainkey.microsoft.com TXT": [
+   "nxdomain",
+   []
+  ],
+  "selector1._domainkey.microsoft.com TXT": [
+   "nxdomain",
+   []
+  ],
+  "selector1._domainkey.microsoft.com CNAME": [
+   "ok",
+   [
+    "selector1-microsoft-com._domainkey.microsoft.onmicrosoft.com."
+   ]
+  ],
+  "selector1-microsoft-com._domainkey.microsoft.onmicrosoft.com TXT": [
+   "nxdomain",
+   []
+  ],
+  "selector2._domainkey.microsoft.com TXT": [
+   "ok",
+   [
+    "\"v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCPkb8bu8RGWeJGk3hJrouZXIdZ+HTp/azRp8IUOHp5wKvPUAi/54PwuLscUjRk4Rh3hjIkMpKRfJJXPxWbrT7eMLric7f/S0h+qF4aqIiQqHFCDAYfMnN6V3Wbke2U5EGm0H/cAUYkaf2AtuHJ/rdY/EXaldAm00PgT9QQMez66QIDAQAB;\""
+   ]
+  ],
+  "selector2._domainkey.microsoft.com CNAME": [
+   "ok",
+   [
+    "selector2-microsoft-com._domainkey.microsoft.onmicrosoft.com."
+   ]
+  ],
+  "_dmarc.microsoft.com TXT": [
+   "ok",
+   [
+    "\"v=DMARC1; p=reject; pct=100; rua=mailto:someone@microsoft.com; ruf=mailto:someone@microsoft.com; fo=1\""
+   ]
+  ]
+ },
+ "findings": [
+  [
+   "email_mx",
+   "mx_ok",
+   true,
+   "seen"
+  ],
+  [
+   "email_spf",
+   "spf_ok_hard",
+   true,
+   "seen"
+  ],
+  [
+   "email_dkim",
+   "dkim_found",
+   true,
+   "seen"
+  ],
+  [
+   "email_dmarc",
+   "dmarc_reject",
+   true,
+   "seen"
+  ]
+ ],
+ "plain": {
+  "email_mx": "Emails to this address have somewhere to go: Microsoft 365 (Outlook).",
+  "email_spf": "It says which servers may send its email, and tells mail services to refuse all others.",
+  "email_dkim": "Its emails can be signed: we found a signing key.",
+  "email_dmarc": "It is protected against fake emails in its name: they are refused. Reports about it are sent to an address its owner chose."
+ }
+}

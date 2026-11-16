@@ -46,7 +46,9 @@ class RealHttpProbe:
     def cert_expires(self, host: str) -> datetime | None:
         """TODO(real): verify against a real Caddy-served host."""
         try:
-            ctx = ssl.create_default_context()
+            from app.checks.safe_fetch import tls_context
+
+            ctx = tls_context()
             with socket.create_connection((host, 443), timeout=10) as raw, ctx.wrap_socket(raw, server_hostname=host) as tls:
                 not_after = tls.getpeercert().get("notAfter")
         except (OSError, ssl.SSLError):

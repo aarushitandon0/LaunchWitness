@@ -1,0 +1,137 @@
+{
+ "kind": "mail",
+ "host": "launchwitness.com",
+ "date": "2026-11-16",
+ "dns": {
+  "launchwitness.com MX": [
+   "ok",
+   [
+    "10 mailstore1.secureserver.net.",
+    "0 smtp.secureserver.net."
+   ]
+  ],
+  "mailstore1.secureserver.net CNAME": [
+   "nodata",
+   []
+  ],
+  "mailstore1.secureserver.net A": [
+   "ok",
+   [
+    "92.204.80.19"
+   ]
+  ],
+  "mailstore1.secureserver.net AAAA": [
+   "nodata",
+   []
+  ],
+  "smtp.secureserver.net CNAME": [
+   "nodata",
+   []
+  ],
+  "smtp.secureserver.net A": [
+   "ok",
+   [
+    "92.204.80.20"
+   ]
+  ],
+  "smtp.secureserver.net AAAA": [
+   "nodata",
+   []
+  ],
+  "launchwitness.com TXT": [
+   "ok",
+   [
+    "\"v=spf1 include:secureserver.net -all\""
+   ]
+  ],
+  "secureserver.net TXT": [
+   "ok",
+   [
+    "\"google-site-verification=j69AKsEjg61mFSXTyJPzvpL1eYRp60akMqRxa4XAuLM\"",
+    "\"google-site-verification=DtWHFdJMCINP0RBgPprxsCo6ZMeIy_xHi0XO8FcKmVI\"",
+    "\"MS=ms16109570\"",
+    "\"o1dr1dj6fdb2tdi7f8hcisd183\"",
+    "\"jmopedihhbdn45hsiqpofgqdkc\"",
+    "\"atlassian-domain-verification=0FFz3ZaXmdxD7yHY5Q/nI2dnLHDM5Zi0tdvyuYN1JFWq3UIZMf6FaDJgsku9N2m3\"",
+    "\"fng0c8fmqejpe7misd5vcmpnrk\"",
+    "\"346ialadasm76nq2cnknil4d9j\"",
+    "\"gf1bnvgsl5bmekl6e1mke3c46c\"",
+    "\"g5a10ihs5emfg8o8s0e44pvktv\"",
+    "\"v=spf1 include:spf-0.secureserver.net -all\"",
+    "\"google-site-verification=GsYntSQyy_tSrRvMasP01vF3DBuaZMp1FHSkxva6E-I\"",
+    "\"IPROTA_D17772-XXX.TXT\"",
+    "\"dropbox-domain-verification=t39mlntxpsqg\""
+   ]
+  ],
+  "spf-0.secureserver.net TXT": [
+   "ok",
+   [
+    "\"v=spf1 ip4:64.202.168.0/24 ip4:97.74.135.0/24 ip4:72.167.238.0/24 ip4:72.167.234.0/24 ip4:72.167.218.0/24 ip4:68.178.252.0/24 ip4:68.178.213.0/24 ip4:216.69.139.0/24 ip4:208.109.80.0/24 ip4:92.204.81.0/24 ip4:198.71.224.0/19 ip4:184.168.224.0/24 ip4:184.1\" \"68.200.0/24 ip4:184.168.131.0/24 ip4:184.168.128.0/24 ip4:92.204.65.0/28 ip4:182.50.132.0/24 ip4:173.201.192.0/23 ip4:72.167.168.0/24 ip4:92.204.71.0/24 ip4:132.148.124.0/24 ip4:72.167.172.0/24 ip4:188.121.52.0/24 ip4:188.121.53.0/24 ip4:52.89.65.132 ip4:\" \"54.214.222.76 ip4:54.184.82.65 ip4:52.26.164.15 ip4:68.178.181.0/24 ip4:50.63.8.0/22 ip4:208.109.194.0/24 ip4:80.237.138.192/26 ip4:92.204.86.0/24 include:spf.protection.outlook.com -all\""
+   ]
+  ],
+  "spf.protection.outlook.com TXT": [
+   "ok",
+   [
+    "\"v=spf1 ip4:40.92.0.0/15 ip4:40.107.0.0/16 ip4:52.100.0.0/15 ip4:52.102.0.0/16 ip4:52.103.0.0/17 ip4:104.47.0.0/17 ip6:2a01:111:f400::/48 ip6:2a01:111:f403::/49 ip6:2a01:111:f403:8000::/51 ip6:2a01:111:f403:c000::/51 ip6:2a01:111:f403:f000::/52 -all\""
+   ]
+  ],
+  "lw-no-such-label._domainkey.launchwitness.com TXT": [
+   "nxdomain",
+   []
+  ],
+  "titan1._domainkey.launchwitness.com TXT": [
+   "nxdomain",
+   []
+  ],
+  "titan1._domainkey.launchwitness.com CNAME": [
+   "nxdomain",
+   []
+  ],
+  "mail._domainkey.launchwitness.com TXT": [
+   "nxdomain",
+   []
+  ],
+  "mail._domainkey.launchwitness.com CNAME": [
+   "nxdomain",
+   []
+  ],
+  "_dmarc.launchwitness.com TXT": [
+   "ok",
+   [
+    "\"v=DMARC1; p=quarantine; adkim=r; aspf=r; rua=mailto:someone@onsecureserver.net;\""
+   ]
+  ]
+ },
+ "findings": [
+  [
+   "email_mx",
+   "mx_ok",
+   true,
+   "seen"
+  ],
+  [
+   "email_spf",
+   "spf_ok_hard",
+   true,
+   "seen"
+  ],
+  [
+   "email_dkim",
+   "dkim_couldnt_check",
+   null,
+   "couldnt_check"
+  ],
+  [
+   "email_dmarc",
+   "dmarc_quarantine",
+   true,
+   "seen"
+  ]
+ ],
+ "plain": {
+  "email_mx": "Emails to this address have somewhere to go: GoDaddy Professional Email.",
+  "email_spf": "It says which servers may send its email, and tells mail services to refuse all others.",
+  "email_dkim": "We couldn't check whether its emails are signed: a signing key can only be looked up by its private label, and we don't know this address's.",
+  "email_dmarc": "It is protected against fake emails in its name: they are sent to spam. Reports about it are sent to an address its owner chose."
+ }
+}

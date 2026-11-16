@@ -1,0 +1,64 @@
+{
+ "kind": "web",
+ "host": "wrong.host.badssl.com",
+ "date": "2026-11-16",
+ "dns": {
+  "wrong.host.badssl.com A": [
+   "ok",
+   [
+    "104.154.89.105"
+   ]
+  ],
+  "wrong.host.badssl.com AAAA": [
+   "nodata",
+   []
+  ],
+  "wrong.host.badssl.com NS": [
+   "nodata",
+   []
+  ]
+ },
+ "web": {
+  "host": "wrong.host.badssl.com",
+  "dns": "ok",
+  "ips": [
+   "104.154.89.105"
+  ],
+  "fetch": "cert",
+  "status": null,
+  "seconds": 0.8,
+  "hsts": false,
+  "final_host": "wrong.host.badssl.com",
+  "tls": "wrong_host",
+  "cert_days": null,
+  "http": "redirects_https",
+  "http_to": "wrong.host.badssl.com",
+  "note": "SSLCertVerificationError: Hostname mismatch, certificate is not valid for 'wrong.host.badssl.com'."
+ },
+ "twin": null,
+ "findings": [
+  [
+   "address",
+   "addr_ok",
+   true,
+   "seen"
+  ],
+  [
+   "https",
+   "cert_wrong_host",
+   false,
+   "seen"
+  ],
+  [
+   "plain_http",
+   "http_redirects",
+   true,
+   "seen"
+  ]
+ ],
+ "plain": {
+  "address": "The address leads to a website server.",
+  "https": "The security certificate belongs to a different name, so browsers show a warning instead of the site.",
+  "plain_http": "Visitors who type the address without https are sent to the secure site."
+ }
+}

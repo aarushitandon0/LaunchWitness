@@ -113,7 +113,7 @@ def mail_write_decision(ctx: Ctx, ch: dict, records: list[dict]) -> str:
         spf = [str(r.get("data", "")) for r in live if str(r.get("data", "")).lower().startswith("v=spf1")]
         if spf and not any(provider.spf_include in v for v in spf):
             raise StepFailed(OTHER_MAIL, f"live SPF {spf} does not include {provider.spf_include}")
-        return "write"
+        return "keep" if spf else "write"  # a line that already names us may also name her other senders: leave it
     return "keep" if {str(r.get("data", "")) for r in live} != {str(r.get("data", "")) for r in records} else "write"
 
 
@@ -127,6 +127,11 @@ def write_change(ctx: Ctx, ch: dict, after: list[dict] | None = None) -> None:
         audit.record(ctx.session, actor="executor", action="dns_write", target=f"{ch['type']} {ch['name']} @ {ch['zone']}",
                      result="kept", business_id=ctx.business.id, detail="a working value is already there; left as it is")
         return
+    if ch["type"] == "TXT" and ch["name"] == "@":  # the write replaces every TXT there: carry over what is live now
+        have = {str(r.get("data", "")) for r in records}
+        records = [r for r in ctx.integ.godaddy.get_records(ch["zone"]) if r["type"] == "TXT" and r["name"] == "@"
+                   and str(r.get("data", "")) not in have and not str(r.get("data", "")).lower().startswith("v=spf1")
+                   ] + list(records)
     ctx.integ.godaddy.set_records(ch["zone"], ch["type"], ch["name"], records)
     audit.record(ctx.session, actor="executor", action="dns_write", target=f"{ch['type']} {ch['name']} @ {ch['zone']}",
                  result="ok", business_id=ctx.business.id, detail=json.dumps([r.get("data") for r in records])[:500])

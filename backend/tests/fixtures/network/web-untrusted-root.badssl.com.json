@@ -1,0 +1,64 @@
+{
+ "kind": "web",
+ "host": "untrusted-root.badssl.com",
+ "date": "2026-11-16",
+ "dns": {
+  "untrusted-root.badssl.com A": [
+   "ok",
+   [
+    "104.154.89.105"
+   ]
+  ],
+  "untrusted-root.badssl.com AAAA": [
+   "nodata",
+   []
+  ],
+  "untrusted-root.badssl.com NS": [
+   "nodata",
+   []
+  ]
+ },
+ "web": {
+  "host": "untrusted-root.badssl.com",
+  "dns": "ok",
+  "ips": [
+   "104.154.89.105"
+  ],
+  "fetch": "cert",
+  "status": null,
+  "seconds": 0.8,
+  "hsts": false,
+  "final_host": "untrusted-root.badssl.com",
+  "tls": "untrusted",
+  "cert_days": null,
+  "http": "redirects_https",
+  "http_to": "untrusted-root.badssl.com",
+  "note": "SSLCertVerificationError: self-signed certificate in certificate chain"
+ },
+ "twin": null,
+ "findings": [
+  [
+   "address",
+   "addr_ok",
+   true,
+   "seen"
+  ],
+  [
+   "https",
+   "cert_untrusted",
+   false,
+   "seen"
+  ],
+  [
+   "plain_http",
+   "http_redirects",
+   true,
+   "seen"
+  ]
+ ],
+ "plain": {
+  "address": "The address leads to a website server.",
+  "https": "The security certificate comes from an authority browsers don't trust, so browsers show a warning instead of the site.",
+  "plain_http": "Visitors who type the address without https are sent to the secure site."
+ }
+}
