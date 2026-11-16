@@ -2,6 +2,7 @@
 `backend/tests/fixtures/claude/investigate_<check>_t<turn>.json` (one file per turn).
 
 Run on the owner's laptop:  cd backend && CLAUDE_MODE=live ../.venv/Scripts/python ../scripts/capture_doctor_investigation.py [--dry-run] [--cap 0.30]
+S12 (parked-page fault + "Describe the problem", 5 conversations, cap $0.10):  … capture_doctor_investigation.py --s12 [--dry-run]
 
 The tools are NOT run for real here: each fault has the exact results the pretend world gives in the tests
 (same shop `meera.localhost`, same texts), so the saved turns replay against that world. Only Claude is live.
@@ -59,6 +60,23 @@ SCENARIOS = {
         "expect": "retry_certificate",
     },
 }
+MARKER_PAGE = "status=200 certificate_valid=True shop_marker=MISSING"
+# S12 (--s12): the fourth staged fault (a parked page) and the "Describe the problem" box. Cap $0.10.
+S12 = {
+    "https_marker": {
+        "failed": Outcome("https", False, "Your address opens a page, but it isn't your shop.",
+                          "status=200 cert_valid=True; shop marker missing (page status 200)"),
+        "tools": {"fetch": MARKER_PAGE, "resolve": GOOD_A, "evidence": "site_points:dns_answer"},
+        "expect": "repoint_site", "symptom": "",
+    },
+    "site_points_symptom": {**SCENARIOS["site_points"], "symptom": "My shop doesn't open"},
+    "https_symptom": {**SCENARIOS["https"], "symptom": "Customers see a security warning"},
+    "https_marker_symptom": {"failed": Outcome("https", False, "Your address opens a page, but it isn't your shop.",
+                                               "status=200 cert_valid=True; shop marker missing (page status 200)"),
+                             "tools": {"fetch": MARKER_PAGE, "resolve": GOOD_A},
+                             "expect": "repoint_site", "symptom": "My address opens someone else's page"},
+    "test_order_symptom": {**SCENARIOS["test_order"], "symptom": "Order emails aren't reaching me"},
+}
 DEFAULT_TOOLS = {"smtp_test": "ok: connected and signed in", "mailbox_status": "mailbox active"}
 
 
@@ -70,13 +88,15 @@ def spent(engine) -> float:
 
 def main(args: list[str]) -> int:
     settings = get_settings()
-    cap = float(args[args.index("--cap") + 1]) if "--cap" in args else 0.30
+    s12 = "--s12" in args
+    scenarios = S12 if s12 else SCENARIOS
+    cap = float(args[args.index("--cap") + 1]) if "--cap" in args else (0.10 if s12 else 0.30)
     turns = inv.MAX_TOOL_CALLS + 1
     longest = max(inv.investigator_user(sc["failed"], MODE, "", [{"tool": "resolve", "args": {}, "short_result": "x" * 200}] * 4)
-                  for sc in SCENARIOS.values())
-    worst = len(SCENARIOS) * turns * call_cost_usd(settings.claude_model_cheap,
+                  for sc in scenarios.values())
+    worst = len(scenarios) * turns * call_cost_usd(settings.claude_model_cheap,
                                                    estimate_input_tokens(inv.SYSTEM, longest), inv.TOKENS_PER_TURN)
-    print(f"{len(SCENARIOS)} faults x up to {turns} turns on {settings.claude_model_cheap}: worst case ${worst:.4f} (cap ${cap:.2f})")
+    print(f"{len(scenarios)} faults x up to {turns} turns on {settings.claude_model_cheap}: worst case ${worst:.4f} (cap ${cap:.2f})")
     if worst > cap:
         print("Worst case is over the cap: not running.")
         return 2
@@ -89,11 +109,13 @@ def main(args: list[str]) -> int:
     init_db(engine)
     before = spent(engine)
     live = LiveClaudeClient(settings, engine)
-    for check, sc in SCENARIOS.items():
+    for key, sc in scenarios.items():
+        check, symptom = sc["failed"].check, sc.get("symptom", "")
+        var = inv.variant(sc["failed"], symptom)
         replies: list[dict] = []
 
-        def ask(turn: int, user: str, check=check, replies=replies) -> dict:
-            data = live.ask_json(fixture=inv.fixture_name(check, turn), tier="cheap", system=inv.SYSTEM, user=user,
+        def ask(turn: int, user: str, check=check, var=var, replies=replies) -> dict:
+            data = live.ask_json(fixture=inv.fixture_name(check, turn, var), tier="cheap", system=inv.SYSTEM, user=user,
                                  schema=inv.ANSWER_SCHEMA, max_tokens=inv.TOKENS_PER_TURN)
             replies.append(data)
             return data
@@ -107,18 +129,18 @@ def main(args: list[str]) -> int:
                 result = "refused: only this shop's own address can be looked up"
             return {"tool": name, "args": args_, "short_result": result}
 
-        data, trace = inv.loop(ask, sc["failed"], MODE, "", tool, HOST)
+        data, trace = inv.loop(ask, sc["failed"], MODE, symptom, tool, HOST)
         fix = data.get("fix_id")
         looks = ", ".join(t["tool"] for t in trace) or "none"
-        print(f"{check}: looked at [{looks}] -> {fix!r}: {str(data.get('finding', ''))[:160]}")
+        print(f"{key}: looked at [{looks}] -> {fix!r}: {str(data.get('finding', ''))[:160]}")
         ok = fix == sc["expect"] and (fix == inv.NEEDS_OWNER or fix in fixes_for(check, MODE)) and trace
         if not ok:
             print(f"  NOT SAVED: expected {sc['expect']!r} after at least one look. Spent so far ${spent(engine) - before:.4f}")
             return 1
-        for old in FIXTURE_DIR.glob(f"investigate_{check}_t*.json"):
+        for old in FIXTURE_DIR.glob(f"investigate_{check}{var}_t*.json"):
             old.unlink()
         for turn, reply in enumerate(replies):
-            (FIXTURE_DIR / f"{inv.fixture_name(check, turn)}.json").write_text(
+            (FIXTURE_DIR / f"{inv.fixture_name(check, turn, var)}.json").write_text(
                 json.dumps(reply, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print(f"  saved {len(replies)} turn(s)")
     print(f"Real spend for this capture: ${spent(engine) - before:.4f}")

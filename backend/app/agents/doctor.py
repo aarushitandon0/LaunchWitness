@@ -187,7 +187,7 @@ def repair(claude: Claude, ctx: Ctx, failed: Outcome, symptom: str = "") -> Repa
                 result.attempts.append({"explanation": failed.plain, "fix_id": "", "applied": False,
                                         "message": "Our assistant couldn't look at this right now.", "passed": False})
                 if len(result.attempts) == 1:
-                    result.doctor = needs_you(ctx, failed.check, STANDARD_NEEDS_YOU, next_step(failed.check, ctx.plan.mode))
+                    result.doctor = needs_you(ctx, failed.check, STANDARD_NEEDS_YOU, next_step(failed.check, ctx.plan.mode, failed.plain))
                 break
             d = Diagnosis(STANDARD_FINDING, next(iter(allowed)))  # the rule-based fallback: the one fix code allows
         try:

@@ -91,8 +91,20 @@ export async function me(page: Page) {
 
 /** Status code of a GET to any URL, made by the browser (a top-level navigation). */
 export async function statusOf(page: Page, url: string): Promise<number> {
-  const r = await page.goto(url);
-  return r ? r.status() : 0;
+  // Newer Chromium builds fail the navigation itself (ERR_HTTP_RESPONSE_CODE_FAILURE) on an error status with an
+  // empty body, e.g. Caddy's bare 404 for /internal: read the status from the browser's own response event instead.
+  const seen = page.waitForResponse((r) => r.url() === url && r.request().isNavigationRequest(), { timeout: 15_000 });
+  seen.catch(() => undefined); // not needed when the navigation itself answers
+  try {
+    const r = await page.goto(url);
+    if (r) return r.status();
+  } catch (e) {
+    if (!String(e).includes("ERR_HTTP_RESPONSE_CODE_FAILURE")) throw e;
+  }
+  const status = (await seen).status();
+  await page.waitForURL(/^chrome-error:/, { timeout: 2_000 }).catch(() => undefined); // let the error page settle
+  await page.goto("about:blank").catch(() => undefined); // so the next navigation in this tab isn't interrupted
+  return status;
 }
 
 /** Describe the business on the real page; returns the new shop id. Signed in: #/new. Guest: #/try (no account). */

@@ -1,6 +1,8 @@
 import { motion, MotionValue, useScroll, useSpring, useTransform } from "framer-motion";
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { AddressResult, api, ApiError } from "./api";
+import { AddressFindings } from "./Findings";
+import { HopTrack, WatchDay } from "./LandingProof";
 import { ErrorBox } from "./Describe";
 import { useMe } from "./Account";
 import { EASE, useCalm } from "./motion";
@@ -85,15 +87,6 @@ const WHO: { id: string; title: string; text: string; demos: [string, string][] 
   },
 ];
 
-/** The proof, hop by hop: the same six hops as the hero's layers (bottom to top). */
-export const HOPS: { name: string; text: string }[] = [
-  { name: "Address", text: "Your shop's address leads to our GoDaddy server." },
-  { name: "Secure page", text: "It opens securely, with a valid padlock." },
-  { name: "Your shop", text: "The page that opens is really your shop: we look for its own hidden marker." },
-  { name: "Order form", text: "A real test order goes in through your shop's own order form, like a customer's." },
-  { name: "Mail server", text: "The mail server accepts the order email for you." },
-  { name: "Your inbox", text: "It reaches you: you tap “Yes, I got it” in that email." },
-];
 
 /** What runs after launch. Matches monitor/scheduler.py (QUICK_MINUTES, daily jobs, RECHECK_SECONDS) and
  * renewals.py (THRESHOLDS 30/7/1, CERT_THRESHOLDS 7/1). Change both together. */
@@ -228,15 +221,7 @@ export default function Landing() {
             Before we call your shop ready, a real test order travels the same path a customer's would. Each hop is saved
             with its time and the server that answered, and your report only claims what was saved.
           </SectionHead>
-          <ol className="hops">
-            {HOPS.map((h, i) => (
-              <Reveal as="li" key={h.name} delay={i * 0.05} className="hop">
-                <span className="label">/0{i + 1}</span>
-                <strong>{h.name}</strong>
-                <span>{h.text}</span>
-              </Reveal>
-            ))}
-          </ol>
+          <HopTrack />
         </div>
       </section>
 
@@ -246,6 +231,7 @@ export default function Landing() {
             Launch day isn't the end. For every live shop, we keep checking on a schedule, fix what we safely can, and tell
             you about the rest.
           </SectionHead>
+          <WatchDay />
           <ol className="watch-grid">
             {WATCH.map((w, i) => (
               <Reveal as="li" key={w.title} delay={i * 0.06} className={`watch-item${i === 3 ? " watch-fix" : ""}`}>
@@ -741,19 +727,7 @@ function CheckAnyAddress() {
           <p className="muted">
             Read-only results for <strong>{result.address}</strong>:
           </p>
-          <ul className="rows checks">
-            {result.results.map((r, i) => (
-              <li key={`${r.check}-${i}`} className={r.ok === false ? "bad" : r.ok ? "ok" : "st-pending"}>
-                <span className="icon" aria-hidden>
-                  {r.ok === false ? "✕" : r.ok ? "✓" : "–"}
-                </span>
-                <div className="body">
-                  <div className="title">{r.plain}</div>
-                  {r.detail && <div className="muted mono">{r.detail}</div>}
-                </div>
-              </li>
-            ))}
-          </ul>
+          <AddressFindings results={result.results} />
           <WatchThis address={result.address} />
           <div className="check-next">
             <p>

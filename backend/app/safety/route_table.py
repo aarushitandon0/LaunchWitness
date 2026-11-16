@@ -30,6 +30,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/order"): PUBLIC,
     ("POST", "/report-shop"): PUBLIC,
     # --- demo shops (S10.5): sample profiles, no database row, the form places no order ---
+    ("GET", "/photos/{file}"): PUBLIC,  # S12: on a shop host only its own photos; on the app host by random name
     ("GET", "/demo/{name}"): PUBLIC,
     ("GET", "/demo/{name}/privacy"): PUBLIC,
     ("POST", "/demo/{name}/order"): PUBLIC,
@@ -56,6 +57,10 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/businesses/{business_id}/orders"): OWNER,
     ("POST", "/api/businesses/{business_id}/orders/{order_id}/status"): OWNER,  # S10.5: New → Confirmed → Paid → Done
     ("GET", "/api/businesses/{business_id}/export"): OWNER,
+    ("POST", "/api/businesses/{business_id}/describe-problem"): OWNER,  # S12: symptom → Doctor (data), 5/day per user
+    ("GET", "/api/businesses/{business_id}/photos"): OWNER,  # S12 product photos
+    ("POST", "/api/businesses/{business_id}/photos"): OWNER,  # content-checked, re-encoded, stripped, 60/day per shop
+    ("DELETE", "/api/businesses/{business_id}/photos/{photo_id}"): OWNER,
     ("GET", "/api/businesses/{business_id}/golive"): OWNER,  # S10.5 go-live checklist
     ("POST", "/api/businesses/{business_id}/confirm"): OWNER,  # owner-confirmed steps; the team gets 404 too
     ("GET", "/api/businesses/{business_id}/names"): OWNER,

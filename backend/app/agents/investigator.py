@@ -22,7 +22,7 @@ from sqlmodel import select
 
 from app import audit, proof
 from app.agents.checker import Outcome, shop_web
-from app.agents.claude_client import Claude, ClaudeError
+from app.agents.claude_client import Claude, ClaudeError, FixtureClaudeClient
 from app.agents.executor import Ctx
 from app.agents.playbook import PLAYBOOK, fixes_for
 from app.models import Evidence
@@ -103,8 +103,21 @@ KEEPS_BREAKING = ("This keeps breaking: we fixed it {n} times in the last day an
                   "form and we'll look at it together.")
 
 
-def next_step(check: str, mode: str) -> str:
-    """The exact plain steps for a failed check that has no automatic fix. Every check has an answer."""
+ORDER_FORM_BROKEN = ("Your order form didn't take our test order, so customers may not be able to order either. Open "
+                     "your shop and try placing an order yourself. If it fails, write to us from the contact form and "
+                     "we'll look at it with you.")
+NOT_IN_INBOX = ("Our test order email was sent but hasn't reached your inbox yet. Look in your spam folder: if it's "
+                "there, mark it “not spam”. If it isn't anywhere after an hour, write to us from the contact form.")
+
+
+def next_step(check: str, mode: str, plain: str = "") -> str:
+    """The exact plain steps for a failed check that has no automatic fix. Every check has an answer.
+    `plain`: the check's own words, which tell the test order's three ways of failing apart (S12)."""
+    if check == "test_order" and plain:
+        if "hasn't arrived" in plain:
+            return NOT_IN_INBOX
+        if "order form" in plain and "couldn't send" not in plain or "item to order" in plain:
+            return ORDER_FORM_BROKEN
     if check.startswith("email_"):
         return OUR_MAILBOX if mode == "sandbox" else OWN_DOMAIN_MAIL
     if check == "settings_match":
@@ -233,7 +246,7 @@ def fallback(failed: Outcome, mode: str, trace: list[dict]) -> Investigation:
     auto = allowed_auto(failed.check, mode)
     if len(auto) == 1:
         return Investigation(STANDARD_FINDING, next(iter(auto)), source="standard", trace=trace)
-    return Investigation(STANDARD_NEEDS_YOU, NEEDS_OWNER, next_step(failed.check, mode),
+    return Investigation(STANDARD_NEEDS_YOU, NEEDS_OWNER, next_step(failed.check, mode, failed.plain),
                          source="standard", trace=trace)
 
 
@@ -274,8 +287,19 @@ def loop(ask, failed: Outcome, mode: str, symptom: str, tool, host: str = "") ->
     return {}, trace
 
 
-def fixture_name(check: str, turn: int) -> str:
-    return f"investigate_{check}_t{turn}"
+MARKER_MISSING = "shop marker missing"
+FIXTURE_HOST = "meera.localhost"  # the shop the saved (fixture) conversations were recorded on
+
+
+def variant(failed: Outcome, symptom: str = "") -> str:
+    """Which saved conversation a fixture-mode run replays: the padlock check failing because the page isn't her
+    shop (marker missing) is a different case from a broken padlock, and the owner's own words change the question."""
+    return ("_marker" if failed.check == "https" and MARKER_MISSING in failed.detail else "") + \
+        ("_symptom" if symptom.strip() else "")
+
+
+def fixture_name(check: str, turn: int, var: str = "") -> str:
+    return f"investigate_{check}{var}_t{turn}"
 
 
 def investigate(claude: Claude, ctx: Ctx, failed: Outcome, symptom: str = "") -> Investigation:
@@ -283,8 +307,11 @@ def investigate(claude: Claude, ctx: Ctx, failed: Outcome, symptom: str = "") ->
     trace: list[dict] = []
 
     def ask(turn: int, user: str) -> dict:
-        return live.ask_json(fixture=fixture_name(failed.check, turn), tier="cheap", system=SYSTEM, user=user,
-                             schema=ANSWER_SCHEMA, max_tokens=TOKENS_PER_TURN)
+        data = live.ask_json(fixture=fixture_name(failed.check, turn, variant(failed, symptom)), tier="cheap",
+                             system=SYSTEM, user=user, schema=ANSWER_SCHEMA, max_tokens=TOKENS_PER_TURN)
+        if isinstance(live, FixtureClaudeClient):  # saved conversations were recorded on FIXTURE_HOST: replay on this shop
+            data = {k: v.replace(FIXTURE_HOST, ctx.plan.site_host) if isinstance(v, str) else v for k, v in data.items()}
+        return data
 
     def tool(name: str, data: dict) -> dict:
         trace.append(run_tool(ctx, failed.check, name, data))

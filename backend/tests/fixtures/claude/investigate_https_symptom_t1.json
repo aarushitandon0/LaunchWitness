@@ -1,0 +1,11 @@
+{
+  "_note": "hand-written placeholder (S12, cloud session has no key): re-capture live with scripts/capture_doctor_investigation.py --s12",
+  "action": "answer",
+  "name": "",
+  "type": "",
+  "authoritative": false,
+  "url": "",
+  "finding": "You said visitors see a warning: your shop's padlock wasn't working, so browsers warned them before opening it.",
+  "fix_id": "retry_certificate",
+  "owner_instruction": ""
+}

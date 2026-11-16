@@ -1,4 +1,4 @@
-# State for the next session (written 2026-11-16 IST, end of Session 11c)
+# State for the next session (written 2026-11-16 IST, end of Session 12)
 
 Read `CLAUDE.md` first (rules + commands), then this. **If today is the VPS day, follow `docs/NEXT_SESSION_VPS.md`
 step by step**: it's self-contained. You shouldn't need to read the whole codebase.
@@ -29,6 +29,55 @@ the owner's "Yes, I got it"), repairs what breaks, and keeps checking. GoDaddy h
 Tests on main: **607 passed, 2 skipped** (`cd backend && ../.venv/Scripts/python -m pytest -q`). E2E: **7/7** on the
 Docker stack and on the dev server (`e2e/README.md`). Ruff, `npx tsc --noEmit`, `npm run build` clean. Keep the stash
 `fable-p2-wip-backup` (never drop it).
+
+## Session 12 (Opus, 2026-11-16): the UI for the checks and the Doctor, interactive landing, product photos
+
+Merged with `--no-ff` into **`claude/jolly-bell-2bkweh`** (this cloud session may push only that branch; GitHub's `main` is
+still at `171f6ef`, 90+ commits behind — the owner decides whether to fast-forward it). Tests: **1006 passed, 2 skipped,
+19 deselected**; ruff, `tsc --noEmit`, `npm run build` clean; Docker stack rebuilt, `check_m1.sh --local` all PASS; e2e 14/14 on the Docker
+stack (7 new flows in `e2e/tests/h-s12.spec.ts`). Live Claude spend: **$0** (no key in the cloud session).
+
+What's new, one line each:
+- `frontend/src/Findings.tsx`: confidence tag (`SureTag`), numbered steps (`Steps`), `AddressFindings` (website/email groups,
+  "Your email runs on …" from the new `provider_label`), `KindTag` + `KIND_WORDS` (six states), `DoctorTimeline`.
+- Report rows carry `kind` (passed | waiting | failed | couldnt_check | couldnt_finish | keeps_breaking) and `sure`
+  (`report.py::check_kind`, `shop_sure`); a "keeps breaking" repair is marked `keeps_breaking: true` in `repairs_json`.
+- `POST /api/businesses/{id}/describe-problem` (OWNER; `SYMPTOMS_PER_DAY = 5` per user or guest; words fenced as data and
+  NOT logged). Fixture names gain a variant: `investigate_<check>[_marker][_symptom]_t<turn>` (`investigator.variant`).
+- `app/incidents.py::timeline(session, id, public=False)`: failure → looks → finding → fix → re-check from stored rows,
+  30 days, 20 entries; report JSON `incidents`; `/r/<token>` shows it with `public=True` (no owner instructions).
+- Staged fault `marker` (parked page, practice only, `StagedParkedPage`, healed by `repoint_site`); the report's demo switch
+  offers all four staged faults (plus DMARC/MX on own-domain practice shops).
+- Shared page: receipt + **Verify** button (one fixed inline script, `proof.VERIFY_JS`; the XSS test allows exactly it).
+- Landing: `frontend/src/LandingProof.tsx` (`HopTrack`, `WatchDay`), copy pinned by `tests/test_s12_landing_copy.py`.
+- `investigator.next_step(check, mode, plain)`: the test order's form / inbox / mail failures get different steps.
+- Photos: `app/photos.py`, `Photo` table (bytes in SQLite), `GET /photos/<32 hex>-<480|1200>.webp`, owner routes
+  `GET|POST /api/businesses/{id}/photos`, `DELETE …/photos/{photo_id}`; `Pillow==12.3.0`; `frontend/src/Photos.tsx`.
+- e2e: `LW_CHROME=<chromium path>` uses a pre-installed browser; new flows in `e2e/tests/h-s12.spec.ts`; screenshots
+  `e2e/screens/s12.spec.ts` → `docs/screenshots/s12/`.
+
+Still open (one line each):
+- The 11 S12 Doctor fixtures (`*_symptom_*`, `investigate_https_marker*`) are hand-written placeholders (`_note`): run
+  `capture_doctor_investigation.py --s12` on the laptop (cap $0.10, worst case $0.007).
+- The landing's "Example" times are illustrations; the steps are the code's (test-pinned).
+- A draft shop's photo is reachable on the app host by its random name (needed for the preview).
+- Docker in the cloud sandbox: Docker Hub 429 → images pulled from `mirror.gcr.io` and re-tagged; pip needed the sandbox
+  CA (scratch Dockerfile copy, never committed). Neither applies on the laptop or the VPS.
+
+### The 60-second demo (practice, labelled; the team signed in; one launched practice shop, e.g. `meera`)
+
+| Time | Do | Say |
+|---|---|---|
+| 0:00 | Landing → "How the proof works" → **Send a test order**; click **Mail server** | "Before we call a shop ready, a real test order goes hop by hop. If a hop breaks, this is exactly what she sees and what we do." |
+| 0:10 | "We keep watching" → **Something breaks** | "After launch: checked every 15 minutes; a failure is re-checked a minute later, the Doctor looks, applies a safe fix, checks again. No email if it's fixed." |
+| 0:20 | Open the shop's report → Demo switch → **Address leads nowhere** → **Run checks now** | "This is staged: I've removed the shop's address record for real, through the same guarded write." |
+| 0:30 | Watch the row go red → Doctor → **Fixed by us**; open the timeline | "It looked it up, saw it leads nowhere, pointed it back, checked again: working." |
+| 0:40 | Scroll to **What went wrong, and what happened next** | "Every incident is kept, built from the saved proof, not from the model." |
+| 0:45 | Demo switch → **Padlock not working**; Describe the problem → chip **Customers see a security warning** → **Check with this in mind** | "She can say what a customer saw; it goes to the Doctor as information, never as instructions." |
+| 0:55 | Share this proof → open the link → **Verify** | "Anyone can check the proof hasn't been edited: Intact." |
+
+Before recording: capture the S12 fixtures live (else the symptom answer is a hand-written placeholder), and say "practice"
+on screen (the report already labels it).
 
 ## Session 11d (Fable, 2026-11-16): tamper-evident proof log
 

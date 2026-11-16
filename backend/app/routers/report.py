@@ -1,14 +1,15 @@
 """Launch report, "Run checks now", and the admin-only demo fault switch."""
 
 import json
-from datetime import datetime
+import re
+from datetime import datetime, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
-from app import audit, proof, renewals
+from app import audit, incidents, proof, renewals
 from app.agents.checker import TITLES
 from app.agents.claude_client import Claude
 from app.agents.launch_check import (
@@ -21,7 +22,7 @@ from app.agents.launch_check import (
 )
 from app.config import Settings, get_settings
 from app.db import get_session
-from app.models import AuditEvent, Business, CheckResult, CheckRun, Plan
+from app.models import AuditEvent, Business, CheckResult, CheckRun, Plan, utcnow
 from app.monitor.scheduler import QUICK_MINUTES
 from app.routers.businesses import get_claude
 from app.routers.launch import IntegFor, integrations_for
@@ -37,6 +38,29 @@ def iso(v: datetime | None) -> str | None:
     return v.replace(tzinfo=None).isoformat() + "Z" if v else None
 
 
+def shop_sure(passed: bool, unfinished: bool, detail: str) -> str:
+    """How sure we are about one of our own shop's checks (the same words as "Check any address"):
+    we couldn't check it (our side), we looked and the thing wasn't there, or we saw the answer."""
+    if unfinished:
+        return "couldnt_check"
+    if not passed and re.search(r"\bnothing\b|\bmissing\b|not found|no answer", detail, re.I):
+        return "not_seen"
+    return "seen"
+
+
+def check_kind(passed: bool, waiting: bool, unfinished: bool, detail: str, keeps_breaking: bool) -> str:
+    """One state per check row, each with its own wording on the page; only "passed" looks like a pass.
+    passed | waiting (accepted, delivery needs the owner) | failed | couldnt_check (our lookup failed) |
+    couldnt_finish (out of time) | keeps_breaking (automatic fixing stopped: needs you)."""
+    if keeps_breaking and not passed:
+        return "keeps_breaking"
+    if unfinished:
+        return "couldnt_finish" if detail.startswith("time budget") else "couldnt_check"
+    if passed:
+        return "waiting" if waiting else "passed"
+    return "failed"
+
+
 def run_out(session: Session, run: CheckRun) -> dict:
     rows = session.exec(select(CheckResult).where(CheckResult.run_id == run.id).order_by(CheckResult.id)).all()
     checks: dict[str, dict] = {}
@@ -48,9 +72,17 @@ def run_out(session: Session, run: CheckRun) -> dict:
                            "plain": d.get("plain", ""), "detail": d.get("detail", ""), "at": iso(r.created_at),
                            "attempt": r.attempt, "first_passed": first, "fixed": r.passed and not first,
                            "waiting": waiting, "doctor": checks.get(r.check, {}).get("doctor")}
+        checks[r.check]["unfinished"] = bool(d.get("unfinished"))
+        checks[r.check]["sure"] = shop_sure(r.passed, bool(d.get("unfinished")), d.get("detail", ""))
         if r.doctor_json:  # the Doctor's finding + trace stay with the check through its re-checks
             checks[r.check]["doctor"] = json.loads(r.doctor_json)
     repairs = [{**rep, "title": TITLES.get(rep["check"], rep["check"])} for rep in json.loads(run.repairs_json)]
+    flapping = {rep["check"] for rep in repairs if rep.get("keeps_breaking")}
+    for c in checks.values():
+        c["kind"] = check_kind(c["passed"], c["waiting"], c["unfinished"], c["detail"], c["check"] in flapping)
+        rep = next((x for x in repairs if x["check"] == c["check"]), None)
+        if c["doctor"] is None and rep and rep.get("doctor"):  # a "needs you" written by code, no investigation
+            c["doctor"] = rep["doctor"]
     return {"id": run.id, "trigger": run.trigger, "status": run.status, "passed": run.passed,
             "started_at": iso(run.started_at), "finished_at": iso(run.finished_at),
             "checks": list(checks.values()), "repairs": repairs, "info": json.loads(run.info_json)}
@@ -137,6 +169,8 @@ def report(b: Annotated[Business, Depends(require_business_access)], actor: Acto
         "admin": admin,
         "demo_fault": b.demo_fault if admin else None,
         "confirmed_by_you": confirmed_by_you(session, b),
+        "incidents": incidents.timeline(session, b.id),
+        "symptoms_left": max(0, SYMPTOMS_PER_DAY - symptoms_today(session, actor)),
     }
 
 
@@ -181,8 +215,51 @@ def run_checks_now(background: BackgroundTasks, actor: ActorDep,
     return {"ok": True, "run_id": run.id}
 
 
+SYMPTOMS_PER_DAY = 5  # per signed-in user (or guest workspace): each one can wake the Doctor
+
+
+class Symptom(BaseModel):
+    symptom: str = Field(min_length=3, max_length=500)
+
+
+def symptoms_today(session: Session, actor) -> int:
+    who = f"user:{actor.user_id}" if actor.user_id else f"guest:{actor.guest[:16]}"
+    return len(session.exec(select(AuditEvent.id).where(
+        AuditEvent.action == "describe_problem", AuditEvent.target == who, AuditEvent.result == "ok",
+        AuditEvent.created_at >= utcnow() - timedelta(days=1))).all())
+
+
+@router.post("/businesses/{business_id}/describe-problem", status_code=202)
+def describe_problem(body: Symptom, background: BackgroundTasks, actor: ActorDep,
+                     b: Annotated[Business, Depends(require_business_access)],
+                     settings: Annotated[Settings, Depends(get_settings)],
+                     session: Annotated[Session, Depends(get_session)],
+                     claude: Annotated[Claude, Depends(get_claude)],
+                     integ_for: Annotated[IntegFor, Depends(integrations_for)]) -> dict:
+    """"Describe the problem" (S12): the owner's own words start a check run, and are handed to the Doctor as
+    DATA (fenced, labelled, never instructions) for any check that fails. Limited per user per day."""
+    plan = latest_launched_plan(session, b.id)
+    if plan is None:
+        raise HTTPException(status_code=409, detail="Your business isn't launched yet, so there's nothing to check.")
+    who = f"user:{actor.user_id}" if actor.user_id else f"guest:{actor.guest[:16]}"
+    if symptoms_today(session, actor) >= SYMPTOMS_PER_DAY:
+        raise HTTPException(status_code=429, detail=f"You've described {SYMPTOMS_PER_DAY} problems today. "
+                            "Please try again tomorrow, or write to us from the contact form.")
+    words = " ".join(body.symptom.split())[:500]
+    try:
+        run = start_run(session, b.id, plan.id, "manual")
+    except AlreadyChecking:
+        raise HTTPException(status_code=409, detail="We're already checking. This takes a few seconds.") from None
+    # The words themselves aren't written to the audit log (they may hold a customer's name); only their length.
+    audit.record(session, actor=actor.label, action="describe_problem", target=who, result="ok",
+                 business_id=b.id, user_id=actor.user_id, detail=f"run #{run.id}, {len(words)} characters")
+    background.add_task(run_checks, session.get_bind(), settings, integ_for(plan), claude, plan.id,
+                        trigger="manual", run_id=run.id, symptom=words)
+    return {"ok": True, "run_id": run.id}
+
+
 class DemoFault(BaseModel):
-    fault: Literal["", "dmarc", "mx", "a_record", "smtp_login", "cert"]
+    fault: Literal["", "dmarc", "mx", "a_record", "smtp_login", "cert", "marker"]
 
 
 @router.put("/admin/businesses/{business_id}/demo-fault", dependencies=[Depends(require_admin)])

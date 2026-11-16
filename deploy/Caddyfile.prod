@@ -33,7 +33,7 @@
 	@internal path /internal /internal/*
 	respond @internal 404
 
-	# Price-list photos are at most 5 MB (app/agents/reader.py); leave room for the form around it.
+	# Price-list photos are at most 5 MB (app/agents/reader.py), product photos 7 MB (app/photos.py); room for the form.
 	request_body {
 		max_size 8MB
 	}
