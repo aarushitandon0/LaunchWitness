@@ -4,13 +4,18 @@ re-checks; at most 3 attempts per check. Anything outside the playbook (or not a
 sensible fix for that check) is refused and logged — the model never acts alone.
 """
 
+import json
 from dataclasses import dataclass, field
+
+from sqlmodel import select
 
 from app import audit
 from app.agents.checker import Outcome, run_check
 from app.agents.claude_client import Claude, ClaudeBadJson, ClaudeError
 from app.agents.executor import Ctx, StepFailed
+from app.agents.investigator import INVESTIGATED, NEEDS_OWNER, Investigation, investigate
 from app.agents.playbook import PLAYBOOK, apply_fix, fixes_for
+from app.models import CheckResult
 
 MAX_ATTEMPTS = 3
 DIAGNOSIS_SCHEMA = {
@@ -44,6 +49,7 @@ class RepairResult:
     fixed: bool
     attempts: list[dict] = field(default_factory=list)  # [{explanation, fix_id, applied, message, passed}]
     final: Outcome | None = None
+    doctor: dict | None = None  # the investigation (finding, fix_id, owner_instruction, source, trace), if there was one
 
 
 def doctor_user(failed: Outcome, mode: str = "full") -> str:
@@ -67,7 +73,48 @@ def diagnose(claude: Claude, ctx: Ctx, failed: Outcome) -> Diagnosis:
     return Diagnosis(explanation or failed.plain, fix_id)
 
 
-def repair(claude: Claude, ctx: Ctx, failed: Outcome) -> RepairResult:
+def remember(ctx: Ctx, check: str, inv: Investigation) -> None:
+    """Keep the finding and the trace on the failed check's own row, for the report."""
+    row = ctx.session.exec(select(CheckResult).where(CheckResult.run_id == ctx.run_id, CheckResult.check == check,
+                                                     CheckResult.business_id == ctx.business.id)
+                           .order_by(CheckResult.id.desc())).first()
+    if row is not None:
+        row.doctor_json = json.dumps(inv.as_dict())
+        ctx.session.add(row)
+        ctx.session.commit()
+
+
+def investigate_and_repair(claude: Claude, ctx: Ctx, failed: Outcome, symptom: str = "") -> RepairResult:
+    """Look first (read-only), then act only through the playbook, only with a fix code allows."""
+    inv = investigate(claude, ctx, failed, symptom)
+    remember(ctx, failed.check, inv)
+    result = RepairResult(failed.check, False, final=failed, doctor=inv.as_dict())
+    if inv.fix_id == NEEDS_OWNER:
+        audit.record(ctx.session, actor="doctor", action="repair", target=failed.check, result="needs_owner",
+                     business_id=ctx.business.id, detail=inv.owner_instruction[:300])
+        return result
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            message, applied = apply_fix(ctx, inv.fix_id), True
+        except StepFailed as e:
+            message, applied = e.message, False
+        failed = run_check(ctx, failed.check, attempt)
+        result.attempts.append({"explanation": inv.finding, "fix_id": inv.fix_id, "applied": applied,
+                                "message": message, "passed": failed.passed})
+        result.final = failed
+        if failed.passed:
+            result.fixed = True
+            break
+    audit.record(ctx.session, actor="doctor", action="repair", target=result.check,
+                 result="fixed" if result.fixed else "gave_up", business_id=ctx.business.id,
+                 detail=f"{inv.source}: {len(result.attempts)} attempt(s)")
+    return result
+
+
+def repair(claude: Claude, ctx: Ctx, failed: Outcome, symptom: str = "") -> RepairResult:
+    """`symptom`: the owner's own words about the problem, if any. Data for the investigation, never instructions."""
+    if failed.check in INVESTIGATED:
+        return investigate_and_repair(claude, ctx, failed, symptom)
     result = RepairResult(failed.check, False, final=failed)
     for attempt in range(1, MAX_ATTEMPTS + 1):
         try:

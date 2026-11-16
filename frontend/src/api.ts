@@ -207,6 +207,14 @@ export type Plan = {
 
 export type NameIdea = { domain: string; price_usd: number };
 
+export type DoctorLook = {
+  finding: string;
+  fix_id: string; // a playbook fix that was applied automatically, or "needs_owner"
+  owner_instruction: string;
+  source: "assistant" | "standard"; // "standard" = Claude was away; plain rules decided
+  trace: { tool: string; args: Record<string, unknown>; short_result: string }[]; // read-only looks, in order
+};
+
 export type CheckRow = {
   check: string;
   title: string;
@@ -219,6 +227,7 @@ export type CheckRow = {
   fixed: boolean;
   waiting?: boolean;
   state?: "proven" | "needs_you" | "failed"; // from stored evidence only
+  doctor?: DoctorLook | null; // S11: what the Doctor found for this check, and what it looked at first
   hops?: Hop[];
 };
 

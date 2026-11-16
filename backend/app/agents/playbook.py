@@ -51,6 +51,9 @@ def retry_certificate(ctx: Ctx) -> str:
     """Caddy issues the certificate on demand: a fresh HTTPS request triggers a new attempt.
     TODO(real): if Caddy keeps failing, its admin API can be asked to retry (see PROGRESS.md)."""
     ctx.integ.sleep(10)
+    heal = getattr(ctx.integ.http, "staged_heal", None)  # only the staged demo fault has this (launch_check.py)
+    if heal is not None:
+        heal()
     ctx.integ.http.fetch(f"https://{ctx.plan.site_host}/")
     return "Asked for a new security certificate."
 

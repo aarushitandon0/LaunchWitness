@@ -11,7 +11,14 @@ from sqlmodel import Session, select
 from app import audit, proof, renewals
 from app.agents.checker import TITLES
 from app.agents.claude_client import Claude
-from app.agents.launch_check import AlreadyChecking, latest_launched_plan, run_checks, start_run
+from app.agents.launch_check import (
+    STAGED_FAULTS,
+    AlreadyChecking,
+    fault_allowed,
+    latest_launched_plan,
+    run_checks,
+    start_run,
+)
 from app.config import Settings, get_settings
 from app.db import get_session
 from app.models import AuditEvent, Business, CheckResult, CheckRun, Plan
@@ -40,7 +47,9 @@ def run_out(session: Session, run: CheckRun) -> dict:
         checks[r.check] = {"check": r.check, "title": TITLES.get(r.check, r.check), "passed": r.passed,
                            "plain": d.get("plain", ""), "detail": d.get("detail", ""), "at": iso(r.created_at),
                            "attempt": r.attempt, "first_passed": first, "fixed": r.passed and not first,
-                           "waiting": waiting}
+                           "waiting": waiting, "doctor": checks.get(r.check, {}).get("doctor")}
+        if r.doctor_json:  # the Doctor's finding + trace stay with the check through its re-checks
+            checks[r.check]["doctor"] = json.loads(r.doctor_json)
     repairs = [{**rep, "title": TITLES.get(rep["check"], rep["check"])} for rep in json.loads(run.repairs_json)]
     return {"id": run.id, "trigger": run.trigger, "status": run.status, "passed": run.passed,
             "started_at": iso(run.started_at), "finished_at": iso(run.finished_at),
@@ -173,16 +182,21 @@ def run_checks_now(background: BackgroundTasks, actor: ActorDep,
 
 
 class DemoFault(BaseModel):
-    fault: Literal["", "dmarc", "mx"]
+    fault: Literal["", "dmarc", "mx", "a_record", "smtp_login", "cert"]
 
 
 @router.put("/admin/businesses/{business_id}/demo-fault", dependencies=[Depends(require_admin)])
-def set_demo_fault(business_id: int, body: DemoFault, session: Annotated[Session, Depends(get_session)]) -> dict:
+def set_demo_fault(business_id: int, body: DemoFault, session: Annotated[Session, Depends(get_session)],
+                   settings: Annotated[Settings, Depends(get_settings)]) -> dict:
     b = session.get(Business, business_id)
     if b is None:
         raise HTTPException(status_code=404, detail="We couldn't find that business.")
     plan = latest_launched_plan(session, b.id)
-    if body.fault and (plan is None or plan.mode != "full"):
+    if body.fault in STAGED_FAULTS:
+        why = "This shop hasn't been launched yet." if plan is None else fault_allowed(session, settings, b, body.fault)
+        if why:
+            raise HTTPException(status_code=409, detail=why)
+    elif body.fault and (plan is None or plan.mode != "full"):
         raise HTTPException(status_code=409, detail="The demo fault needs a practice launch on the shop's own name "
                             "(a shop's free address has no email settings of its own to break).")
     b.demo_fault = body.fault

@@ -6,8 +6,10 @@ Used after a launch finishes, by "Run checks now", and by monitoring.
 """
 
 import json
-from dataclasses import dataclass
+import smtplib
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
+from urllib.parse import urlsplit
 
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, select
@@ -18,11 +20,14 @@ from app.agents.claude_client import Claude
 from app.agents.doctor import repair
 from app.agents.executor import Ctx, StepFailed, assert_can_write
 from app.agents.playbook import fixes_for
+from app.checks.http_probe import ProbeResult
 from app.config import Settings
 from app.integrations import Integrations
 from app.models import Business, CheckRun, Plan, utcnow
+from app.safety.access import run_by_team
 
 DEMO_FAULTS = {"dmarc": ("TXT", "_dmarc"), "mx": ("MX", "@")}
+STAGED_FAULTS = ("a_record", "smtp_login", "cert")  # S11: for the investigating Doctor
 
 
 STALE_RUN = timedelta(minutes=15)  # a "running" row older than this lost its worker
@@ -76,6 +81,74 @@ def start_run(session: Session, business_id: int, plan_id: int, trigger: str) ->
     return run
 
 
+class RefusedMailer:
+    """Staged fault: a mail service that refuses our sign-in. Used for ONE practice check run only."""
+
+    def send(self, *, to: str, subject: str, body: str, html: str | None = None) -> str:
+        raise smtplib.SMTPAuthenticationError(535, b"staged fault: sign-in refused")
+
+    def login_test(self) -> str:
+        return "login refused: the mail service did not accept our sign-in"
+
+
+class StagedCertProbe:
+    """Staged fault: the shop's certificate isn't working until it is asked for again (`staged_heal`,
+    called by the playbook's retry_certificate). Used for ONE practice check run only."""
+
+    def __init__(self, inner, host: str):
+        self.inner, self.host, self.broken = inner, host, True
+
+    def staged_heal(self) -> None:
+        self.broken = False
+
+    def fetch(self, url: str) -> ProbeResult:
+        if self.broken and (urlsplit(url).hostname or "") == self.host:
+            return ProbeResult(False, None, False, error="certificate verify failed")
+        return self.inner.fetch(url)
+
+    def cert_expires(self, host: str):
+        return None if self.broken and host == self.host else self.inner.cert_expires(host)
+
+
+def fault_allowed(session: Session, settings: Settings, b: Business, fault: str) -> str:
+    """"" when the team may stage `fault` on this shop, else the plain reason why not."""
+    pretend = b.practice or settings.use_fakes
+    if fault in ("smtp_login", "cert") and not pretend:
+        return "This fault can only be staged on a practice shop (we never break a real shop's mail or padlock)."
+    if fault == "a_record" and not pretend and not run_by_team(session, b.id):
+        return "On the real internet this fault can only be staged on a shop the team runs itself."
+    return ""
+
+
+def stage_fault(ctx: Ctx, fault: str) -> str | None:
+    """S11: three faults the investigating Doctor is shown on. Only ever on a practice shop, or (the address
+    record only) on a shop the team runs. Each is audited as staged."""
+    why = fault_allowed(ctx.session, ctx.settings, ctx.business, fault)
+    if why:
+        audit.record(ctx.session, actor="admin", action="demo_fault", target=fault, result="skipped",
+                     business_id=ctx.business.id, detail=why[:300])
+        return None
+    if fault == "a_record":
+        name = next((c["name"] for c in ctx.changes if c["type"] == "A"), None)
+        if name is None:
+            return None
+        try:
+            assert_can_write(ctx, ctx.plan.zone, name)
+        except StepFailed:
+            return None
+        ctx.integ.godaddy.delete_records(ctx.plan.zone, "A", name)
+        detail = f"A {name} @ {ctx.plan.zone} removed"
+    elif fault == "smtp_login":
+        ctx.integ = replace(ctx.integ, mailer=RefusedMailer())
+        detail = "mail sign-in refused for this check run (pretend)"
+    else:
+        ctx.integ = replace(ctx.integ, http=StagedCertProbe(ctx.integ.http, ctx.plan.site_host))
+        detail = "certificate not working until asked for again (pretend)"
+    audit.record(ctx.session, actor="admin", action="demo_fault", target=fault, result="ok",
+                 business_id=ctx.business.id, detail=f"staged fault for the demo: {detail}")
+    return fault
+
+
 def apply_demo_fault(ctx: Ctx) -> str | None:
     """Admin demo switch (SPEC §6 "the fault is staged"): delete DMARC (or MX) once, through the
     same scoped/guarded DNS path, so the next check fails and the Doctor repairs it."""
@@ -85,6 +158,8 @@ def apply_demo_fault(ctx: Ctx) -> str | None:
     ctx.business.demo_fault = ""  # one-shot
     ctx.session.add(ctx.business)
     ctx.session.commit()
+    if fault in STAGED_FAULTS:
+        return stage_fault(ctx, fault)
     rtype, name = DEMO_FAULTS[fault]
     if ctx.plan.mode != "full":
         audit.record(ctx.session, actor="admin", action="demo_fault", target=fault, result="skipped",
@@ -98,6 +173,12 @@ def apply_demo_fault(ctx: Ctx) -> str | None:
     audit.record(ctx.session, actor="admin", action="demo_fault", target=f"{rtype} {name} @ {ctx.plan.zone}",
                  result="ok", business_id=ctx.business.id, detail="staged fault for the demo: setting removed")
     return fault
+
+
+def needs_a_look(out: Outcome) -> bool:
+    """A failure with no automatic fix that the Doctor should still investigate, so the owner gets a finding and
+    an exact next step: the order email couldn't be sent (our mail service refused or was unreachable)."""
+    return out.check == "test_order" and "mail server refused" in out.detail
 
 
 def days_left(when: datetime | None) -> int | None:
@@ -122,7 +203,9 @@ def expiry_info(ctx: Ctx) -> dict:
 
 
 def run_checks(engine: Engine, settings: Settings, integ: Integrations, claude: Claude, plan_id: int, *,
-               trigger: str, names: list[str] | None = None, fix: bool = True, run_id: int | None = None) -> RunSummary:
+               trigger: str, names: list[str] | None = None, fix: bool = True, run_id: int | None = None,
+               symptom: str = "") -> RunSummary:
+    """`symptom`: the owner's own words about what's wrong (optional). Data for the Doctor, never instructions."""
     with Session(engine) as session:
         plan = session.get(Plan, plan_id)
         business = session.get(Business, plan.business_id)
@@ -141,9 +224,10 @@ def run_checks(engine: Engine, settings: Settings, integ: Integrations, claude: 
                 outs.append(out)
                 if out.passed:
                     continue
-                if fix and fixes_for(out.check, plan.mode):
-                    r = repair(claude, ctx, out)
-                    repairs.append({"check": r.check, "fixed": r.fixed, "attempts": r.attempts})
+                if fix and (fixes_for(out.check, plan.mode) or needs_a_look(out)):
+                    r = repair(claude, ctx, out, symptom)
+                    repairs.append({"check": r.check, "fixed": r.fixed, "attempts": r.attempts,
+                                    **({"doctor": r.doctor} if r.doctor else {})})
                     if r.fixed:
                         continue
                     out = r.final or out

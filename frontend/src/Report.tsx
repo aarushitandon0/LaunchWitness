@@ -37,6 +37,14 @@ function HopTrace({ hops }: { hops: Hop[] }) {
 // ---------- the assistant note, shown once on the next page ----------
 
 const NOTE = (id: number) => `lw-note-${id}`;
+// The Doctor's read-only looks, in plain words (S11; Opus designs this list next).
+const LOOKS: Record<string, string> = {
+  resolve: "Looked up where the address leads",
+  fetch: "Opened the shop page",
+  evidence: "Read the proof stored for this check",
+  smtp_test: "Tried signing in to our mail service (sent nothing)",
+  mailbox_status: "Checked that our mailbox is active",
+};
 
 export function rememberNote(id: number, note: string) {
   try {
@@ -128,9 +136,30 @@ function CheckLine({
           <>
             <HopTrace hops={c.hops ?? []} />
             <div className="muted when">Checked {time(c.at)}</div>
+            {c.doctor && (
+              <div className="doctor-found">
+                <div className="doctor-label">What we found{c.doctor.source === "standard" ? " (standard fix)" : ""}</div>
+                <p>{c.doctor.finding}</p>
+                {c.doctor.fix_id === "needs_owner" && c.doctor.owner_instruction && (
+                  <p><strong>Needs you:</strong> {c.doctor.owner_instruction}</p>
+                )}
+              </div>
+            )}
             <details>
               <summary>Details</summary>
               <p className="mono">{c.detail}</p>
+              {c.doctor && c.doctor.trace.length > 0 && (
+                <>
+                  <p>What we looked at before deciding (we only looked; nothing was changed):</p>
+                  <ol className="doctor-trace">
+                    {c.doctor.trace.map((t, i) => (
+                      <li key={i}>
+                        {LOOKS[t.tool] ?? t.tool}: <span className="mono">{t.short_result}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              )}
             </details>
           </>
         )}
