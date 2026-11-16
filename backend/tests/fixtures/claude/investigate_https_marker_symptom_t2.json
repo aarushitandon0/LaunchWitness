@@ -1,0 +1,10 @@
+{
+  "action": "resolve",
+  "name": "meera.localhost",
+  "type": "A",
+  "authoritative": true,
+  "url": "",
+  "finding": "",
+  "fix_id": "",
+  "owner_instruction": ""
+}

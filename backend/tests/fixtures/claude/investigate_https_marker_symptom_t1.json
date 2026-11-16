@@ -1,11 +1,10 @@
 {
-  "_note": "hand-written placeholder (S12, cloud session has no key): re-capture live with scripts/capture_doctor_investigation.py --s12",
-  "action": "answer",
+  "action": "evidence",
   "name": "",
   "type": "",
   "authoritative": false,
   "url": "",
-  "finding": "You said customers see a different page: we saw that too, your address opened a page that isn't your shop.",
-  "fix_id": "repoint_site",
+  "finding": "",
+  "fix_id": "",
   "owner_instruction": ""
 }

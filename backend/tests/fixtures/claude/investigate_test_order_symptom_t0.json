@@ -1,5 +1,4 @@
 {
-  "_note": "hand-written placeholder (S12, cloud session has no key): re-capture live with scripts/capture_doctor_investigation.py --s12",
   "action": "smtp_test",
   "name": "",
   "type": "",
