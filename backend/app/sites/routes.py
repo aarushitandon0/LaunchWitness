@@ -5,11 +5,12 @@ and an unknown name all get the same "not set up" page; a paused shop gets a neu
 Owners see their own draft/practice shop through the preview route in the API.
 """
 
+import re
 from html import escape
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from sqlmodel import Session, func, select
 
 from app import audit
@@ -90,12 +91,40 @@ def seller_page(path: str, request: Request, settings: Settings, session: Sessio
     if b.paused:
         return HTMLResponse(PAUSED, status_code=503)
     if path in ("", "index.html"):
-        return HTMLResponse(render_site(profile, shop=b.subdomain or str(b.id)))
+        from app import photos
+
+        return HTMLResponse(render_site(profile, shop=b.subdomain or str(b.id), photos=photos.for_site(session, b.id)))
     if path.rstrip("/") == "privacy":
         return HTMLResponse(render_site(profile, page="privacy"))
     if path.rstrip("/") == "report-shop":
         return HTMLResponse(report_page(profile.name))
     return HTMLResponse(NOT_FOUND, status_code=404)
+
+
+PHOTO_FILE = re.compile(r"^([0-9a-f]{32})-(\d+)\.webp$")
+
+
+@router.get("/photos/{file}")
+def photo(file: str, request: Request, settings: Annotated[Settings, Depends(get_settings)],
+          session: Annotated[Session, Depends(get_session)]) -> Response:
+    """S12: a shop's photo. On a shop's own host: only that live shop's photos. On the app's own host: any photo by
+    its random 128-bit name (the owner's preview of a draft shows them); nowhere else. Long cache: names never repeat."""
+    from app.models import Photo
+    from app.photos import CACHE, LARGE_WIDTH, SMALL_WIDTH
+
+    m = PHOTO_FILE.match(file)
+    if m is None or int(m.group(2)) not in (SMALL_WIDTH, LARGE_WIDTH):
+        raise HTTPException(status_code=404)
+    try:
+        found = seller_for_request(request, settings, session)
+    except HTTPException:
+        raise HTTPException(status_code=404) from None
+    row = session.exec(select(Photo).where(Photo.name == m.group(1))).first()
+    if row is None or (found is not None and (found[0].paused or row.business_id != found[0].id)):
+        raise HTTPException(status_code=404)
+    body = row.small if int(m.group(2)) == SMALL_WIDTH else row.large
+    return Response(body, media_type="image/webp", headers={"Cache-Control": CACHE, "X-Content-Type-Options": "nosniff",
+                                                            "Content-Security-Policy": "default-src 'none'"})
 
 
 @router.post("/order", response_class=HTMLResponse)

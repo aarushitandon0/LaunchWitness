@@ -95,3 +95,40 @@ test.describe("reduced motion", () => {
     await expect(page.locator("#watch .bs")).toHaveCount(6);
   });
 });
+
+test("a photo uploaded on Review shows on the shop, re-encoded", async ({ page }) => {
+  await signIn(page, ADMIN_EMAIL);
+  const id = await describe(page);
+  await setAddress(page, id, unique("photo"));
+  await page.goto(`/#/b/${id}`);
+  // a real JPEG made in the browser (canvas), so nothing binary lives in the repo
+  const jpeg = await page.evaluate(async () => {
+    const c = document.createElement("canvas");
+    c.width = 900;
+    c.height = 600;
+    const g = c.getContext("2d")!;
+    g.fillStyle = "#c97b4a";
+    g.fillRect(0, 0, 900, 600);
+    g.fillStyle = "#fff";
+    g.fillRect(300, 200, 300, 200);
+    const blob: Blob = await new Promise((r) => c.toBlob((b) => r(b!), "image/jpeg", 0.9));
+    return Array.from(new Uint8Array(await blob.arrayBuffer()));
+  });
+  const buffer = Buffer.from(jpeg);
+  await page.getByLabel("Add a shop photo").setInputFiles({ name: "cake.jpg", mimeType: "image/jpeg", buffer });
+  await expect(page.locator(".photo-grid img")).toHaveCount(1);
+  const src = await page.locator(".photo-grid img").getAttribute("src");
+  expect(src).toMatch(/^\/photos\/[0-9a-f]{32}-480\.webp$/);
+  const r = await page.request.get(src!);
+  expect(r.status()).toBe(200);
+  expect(r.headers()["content-type"]).toBe("image/webp");
+  expect(r.headers()["cache-control"]).toContain("immutable");
+  const first = (await page.locator(".product input").first().inputValue()).trim();
+  await page.getByLabel(`Add a photo of ${first}`).setInputFiles({ name: "item.jpg", mimeType: "image/jpeg", buffer });
+  await expect(page.locator(".item-thumb")).toHaveCount(1);
+  // the owner's preview shows both, lazy and sized
+  const html = await (await api(page, "GET", `/api/businesses/${id}/preview`)).text();
+  expect(html).toContain(`src="${src}"`);
+  expect(html).toContain('class="item-photo"');
+  expect((html.match(/loading="lazy"/g) || []).length).toBe(2);
+});

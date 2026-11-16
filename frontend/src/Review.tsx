@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ShopLink } from "./ShopLink";
+import { ItemPhoto, ShopPhotos, usePhotos } from "./Photos";
 import { api, ApiError, Business, Order, Product, Profile } from "./api";
 import { ErrorBox } from "./Describe";
 import { takeNote } from "./Report";
@@ -60,6 +61,7 @@ export default function Review({ id }: { id: number }) {
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [dirty, setDirty] = useState(false);
   const [note] = useState(() => takeNote(id));
+  const ph = usePhotos(id);
 
   useEffect(() => {
     api
@@ -71,6 +73,7 @@ export default function Review({ id }: { id: number }) {
       })
       .catch(setLoadError);
     api.orders(id).then(setOrders).catch(() => setOrders([]));
+    ph.load();
   }, [id]);
 
   if (loadError) return <ErrorBox error={loadError} />;
@@ -96,6 +99,7 @@ export default function Review({ id }: { id: number }) {
       setSubdomain(b.subdomain);
       setSavedAt(new Date());
       setDirty(false);
+      ph.load(); // a renamed item keeps its photo; a removed item's photo is gone
     } catch (err) {
       setSaveError(err instanceof ApiError ? err : new ApiError(String(err), 0));
     } finally {
@@ -217,6 +221,10 @@ export default function Review({ id }: { id: number }) {
         </label>
       </section>
 
+      <h2>Photos</h2>
+      <p className="muted">Real photos make your shop look like yours. Without them, your shop keeps its plain design.</p>
+      <ShopPhotos ph={ph} />
+
       <h2>Menu and prices</h2>
       <p className="muted">Items with the same group are shown together on your site.</p>
       <section className="card products">
@@ -248,6 +256,7 @@ export default function Review({ id }: { id: number }) {
               <input type="checkbox" checked={p.addon} onChange={(e) => updateProduct(i, { addon: e.target.checked })} />
               <span>Extra (only added to another item)</span>
             </label>
+            <ItemPhoto ph={ph} saved={biz.profile.products[i]?.name ?? ""} dirty={dirty} />
             <label className="check">
               <input type="checkbox" checked={p.price_from} onChange={(e) => updateProduct(i, { price_from: e.target.checked })} />
               <span>Starting price (“from ₹…”)</span>

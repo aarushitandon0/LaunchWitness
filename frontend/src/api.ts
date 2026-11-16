@@ -273,6 +273,20 @@ export type Incident = {
   next?: string; // the owner's exact next step (never on the shared page)
 };
 
+/** S12: a product photo, already re-encoded on the server (WebP, two widths, nothing of the original file kept). */
+export type PhotoOut = {
+  id: number;
+  item: string;
+  alt: string;
+  small: string;
+  large: string;
+  small_w: number;
+  small_h: number;
+  large_w: number;
+  large_h: number;
+};
+export type PhotoList = { shop: PhotoOut[]; items: Record<string, PhotoOut>; max_shop: number; max_mb: number };
+
 export type DemoFaultName = "" | "dmarc" | "mx" | "a_record" | "smtp_login" | "cert" | "marker";
 
 export type Watch = { id: number; address: string; problems: string[]; results: AddressResult[]; last_checked_at: string | null };
@@ -484,6 +498,15 @@ export const api = {
   },
   report: (id: number) => request<Report>(`/api/businesses/${id}/report`),
   runChecks: (id: number) => request<{ ok: boolean; run_id: number }>(`/api/businesses/${id}/checks`, { method: "POST" }),
+  photos: (id: number) => request<PhotoList>(`/api/businesses/${id}/photos`),
+  addPhoto: (id: number, file: File, item = "") => {
+    const form = new FormData();
+    form.append("file", file);
+    if (item) form.append("item", item);
+    return request<PhotoList>(`/api/businesses/${id}/photos`, { method: "POST", body: form });
+  },
+  removePhoto: (id: number, photoId: number) =>
+    request<PhotoList>(`/api/businesses/${id}/photos/${photoId}`, { method: "DELETE" }),
   describeProblem: (id: number, symptom: string) =>
     request<{ ok: boolean; run_id: number }>(`/api/businesses/${id}/describe-problem`, json({ symptom })),
   // ---- proof ----

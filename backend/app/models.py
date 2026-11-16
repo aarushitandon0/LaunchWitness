@@ -337,3 +337,23 @@ class ZoneFinding(SQLModel, table=True):
     result: str = ""
     created_at: datetime = Field(default_factory=utcnow)
     decided_at: datetime | None = None
+
+
+class Photo(SQLModel, table=True):
+    """S12: a product photo, already re-encoded (WebP, two widths, no EXIF or location). Stored in the database on the
+    data volume, so the existing backups, restores and shop/account deletions cover it with no second store.
+    `item` = "" for one of the shop's own photos (up to 6), else the product's name (one photo per item).
+    `name` is random: the public URL /photos/<name>-<width>.webp, served with a long cache (it never changes)."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    business_id: int = Field(foreign_key="business.id", index=True)
+    item: str = Field(default="", max_length=120)
+    name: str = Field(index=True, unique=True)
+    small: bytes  # SMALL_WIDTH px wide (or less, never upscaled)
+    large: bytes  # LARGE_WIDTH px wide (or less)
+    small_w: int
+    small_h: int
+    large_w: int
+    large_h: int
+    alt: str = Field(default="", max_length=200)
+    created_at: datetime = Field(default_factory=utcnow)

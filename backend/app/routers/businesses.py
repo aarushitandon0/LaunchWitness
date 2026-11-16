@@ -17,7 +17,7 @@ from app.agents.reader import MAX_IMAGE_BYTES, Profile, ReaderError, read_busine
 from app.config import Settings, get_settings
 from app.db import get_engine, get_session
 from app.integrations import Integrations, for_business, get_integrations, get_practice_integrations
-from app.models import Business, Membership, Order, Plan, utcnow
+from app.models import AuditEvent, Business, Membership, Order, Plan, utcnow
 from app.safety.access import (
     ActorDep,
     csrf_for,
@@ -242,6 +242,10 @@ def update_business(body: ProfileUpdate, actor: ActorDep, b: Annotated[Business,
         raise HTTPException(status_code=409, detail="That site address is already taken. Please pick another.")
     old_sub = b.subdomain
     reset = reset_confirmations(b, body.profile)
+    from app import photos
+
+    photos.follow_items(session, b.id, [p.name for p in Profile.model_validate_json(b.profile_json).products],
+                        [p.name for p in body.profile.products])
     b.name = body.profile.name
     b.profile_json = body.profile.model_dump_json()
     b.subdomain = sub
@@ -353,7 +357,10 @@ def preview(b: Annotated[Business, Depends(require_business_access)], actor: Act
         audit.record(session, actor=actor.label, action="preview_opened", target=f"business:{b.id}", result="ok",
                      business_id=b.id, user_id=actor.user_id, detail="first look (go-live checklist)")
     profile = Profile.model_validate_json(b.profile_json)
-    return HTMLResponse(render_site(profile, page="privacy" if page == "privacy" else "home", preview=True),
+    from app import photos
+
+    return HTMLResponse(render_site(profile, page="privacy" if page == "privacy" else "home", preview=True,
+                                    photos=photos.for_site(session, b.id)),
                         headers={"X-Robots-Tag": "noindex", "Cache-Control": "no-store"})
 
 
@@ -426,3 +433,69 @@ def delete_business(actor: ActorDep, b: Annotated[Business, Depends(require_busi
     audit.record(session, actor=actor.label, action="shop_deleted", target=f"business:{business_id}", result="ok",
                  user_id=actor.user_id, detail="was public" if was_public else "was not public")
     return {"ok": True}
+
+
+# ---------- product photos (S12): upload on the Review step ----------
+
+PHOTO_UPLOADS_PER_DAY = 60  # per shop: re-encoding costs CPU on the one app process
+
+
+def photo_list(session: Session, b: Business) -> dict:
+    from app import photos
+
+    site = photos.for_site(session, b.id)
+    return {"shop": site["shop"], "items": site["items"], "max_shop": photos.MAX_SHOP_PHOTOS,
+            "max_mb": photos.MAX_UPLOAD_BYTES // (1024 * 1024)}
+
+
+@router.get("/businesses/{business_id}/photos")
+def list_photos(b: Annotated[Business, Depends(require_business_access)],
+                session: Annotated[Session, Depends(get_session)]) -> dict:
+    return photo_list(session, b)
+
+
+@router.post("/businesses/{business_id}/photos", status_code=201)
+async def upload_photo(b: Annotated[Business, Depends(require_business_access)], actor: ActorDep,
+                       session: Annotated[Session, Depends(get_session)],
+                       file: Annotated[UploadFile, File()], item: Annotated[str, Form(max_length=120)] = "",
+                       alt: Annotated[str, Form(max_length=200)] = "") -> dict:
+    """One photo: for the shop (item "") or for one of its items (by the item's name). Checked by content, re-encoded,
+    stripped (app/photos.py). Audited without the image itself."""
+    from datetime import timedelta
+
+    from app import photos
+
+    profile = Profile.model_validate_json(b.profile_json)
+    if item and item not in {p.name for p in profile.products}:
+        raise HTTPException(status_code=422, detail="That item isn't on your list any more. Refresh the page.")
+    recent = session.exec(select(AuditEvent.id).where(
+        AuditEvent.business_id == b.id, AuditEvent.action == "photo_added",
+        AuditEvent.created_at >= utcnow() - timedelta(days=1))).all()
+    if len(recent) >= PHOTO_UPLOADS_PER_DAY:
+        raise HTTPException(status_code=429, detail="That's a lot of photos for one day. Please try again tomorrow.")
+    data = await file.read(photos.MAX_UPLOAD_BYTES + 1)
+    try:
+        row = photos.add(session, b.id, data, item=item.strip(), alt=alt.strip() or (item.strip() or profile.name))
+    except photos.PhotoRefused as e:
+        audit.record(session, actor=actor.label, action="photo_refused", target=f"business:{b.id}", result="refused",
+                     business_id=b.id, user_id=actor.user_id, detail=str(e)[:200])
+        raise HTTPException(status_code=422, detail=str(e)) from None
+    audit.record(session, actor=actor.label, action="photo_added", target=f"photo:{row.id}", result="ok",
+                 business_id=b.id, user_id=actor.user_id,
+                 detail=f"{'item' if row.item else 'shop'} photo, {len(row.small) + len(row.large)} bytes after re-encoding")
+    return photo_list(session, b)
+
+
+@router.delete("/businesses/{business_id}/photos/{photo_id}")
+def delete_photo(photo_id: int, b: Annotated[Business, Depends(require_business_access)], actor: ActorDep,
+                 session: Annotated[Session, Depends(get_session)]) -> dict:
+    from app.models import Photo
+
+    row = session.get(Photo, photo_id)
+    if row is None or row.business_id != b.id:
+        raise HTTPException(status_code=404, detail="We couldn't find that photo.")
+    session.delete(row)
+    session.commit()
+    audit.record(session, actor=actor.label, action="photo_removed", target=f"photo:{photo_id}", result="ok",
+                 business_id=b.id, user_id=actor.user_id)
+    return photo_list(session, b)
