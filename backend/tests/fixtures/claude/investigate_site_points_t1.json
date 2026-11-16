@@ -4,7 +4,7 @@
   "type": "A",
   "authoritative": true,
   "url": "https://meera.localhost/",
-  "finding": "Your address doesn't point to your shop yet, so customers who visit it won't reach your website.",
+  "finding": "Your web address is not pointing to your website yet, so customers who visit it cannot reach your shop.",
   "fix_id": "repoint_site",
   "owner_instruction": ""
 }

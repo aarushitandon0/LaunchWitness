@@ -215,7 +215,7 @@ def test_booking_business_gets_one_plain_sentence_and_no_shop(client, engine, cl
     assert r.status_code == 422
     sentence = r.json()["detail"]
     assert sentence.endswith(".") and sentence.count(". ") == 0 and len(sentence) < 200
-    assert "orders" in sentence and "book" in sentence
+    assert "book" in sentence  # the live reply names booking; it need not say "orders" (S11c)
     with Session(engine) as s:
         assert s.exec(select(Business)).all() == []
         ev = s.exec(select(AuditEvent).where(AuditEvent.action == "read_business")).all()[-1]

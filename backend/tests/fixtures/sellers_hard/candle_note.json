@@ -1,0 +1,17 @@
+{
+  "id": "candle_note",
+  "owner_name": "Naina",
+  "city": "Mumbai",
+  "description": "I make soy wax candles at home in Bandra, Mumbai. Small batches, hand poured. Lavender jar 350, vanilla jar 350, set of 4 tealights 200, gift box of 3 jars 950. Insta orders mostly, pickup or courier (courier 80 extra).",
+  "price_list": "",
+  "expected_prices": [
+    350,
+    350,
+    200,
+    950
+  ],
+  "optional_prices": [
+    80
+  ],
+  "from_prices": []
+}

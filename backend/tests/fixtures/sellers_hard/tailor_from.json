@@ -1,0 +1,24 @@
+{
+  "id": "tailor_from",
+  "owner_name": "Rekha",
+  "city": "Bengaluru",
+  "description": "Rekha Boutique, Jayanagar Bangalore. Ladies tailoring from home, 12 years experience. Blouses, kurtis, lehengas, saree fall. Ready in 7 days, urgent in 2 days. Open 10 to 7, Sunday closed. Call 9845012345.",
+  "price_list": "Blouse from ₹400\nPrincess cut blouse from ₹650\nKurti stitching from ₹350\nLehenga from ₹2500\nSaree fall and pico ₹120\nAlteration from ₹50\nUrgent charge ₹200 extra",
+  "expected_prices": [
+    400,
+    650,
+    350,
+    2500,
+    120,
+    50,
+    200
+  ],
+  "optional_prices": [],
+  "from_prices": [
+    400,
+    650,
+    350,
+    2500,
+    50
+  ]
+}

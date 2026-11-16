@@ -1,0 +1,79 @@
+{
+  "name": "Rekha Boutique",
+  "tagline": "Ladies tailoring for blouses, kurtis, lehengas and more",
+  "about": "We do ladies tailoring from home with 12 years of experience. We stitch blouses, kurtis and lehengas, and do saree fall and pico. Orders are ready in 7 days, or in 2 days if you need it urgently.",
+  "area": "Jayanagar, Bangalore",
+  "hours": "Open 10 am to 7 pm, closed on Sundays",
+  "phone": "9845012345",
+  "whatsapp": "",
+  "upi_id": "",
+  "tone": "friendly",
+  "selling_point": "12 years of experience",
+  "min_notice_days": 7,
+  "pickup_available": false,
+  "delivery_available": false,
+  "delivery_fee_inr": 0,
+  "allow_item_message": false,
+  "upi_display_name": "",
+  "fssai_number": "",
+  "kind": "orders",
+  "not_supported_reason": "",
+  "products": [
+    {
+      "name": "Blouse",
+      "price_inr": 400,
+      "description": "",
+      "category": "Stitching",
+      "addon": false,
+      "price_from": true
+    },
+    {
+      "name": "Princess cut blouse",
+      "price_inr": 650,
+      "description": "",
+      "category": "Stitching",
+      "addon": false,
+      "price_from": true
+    },
+    {
+      "name": "Kurti stitching",
+      "price_inr": 350,
+      "description": "",
+      "category": "Stitching",
+      "addon": false,
+      "price_from": true
+    },
+    {
+      "name": "Lehenga",
+      "price_inr": 2500,
+      "description": "",
+      "category": "Stitching",
+      "addon": false,
+      "price_from": true
+    },
+    {
+      "name": "Saree fall and pico",
+      "price_inr": 120,
+      "description": "",
+      "category": "Saree services",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Alteration",
+      "price_inr": 50,
+      "description": "",
+      "category": "Alterations",
+      "addon": false,
+      "price_from": true
+    },
+    {
+      "name": "Urgent charge",
+      "price_inr": 200,
+      "description": "Extra charge for delivery in 2 days",
+      "category": "Extras",
+      "addon": true,
+      "price_from": false
+    }
+  ]
+}
