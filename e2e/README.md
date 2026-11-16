@@ -17,7 +17,10 @@ LW_BASE=http://localhost:8000 LW_MAIL= npx playwright test   # against the dev s
 - Flows: (a) sign-up → pending → team approves → describe → practice launch → real launch (pretend GoDaddy) → a
   customer order on the shop's own host → report → share link opened logged out; (b) two sellers can't reach each
   other's shop, preview, orders, export, names, plans, report or share by URL; (c) guest practice is kept after signing
-  in; (d) Privacy and Terms are one click from sign-in.
+  in; (d) Privacy and Terms are one click from sign-in; (e) "Start" asks to sign in first and returns to Describe, routing
+  (refresh, Back/Forward, step header, Page not found) and the demo shop; (f) every link and button in the owner's preview
+  stays inside the shop. Flow (a) also checks the go-live gate and the Orders page (status + WhatsApp link).
+- Screenshots (not a test): `npx playwright test -c screens.config.ts` → `docs/screenshots/s10-5/` (`LW_SHOTS=<dir>`).
 - Not covered here: the owner tapping "Yes, I got it". On a practice server the test-order email goes to the
   pretend inbox (in server memory), so there's no link to tap; pytest covers that path
   (`test_s9_phase3_proof.py::test_accepted_is_not_delivered_until_the_owner_taps`), and on the VPS it's a manual step.
