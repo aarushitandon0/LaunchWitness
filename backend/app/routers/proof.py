@@ -97,7 +97,7 @@ def shared_report(token: str, session: Annotated[Session, Depends(get_session)])
     """Read-only. No customer data at all: check names, results, hop times and the servers that answered."""
     row = session.exec(select(ReportShare).where(ReportShare.token_hash == sha(token[:200]))).first()
     b = session.get(Business, row.business_id) if row and row.revoked_at is None else None
-    if b is None:
+    if b is None or b.paused:  # a shop the team has paused shows no "Proven" page to the public
         return HTMLResponse(GONE, status_code=404)
     plan = latest_launched_plan(session, b.id)
     run_row = session.exec(select(CheckRun).where(CheckRun.business_id == b.id, CheckRun.trigger.in_(OWNER_RUNS),

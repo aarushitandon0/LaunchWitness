@@ -83,11 +83,14 @@ class SmtpMailer:
 class FakeMailer:
     def __init__(self):
         self.sent: list[dict] = []
+        self.fail = False  # tests: our mail service is down
 
     def login_test(self) -> str:
         return "ok: connected and signed in"
 
     def send(self, *, to: str, subject: str, body: str, html: str | None = None) -> str:
+        if self.fail:
+            raise ConnectionError("mail service unreachable")
         message_id = f"<fake-{len(self.sent) + 1}@launchwitness.test>"
         self.sent.append({"to": to, "subject": subject, "body": body, "html": html, "message_id": message_id})
         return message_id

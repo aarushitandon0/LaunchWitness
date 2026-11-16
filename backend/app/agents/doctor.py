@@ -13,7 +13,15 @@ from app import audit
 from app.agents.checker import Outcome, run_check
 from app.agents.claude_client import Claude, ClaudeBadJson, ClaudeError
 from app.agents.executor import Ctx, StepFailed
-from app.agents.investigator import INVESTIGATED, NEEDS_OWNER, Investigation, investigate
+from app.agents.investigator import (
+    INVESTIGATED,
+    NEEDS_OWNER,
+    STANDARD_FINDING,
+    STANDARD_NEEDS_YOU,
+    Investigation,
+    investigate,
+    next_step,
+)
 from app.agents.playbook import PLAYBOOK, apply_fix, fixes_for
 from app.models import CheckResult
 
@@ -75,11 +83,15 @@ def diagnose(claude: Claude, ctx: Ctx, failed: Outcome) -> Diagnosis:
 
 def remember(ctx: Ctx, check: str, inv: Investigation) -> None:
     """Keep the finding and the trace on the failed check's own row, for the report."""
+    remember_dict(ctx, check, inv.as_dict())
+
+
+def remember_dict(ctx: Ctx, check: str, inv: dict) -> None:
     row = ctx.session.exec(select(CheckResult).where(CheckResult.run_id == ctx.run_id, CheckResult.check == check,
                                                      CheckResult.business_id == ctx.business.id)
                            .order_by(CheckResult.id.desc())).first()
     if row is not None:
-        row.doctor_json = json.dumps(inv.as_dict())
+        row.doctor_json = json.dumps(inv)
         ctx.session.add(row)
         ctx.session.commit()
 
@@ -136,16 +148,19 @@ def explain_other_service(ctx: Ctx, failed: Outcome, d) -> RepairResult:
                    "you want, nothing needs doing." + (f" If email isn't working: {steps}" if steps else ""))
     inv = {"finding": f"Your address's email now goes to {d.label}.", "fix_id": NEEDS_OWNER,
            "owner_instruction": instruction, "source": "standard", "trace": []}
-    row = ctx.session.exec(select(CheckResult).where(CheckResult.run_id == ctx.run_id, CheckResult.check == failed.check,
-                                                     CheckResult.business_id == ctx.business.id)
-                           .order_by(CheckResult.id.desc())).first()
-    if row is not None:
-        row.doctor_json = json.dumps(inv)
-        ctx.session.add(row)
-        ctx.session.commit()
+    remember_dict(ctx, failed.check, inv)
     audit.record(ctx.session, actor="doctor", action="repair", target=failed.check, result="needs_owner",
                  business_id=ctx.business.id, detail=f"mail is on {d.key}; nothing changed")
     return RepairResult(failed.check, False, final=failed, doctor=inv)
+
+
+def needs_you(ctx: Ctx, check: str, finding: str, instruction: str) -> dict:
+    """A "needs you" written by code: the finding and the exact plain steps, kept on the check's row for the report."""
+    inv = {"finding": finding, "fix_id": NEEDS_OWNER, "owner_instruction": instruction, "source": "standard", "trace": []}
+    remember_dict(ctx, check, inv)
+    audit.record(ctx.session, actor="doctor", action="repair", target=check, result="needs_owner",
+                 business_id=ctx.business.id, detail=instruction[:300])
+    return inv
 
 
 def repair(claude: Claude, ctx: Ctx, failed: Outcome, symptom: str = "") -> RepairResult:
@@ -165,11 +180,16 @@ def repair(claude: Claude, ctx: Ctx, failed: Outcome, symptom: str = "") -> Repa
                                     "message": "That fix isn't allowed, so nothing was changed.", "passed": False})
             continue
         except (ClaudeBadJson, ClaudeError, FileNotFoundError) as e:
-            result.attempts.append({"explanation": failed.plain, "fix_id": "", "applied": False,
-                                    "message": "Our assistant couldn't look at this right now.", "passed": False})
             audit.record(ctx.session, actor="doctor", action="diagnose", target=failed.check, result="failed",
                          business_id=ctx.business.id, detail=type(e).__name__)
-            break
+            allowed = fixes_for(failed.check, ctx.plan.mode)
+            if len(allowed) != 1 or attempt > 1:  # no single safe fix (or it was already tried): exact steps instead
+                result.attempts.append({"explanation": failed.plain, "fix_id": "", "applied": False,
+                                        "message": "Our assistant couldn't look at this right now.", "passed": False})
+                if len(result.attempts) == 1:
+                    result.doctor = needs_you(ctx, failed.check, STANDARD_NEEDS_YOU, next_step(failed.check, ctx.plan.mode))
+                break
+            d = Diagnosis(STANDARD_FINDING, next(iter(allowed)))  # the rule-based fallback: the one fix code allows
         try:
             message = apply_fix(ctx, d.fix_id)
             applied = True

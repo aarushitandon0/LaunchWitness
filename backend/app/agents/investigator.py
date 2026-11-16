@@ -86,6 +86,32 @@ DEFAULT_INSTRUCTION = {
     "test_order": "We couldn't send a test order email from your shop. Your shop page still works. Press "
                   "“Check again” in an hour; if it still fails, write to us so we can repair our mail service.",
 }
+OUR_MAILBOX = ("This one is on our side, not yours: these email settings belong to LaunchWitness's own mailbox, which "
+               "our team looks after. Your shop still takes orders, and new ones are on your Orders page. Press "
+               "“Check again” tomorrow; if it still fails, write to us from the contact form.")
+OWN_DOMAIN_MAIL = ("An email setting on your own address isn't as we set it, and we couldn't safely put it right by "
+                   "ourselves. Press “Check again” in an hour. If it still fails, write to us from the contact form "
+                   "and say whether you changed your email service recently.")
+SETTINGS_CHANGED = ("Some of the settings we made at launch have been changed since. If you (or someone helping you) "
+                    "changed them on purpose, nothing needs doing. If not, write to us from the contact form and we "
+                    "will go through them with you before anything is put back.")
+ANY_CHECK = ("We couldn't complete this check. Press “Check again” in an hour; if it still fails, write to us from "
+             "the contact form and tell us the time you tried.")
+KEEPS_BREAKING = ("This keeps breaking: we fixed it {n} times in the last day and it broke again, so we've stopped "
+                  "fixing it automatically. Something outside LaunchWitness is changing it back. If someone else "
+                  "manages your website name or email, ask them what changed; otherwise write to us from the contact "
+                  "form and we'll look at it together.")
+
+
+def next_step(check: str, mode: str) -> str:
+    """The exact plain steps for a failed check that has no automatic fix. Every check has an answer."""
+    if check.startswith("email_"):
+        return OUR_MAILBOX if mode == "sandbox" else OWN_DOMAIN_MAIL
+    if check == "settings_match":
+        return SETTINGS_CHANGED
+    return DEFAULT_INSTRUCTION.get(check, ANY_CHECK)
+
+
 MAIL_SIGN_IN_REFUSED = ("This one is on our side, not yours: our mail service refused our own sign-in, so order emails "
                         "can't go out right now. Your shop still takes orders: look at your Orders page for new ones. "
                         "Please write to us so the team can renew the mail password, then press “Check again”.")
@@ -207,7 +233,7 @@ def fallback(failed: Outcome, mode: str, trace: list[dict]) -> Investigation:
     auto = allowed_auto(failed.check, mode)
     if len(auto) == 1:
         return Investigation(STANDARD_FINDING, next(iter(auto)), source="standard", trace=trace)
-    return Investigation(STANDARD_NEEDS_YOU, NEEDS_OWNER, DEFAULT_INSTRUCTION.get(failed.check, ""),
+    return Investigation(STANDARD_NEEDS_YOU, NEEDS_OWNER, next_step(failed.check, mode),
                          source="standard", trace=trace)
 
 

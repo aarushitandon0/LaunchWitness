@@ -146,6 +146,16 @@ Light monitoring is core; full only if time permits. It re-runs launch checks on
 
 **Full (if time permits):** daily real test order; change detection ("Was this you? Tap to restore") instead of silent undo; incident history on the report.
 
+**Rules every check and alert follows (S11b; the full table of cases is `docs/CHECKS_MATRIX.md`)**
+
+- Each finding says how sure we are: seen / not seen / couldn't check. "Not sure" is allowed; a wrong answer is not.
+- A lookup that fails on our side is "couldn't check": never passed, never the seller's fault, no fix, no alert.
+- The email service is detected from the domain's own mail servers. Advice only ever uses that service's values; an unrecognised service gets no values. A signing key is "found" or "couldn't check", never "missing".
+- Outside addresses (Check any address, Watch) are explained only. Fixes exist only for our own shops, and never touch another email service's working settings.
+- Each shop has a time budget per round; what didn't finish is recorded as "couldn't finish".
+- A check fixed 3 times in a day that breaks again is no longer fixed automatically: one "keeps breaking" email, then it needs the owner.
+- An alert that couldn't be sent is recorded, retried on the next round, and shown to the team.
+
 **Honest framing:** in the demo everything sits in the app's GoDaddy account, so little can break after launch. Monitoring matters most once it runs on her own account. Pitch it as insurance, not the hero.
 
 ---

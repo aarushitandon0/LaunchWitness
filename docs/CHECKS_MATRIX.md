@@ -148,7 +148,7 @@ replayed offline by `matrix::test_saved_real_answers_still_give_the_same_finding
 | self-signed.badssl.com | certificate made by the site itself |
 | untrusted-root.badssl.com | certificate from an authority browsers don't trust |
 | http.badssl.com | the secure address sends visitors back to plain http |
-| neverssl.com (web) | answers only on plain http; www opens but the bare name doesn't |
+| neverssl.com (web) | answers only on plain http, with no padlock |
 | github.com | answered securely (200) · certificate good · http → https · HSTS |
 | example.com (web) | answered securely (200) · certificate good · also answers on plain http with no redirect (a note) |
 
@@ -166,3 +166,38 @@ offline only.
 
 **Watch job on real addresses** (`network::test_watch_job_on_real_addresses_is_read_only_and_does_not_repeat`): example.com, expired.badssl.com,
 github.com. First run: one alert email, to the watcher only; second run: none. Nothing is sent to the watched domains.
+
+## 5. Our own shops: every check has a failure path (S11b Part 2)
+
+No check ends in a silent "unknown" or a generic error. `gaps::test_every_failed_check_ends_in_a_fix_or_exact_steps_even_with_claude_down`
+forces each of the 8 checks to fail in both launch kinds with Claude switched off, and requires an applied fix or a "needs you" with plain
+steps written by code (stored on the check's row, so the report shows it).
+
+| Check | When it fails | Doctor | If Claude is down |
+|---|---|---|---|
+| Address leads to the shop (`site_points`) | investigator → `repoint_site` (own-domain: `restore_backup` only with the owner's OK) | fix | the one standard fix runs |
+| Padlock + the shop's own page (`https`, marker) | investigator → `retry_certificate` / `repoint_site`; a parked page fails the marker | fix, else needs you | needs you, exact steps |
+| Mail servers / sending permission / signing / fake-email protection, shop under our domain | never written by code (they are our mailbox's settings) | needs you: "This one is on our side… our team looks after" | same text (code) |
+| The same four, on the seller's own domain | `readd_mx` / `readd_email_auth`; another service's mail → explain only (section 3) | fix, else needs you | the one standard fix runs (`gaps::test_with_claude_down_the_standard_fix_still_runs`) |
+| Test order: order form | "We couldn't open your order form…" | needs you, exact steps | same |
+| Test order: mail server refused | investigator → `MAIL_SIGN_IN_REFUSED` (code's words) | needs you | same |
+| Test order: inbox | "sent but hasn't arrived" / waiting for "Yes, I got it" | needs you | same |
+| Settings unchanged (`settings_match`) | alert only: "If you changed them on purpose, nothing needs doing…" | needs you | same |
+| Renewals (domain, certificate, team mailbox) | one email per threshold; the team card | needs you (renewing costs money: never done by code) | not involved |
+| Watch-address | one email per new problem, explain only | explain | not involved |
+
+| Situation | What happens | Test (`gaps::`) |
+|---|---|---|
+| **Our** DNS lookup fails during a shop check | "We couldn't look this up just now. The problem is on our side, not yours…": not passed, no fix, no re-check as a failure, no alert, an open alert is not cleared | `test_our_dns_failure_is_couldnt_check_with_no_fix_and_no_alert`, `test_authoritative_resolver_tells_no_answer_from_our_failure` |
+| A shop uses up its time budget (quick 90 s, daily 300 s) | the remaining checks are saved as "This check couldn't finish in time, so we don't know yet": never passed | `test_a_slow_shop_is_recorded_as_couldnt_finish_never_as_passed`, `test_monitor_gives_each_shop_a_time_budget` |
+| One shop's check blows up | recorded as "couldn't finish" in the audit log; the round carries on with the next shop | `test_one_broken_shop_does_not_stop_the_others` |
+| Every outside call has a timeout | SMTP, IMAP, GoDaddy, Claude, DNS, page fetch | `test_every_outside_call_has_a_timeout` |
+| A check is fixed 3 times in a day and breaks again | no 4th automatic fix; "needs you" with "This keeps breaking…"; ONE email "Something keeps breaking on …" | `test_a_check_that_keeps_breaking_stops_being_fixed_and_emails_once` |
+| Fail → alert → fine → fail again, repeatedly | 1st: the normal email; 2nd: one "keeps breaking" email; then silence for the day | `test_fail_alert_recover_fail_again_sends_one_keeps_breaking_email_then_goes_quiet` |
+| Our mail service is down when an alert is due | recorded as not sent, tried again on the next round, shown to the team on `/api/health` (`alerts_unsent`) | `test_alert_that_could_not_be_sent_is_recorded_retried_and_shown_to_the_team`, `test_watch_alert_that_could_not_be_sent_is_retried` |
+| The checker's own HTTPS look meets a redirect to another host, plain http or a private address | refused; one request, to the shop only | `test_https_probe_never_follows_a_redirect_off_the_shop` (5 targets) |
+| A practice shop is monitored | only ever against the pretend world; all its proof is labelled practice | `test_practice_shops_are_never_checked_against_real_services` |
+| A shop the team paused | its shared proof page answers 404 | `test_a_paused_shop_has_no_public_proof_page` |
+
+Whole-system invariants 9 (at most one "keeps breaking" email per check per day) and 10 (an unfinished check, and its run, are never
+"passed") were added to `test_s11_invariants.py`.

@@ -19,6 +19,7 @@ from app import audit, proof
 from app.agents.executor import Ctx
 from app.agents.planner import DKIM_PENDING
 from app.agents.reader import Profile
+from app.checks.dns_resolver import lookup
 from app.mail.providers import provider_for
 from app.models import CheckResult, Order, utcnow
 from app.sites.orders import order_recipients
@@ -31,6 +32,25 @@ class Outcome:
     plain: str  # one line for the seller
     detail: str = ""  # technical
     waiting: bool = False  # passed as far as we can see, but delivery still needs the owner's "Yes, I got it"
+    unfinished: bool = False  # we couldn't complete it (our lookup failed, or time ran out): not passed, not her fault
+    keeps_breaking: bool = False  # fixed several times today and broken again: automatic fixing has stopped
+
+
+class CouldntCheck(Exception):
+    """Something on OUR side failed, so the check has no answer. Never a failure of the shop."""
+
+
+OUR_SIDE = ("We couldn't look this up just now. The problem is on our side, not yours, and nothing about your shop has "
+            "changed. We'll check again on the next round.")
+OUT_OF_TIME = "This check couldn't finish in time, so we don't know yet. We'll try again on the next round."
+
+
+def dns_values(ctx: Ctx, name: str, rtype: str) -> list[str]:
+    """One DNS answer for a check. A lookup that failed on our side raises, so it can't be read as "missing"."""
+    got = lookup(ctx.integ.dns, name, rtype)
+    if got.status == "error":
+        raise CouldntCheck(f"{rtype} {name}: our lookup failed")
+    return list(got.values)
 
 
 def practice_world(ctx: Ctx) -> bool:
@@ -63,7 +83,7 @@ def _txt(values: list[str]) -> list[str]:
 
 def check_site_points(ctx: Ctx) -> Outcome:
     host, want = ctx.plan.site_host, ctx.settings.server_ip
-    got = ctx.integ.dns.resolve(host, "A")
+    got = dns_values(ctx, host, "A")
     ok = want in got
     evidence(ctx, "site_points", "dns_answer", answer=f"A {host} = {', '.join(got) or 'nothing'}",
              server=dns_server(ctx), source="authoritative nameserver")
@@ -106,7 +126,7 @@ def mail_zone(ctx: Ctx) -> str:
 
 def check_email_mx(ctx: Ctx) -> Outcome:
     zone, provider = mail_zone(ctx), provider_for(ctx.settings)
-    got = ctx.integ.dns.resolve(zone, "MX")
+    got = dns_values(ctx, zone, "MX")
     hosts = {v.split()[-1].rstrip(".").lower() for v in got}
     ok = all(h in hosts for _, h in provider.mx)
     return Outcome("email_mx", ok, "Emails to your address reach your mailbox." if ok else
@@ -116,7 +136,7 @@ def check_email_mx(ctx: Ctx) -> Outcome:
 
 def check_email_spf(ctx: Ctx) -> Outcome:
     zone, provider = mail_zone(ctx), provider_for(ctx.settings)
-    got = _txt(ctx.integ.dns.resolve(zone, "TXT"))
+    got = _txt(dns_values(ctx, zone, "TXT"))
     ok = any(v.startswith("v=spf1") and provider.spf_include in v for v in got)
     return Outcome("email_spf", ok, "Your mailbox is allowed to send email for you." if ok else
                    "Your emails may land in spam: the sending permission is missing.",
@@ -138,9 +158,9 @@ def check_email_dkim(ctx: Ctx) -> Outcome:
     zone = mail_zone(ctx)
     names, seen = dkim_names(ctx, zone), {}
     for name in names:
-        txt = _txt(ctx.integ.dns.resolve(f"{name}.{zone}", "TXT"))
+        txt = _txt(dns_values(ctx, f"{name}.{zone}", "TXT"))
         seen[name] = (any(v.startswith("v=DKIM1") and "p=" in v for v in txt)
-                      or bool(ctx.integ.dns.resolve(f"{name}.{zone}", "CNAME")))
+                      or bool(dns_values(ctx, f"{name}.{zone}", "CNAME")))
     ok = bool(seen) and all(seen.values())
     return Outcome("email_dkim", ok, "Your emails are signed so customers can trust them." if ok else
                    "Your emails aren't signed, so they may land in spam.",
@@ -149,7 +169,7 @@ def check_email_dkim(ctx: Ctx) -> Outcome:
 
 def check_email_dmarc(ctx: Ctx) -> Outcome:
     zone = mail_zone(ctx)
-    got = _txt(ctx.integ.dns.resolve(f"_dmarc.{zone}", "TXT"))
+    got = _txt(dns_values(ctx, f"_dmarc.{zone}", "TXT"))
     ok = any(v.startswith("v=DMARC1") for v in got)
     return Outcome("email_dmarc", ok, "Fake emails in your name will be treated as spam." if ok else
                    "Order emails could land in spam: a protection setting is missing.",
@@ -259,6 +279,8 @@ def checks_for(ctx: Ctx) -> list[str]:
 def run_check(ctx: Ctx, name: str, attempt: int = 0) -> Outcome:
     try:
         out = CHECKS[name](ctx)
+    except CouldntCheck as e:
+        out = Outcome(name, False, OUR_SIDE, str(e), unfinished=True)
     except Exception as e:  # a check that crashes is a failed check, never a crash of the launch
         out = Outcome(name, False, "We couldn't complete this check.", f"{type(e).__name__}: {e}"[:300])
     save(ctx.session, ctx, out, attempt)
@@ -267,7 +289,8 @@ def run_check(ctx: Ctx, name: str, attempt: int = 0) -> Outcome:
 
 def save(session: Session, ctx: Ctx, out: Outcome, attempt: int) -> None:
     session.add(CheckResult(business_id=ctx.business.id, plan_id=ctx.plan.id, run_id=ctx.run_id, check=out.check, passed=out.passed,
-                            detail=json.dumps({"plain": out.plain, "detail": out.detail, "waiting": out.waiting}),
+                            detail=json.dumps({"plain": out.plain, "detail": out.detail, "waiting": out.waiting,
+                                               **({"unfinished": True} if out.unfinished else {})}),
                             attempt=attempt))
     if out.check.startswith("email_") and out.passed:
         evidence(ctx, out.check, "dns_answer", answer=out.detail[:200], server=dns_server(ctx),

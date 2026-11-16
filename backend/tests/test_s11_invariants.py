@@ -5,6 +5,7 @@ a daily monitoring round -> a customer order + status changes, with failures inj
 eight invariants below must hold. A failing seed is a real bug: reproduce it with `one_run(seed, make_settings)`.
 """
 
+import json
 import random
 import smtplib
 
@@ -17,7 +18,7 @@ from app.agents.launch_check import start_run
 from app.config import get_settings
 from app.db import init_db, make_engine
 from app.mail.smtp import FakeMailer
-from app.models import Alert, AuditEvent, Business, CheckRun, DnsBackup, Evidence, Order, Plan
+from app.models import Alert, AuditEvent, Business, CheckResult, CheckRun, DnsBackup, Evidence, Order, Plan
 from app.monitor.scheduler import Monitor
 from app.sites.orders import STATUS_STEPS, can_move
 from app.startup import reconcile
@@ -181,7 +182,17 @@ def one_run(seed: int, make_settings) -> dict:
         keys = [(x.kind, x.key) for x in alerts if x.resolved_at is None]
         assert len(keys) == len(set(keys)), (why, "invariant 5: two open alerts for one problem", keys)
         mails = [m for m in good_mailer.sent if m["subject"].startswith("Something needs attention")]
-        assert len(mails) == len([x for x in alerts if x.kind == "check_failed"]), (why, "invariant 5: alert emails", len(mails))
+        emailed = [x for x in alerts if x.kind == "check_failed" and not x.sent_to.startswith("(")]
+        assert len(mails) == len(emailed), (why, "invariant 5: alert emails", len(mails))
+        # 9 (S11b). a problem that keeps coming back gets at most ONE "keeps breaking" email per check per day
+        flapping = [x.key for x in alerts if x.kind == "check_flapping"]
+        storms = [m for m in good_mailer.sent if m["subject"].startswith("Something keeps breaking")]
+        assert len(storms) == len(flapping) == len(set(flapping)), (why, "invariant 9: keeps-breaking emails", flapping)
+        # 10 (S11b). a check that couldn't finish is never recorded as passed, and neither is its run
+        for row in s.exec(select(CheckResult).where(CheckResult.business_id == shop.id)).all():
+            if json.loads(row.detail).get("unfinished"):
+                assert not row.passed, (why, "invariant 10: an unfinished check counted as passed", row.check)
+                assert not s.get(CheckRun, row.run_id).passed, (why, "invariant 10: a run with an unfinished check passed")
         assert all(m["to"] == OWNER for m in good_mailer.sent), (why, "invariant 5: mail to someone else",
                                                                  {m["to"] for m in good_mailer.sent})
         # 6. the order's status only moved along allowed steps

@@ -166,7 +166,8 @@ class AuthoritativeResolver:
                 return zone, sorted(n.rstrip(".") for n in ns)
         return "", []
 
-    def resolve(self, name: str, rtype: str) -> list[str]:
+    def lookup(self, name: str, rtype: str) -> Answer:
+        """ "error" when no nameserver could be found or none answered: that is our failure to look, not an answer."""
         _zone, ns = self.nameservers(name)
         for host in ns:
             for ip in self._finder.resolve(host, "A"):
@@ -175,6 +176,9 @@ class AuthoritativeResolver:
                 except Exception:  # try the next nameserver
                     continue
                 self.last_server = f"{host} ({ip})"
-                return answer
+                return Answer("ok", tuple(answer)) if answer else Answer("nodata")
         self.last_server = ""
-        return []
+        return Answer("error")
+
+    def resolve(self, name: str, rtype: str) -> list[str]:
+        return list(self.lookup(name, rtype).values)
