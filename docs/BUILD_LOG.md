@@ -229,3 +229,11 @@ One entry per Claude Code session, newest last. This is what judges read to unde
 - Result: unit 1006 passed, 2 skipped; ruff, tsc, build clean; Docker stack rebuilt, `check_m1.sh --local` all PASS; e2e
   14/14 on the Docker stack (7 new flows); screenshots + a 20 s recording in `docs/screenshots/s12/`. Live Claude: $0.
 - Next: capture the S12 fixtures on the laptop (`capture_doctor_investigation.py --s12`, cap $0.10), then the VPS (Wed Nov 18).
+
+### Session 13 — 2026-11-17 (IST) — Live S12 fixtures, an email outbox, monitoring at 40 shops (Opus, laptop)
+- Goal: reliability before the VPS day: no lost email, monitoring that scales, real Doctor fixtures.
+- Asked Claude to: capture the S12 fixtures live, build a durable outbox, measure and fix monitoring for 40 shops, then a weekly digest and a public-resolvers check.
+- Claude built: Part 0 (11 live fixtures, $0.0025; the capture script crashed on an unexpected `evidence` call, fixed). Part A: `app/outbox.py` + `Outbox` table, every sender moved onto it, sender job, reconcile, budget + priorities, admin card, honest sign-in/contact wording, the Orders email state, 21 tests. Part B: a 40-shop slow pretend world, measured first (quick 534 s, daily 670 s simulated; one hang holds everyone up), then a worker pool, per-shop slots on a one-minute beat, a per-check watchdog, a later inbox look, a shared GoDaddy limiter (quick ~163 s, daily ~300 s), 10 tests; SPEC capacity note.
+- I changed / rejected: stopped the session after Part B (Part C and the Docker/e2e verification move to the next session). Claude flagged up front the risk of changing every email path the day before the VPS, and that a Python "watchdog" can stop waiting for a check but can't kill it.
+- Result: unit suite 1037 passed, 2 skipped, 19 deselected; long S11 invariant profile (240 seeds) passed; ruff/tsc/build clean; Docker, check_m1 and e2e not run this session.
+- Next: Docker + e2e (with the new "order while mail is down" flow), then Part C.

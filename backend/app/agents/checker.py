@@ -58,6 +58,8 @@ def practice_world(ctx: Ctx) -> bool:
 
 
 def evidence(ctx: Ctx, check: str, step: str, **fields) -> None:
+    if ctx.abandoned:  # S13 B: the watchdog gave up on this check; its late answers aren't proof of this run
+        return
     proof.add(ctx.session, business=ctx.business, run_id=ctx.run_id, check=check, step=step,
               practice=practice_world(ctx), **fields)
 
@@ -228,14 +230,21 @@ def check_test_order(ctx: Ctx) -> Outcome:
         return Outcome("test_order", True, "The mail server accepted a test order for you. Tap “Yes, I got it” "
                        "in that email to prove it reached your inbox.", f"order {order.ref} code {ticket.nonce}",
                        waiting=True)
-    for i in range(3):
+    tries = 3 if ctx.inbox_wait else 1
+    for i in range(tries):
         if ctx.integ.inbox.find(subject_contains=ticket.nonce, since=started - timedelta(minutes=2)):
             evidence(ctx, "test_order", "imap_seen", nonce=ticket.nonce,
                      server="pretend inbox" if fake else ctx.settings.imap_host, source=ctx.settings.imap_user)
             return Outcome("test_order", True, "A test order reached your inbox.",
                            f"order {order.ref} code {ticket.nonce} found")
-        if i < 2:
+        if i < tries - 1:
             ctx.integ.sleep(20)
+    if not ctx.inbox_wait:  # S13 B (monitoring): "accepted" is recorded; "seen" is looked for in a later short pass
+        ctx.pending_inbox.append({"nonce": ticket.nonce, "since": (started - timedelta(minutes=2)).isoformat(),
+                                  "ref": order.ref})
+        return Outcome("test_order", True, "The mail server accepted a test order for you. We'll look for it in "
+                       "the inbox again in a minute.", f"order {order.ref} code {ticket.nonce}: accepted, "
+                       "inbox looked at once, looking again later", waiting=True)
     return Outcome("test_order", False, "A test order was sent but hasn't arrived in your inbox.",
                    f"order {order.ref} code {ticket.nonce} not found in {ctx.settings.imap_user}")
 
@@ -285,14 +294,55 @@ def checks_for(ctx: Ctx) -> list[str]:
     return list(LAUNCH_CHECKS)  # the same proof for every launch; only the allowed fixes differ by mode
 
 
-def run_check(ctx: Ctx, name: str, attempt: int = 0) -> Outcome:
+def outcome_of(ctx: Ctx, name: str) -> Outcome:
     try:
-        out = CHECKS[name](ctx)
+        return CHECKS[name](ctx)
     except CouldntCheck as e:
-        out = Outcome(name, False, OUR_SIDE, str(e), unfinished=True)
+        return Outcome(name, False, OUR_SIDE, str(e), unfinished=True)
     except Exception as e:  # a check that crashes is a failed check, never a crash of the launch
-        out = Outcome(name, False, "We couldn't complete this check.", f"{type(e).__name__}: {e}"[:300])
+        return Outcome(name, False, "We couldn't complete this check.", f"{type(e).__name__}: {e}"[:300])
+
+
+def run_check(ctx: Ctx, name: str, attempt: int = 0) -> Outcome:
+    out = outcome_of(ctx, name)
     save(ctx.session, ctx, out, attempt)
+    return out
+
+
+WATCHDOG_TEXT = ("This check took too long, so we stopped waiting for it. We don't know yet; we'll try again on the "
+                 "next round.")
+
+
+def run_check_watched(engine, ctx: Ctx, name: str, seconds: float) -> Outcome:
+    """S13 B: a per-check watchdog. The check runs in its own thread with its OWN database session and copies of
+    the shop's rows, so if it overruns we can stop waiting safely: it's marked "couldn't finish" (never passed),
+    and the late thread can't write proof (ctx.abandoned). Python can't stop a thread: the late call keeps going
+    until its own timeout, but nobody waits for it."""
+    import threading
+
+    from app.models import Business, Plan
+
+    own = Session(engine)
+    wctx = Ctx(own, ctx.settings, ctx.integ, own.get(Plan, ctx.plan.id), own.get(Business, ctx.business.id),
+               run_id=ctx.run_id, inbox_wait=ctx.inbox_wait)
+    box: dict = {}
+
+    def work():
+        try:
+            box["out"] = outcome_of(wctx, name)
+        finally:
+            own.close()
+
+    t = threading.Thread(target=work, name=f"check-{name}-{ctx.business.id}", daemon=True)
+    t.start()
+    t.join(seconds)
+    if t.is_alive() or "out" not in box:
+        wctx.abandoned = True
+        out = Outcome(name, False, WATCHDOG_TEXT, f"no answer within {seconds:.0f}s: stopped waiting", unfinished=True)
+    else:
+        out = box["out"]
+        ctx.pending_inbox.extend(wctx.pending_inbox)
+    save(ctx.session, ctx, out, 0)
     return out
 
 

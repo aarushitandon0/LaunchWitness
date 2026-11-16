@@ -8,7 +8,7 @@ Used after a launch finishes, by "Run checks now", and by monitoring.
 import json
 import smtplib
 import time
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlsplit
 
@@ -16,7 +16,7 @@ from sqlalchemy.engine import Engine
 from sqlmodel import Session, select
 
 from app import audit
-from app.agents.checker import OUT_OF_TIME, Outcome, checks_for, run_check, save
+from app.agents.checker import OUT_OF_TIME, Outcome, checks_for, run_check, run_check_watched, save
 from app.agents.claude_client import Claude
 from app.agents.doctor import needs_you, repair
 from app.agents.executor import Ctx, StepFailed, assert_can_write
@@ -61,6 +61,7 @@ class RunSummary:
     run_id: int
     passed: bool
     failed: list[Outcome]  # final failures after any repair
+    inbox: list = field(default_factory=list)  # S13 B: test orders to look for in a later short pass
 
 
 def latest_launched_plan(session: Session, business_id: int) -> Plan | None:
@@ -257,10 +258,13 @@ def expiry_info(ctx: Ctx) -> dict:
 
 def run_checks(engine: Engine, settings: Settings, integ: Integrations, claude: Claude, plan_id: int, *,
                trigger: str, names: list[str] | None = None, fix: bool = True, run_id: int | None = None,
-               symptom: str = "", budget_seconds: float | None = None) -> RunSummary:
+               symptom: str = "", budget_seconds: float | None = None, check_seconds: float | None = None,
+               inbox_wait: bool = True) -> RunSummary:
     """`symptom`: the owner's own words about what's wrong (optional). Data for the Doctor, never instructions.
     `budget_seconds`: once this much time is used, the remaining checks are recorded as "couldn't finish"
-    (never as passed), so one slow shop can't hold up a monitoring round."""
+    (never as passed), so one slow shop can't hold up a monitoring round. `check_seconds` (S13 B): a watchdog on
+    each single check (a check that overruns is "couldn't finish"). `inbox_wait=False`: the test order looks in
+    the inbox once and leaves the rest to a later pass (`RunSummary.inbox`)."""
     started = clock()
     with Session(engine) as session:
         plan = session.get(Plan, plan_id)
@@ -270,7 +274,7 @@ def run_checks(engine: Engine, settings: Settings, integ: Integrations, claude: 
         run = session.get(CheckRun, run_id) if run_id else None
         if run is None:
             run = start_run(session, business.id, plan.id, trigger)  # raises AlreadyChecking
-        ctx = Ctx(session, settings, integ, plan, business, run_id=run.id)
+        ctx = Ctx(session, settings, integ, plan, business, run_id=run.id, inbox_wait=inbox_wait)
         outs: list[Outcome] = []
         try:
             apply_demo_fault(ctx)
@@ -283,7 +287,7 @@ def run_checks(engine: Engine, settings: Settings, integ: Integrations, claude: 
                     outs.append(out)
                     failed.append(out)
                     continue
-                out = run_check(ctx, name)
+                out = run_check_watched(engine, ctx, name, check_seconds) if check_seconds else run_check(ctx, name)
                 outs.append(out)
                 if out.passed:
                     continue
@@ -322,4 +326,4 @@ def run_checks(engine: Engine, settings: Settings, integ: Integrations, claude: 
                      result="pass" if not failed else "fail", business_id=business.id,
                      detail=f"{trigger}: {len(outs)} checks, "
                             f"{len(repairs)} repaired/attempted, failing: {[f.check for f in failed]}")
-        return RunSummary(run.id, not failed, failed)
+        return RunSummary(run.id, not failed, failed, list(ctx.pending_inbox))

@@ -1,4 +1,4 @@
-# State for the next session (written 2026-11-16 IST, end of Session 12)
+# State for the next session (written 2026-11-17 IST, end of Session 13)
 
 Read `CLAUDE.md` first (rules + commands), then this. **If today is the VPS day, follow `docs/NEXT_SESSION_VPS.md`
 step by step**: it's self-contained. You shouldn't need to read the whole codebase.
@@ -29,6 +29,65 @@ the owner's "Yes, I got it"), repairs what breaks, and keeps checking. GoDaddy h
 Tests on main: **607 passed, 2 skipped** (`cd backend && ../.venv/Scripts/python -m pytest -q`). E2E: **7/7** on the
 Docker stack and on the dev server (`e2e/README.md`). Ruff, `npx tsc --noEmit`, `npm run build` clean. Keep the stash
 `fable-p2-wip-backup` (never drop it).
+
+## Session 13 (Opus, 2026-11-17, laptop): live S12 fixtures, the email outbox, monitoring at 40 shops (STOPPED EARLY)
+
+Branch `s13-reliability`, each part merged into **main** with `--no-ff` and pushed. **Stopped by the owner after Part B**:
+Part C (weekly digest + public resolvers) and the final Docker/e2e verification were NOT done. Pick up below.
+
+Done:
+- **Part 0** (`ca4ea5e`): the 11 S12 Doctor placeholders captured live (14 Haiku calls, **$0.0025**; cap $0.10).
+  `REQUIRE_LIVE_FIXTURES=1 pytest tests/test_s6_agents.py tests/test_s11c_live.py` passes. Script fixes: an `evidence`
+  answer for `https_marker_symptom` (the live model asked for it and the script crashed) and `--only key,key`.
+  `test_s12_ui` now compares with the saved symptom fixture (it had checked the placeholder's "You said" wording).
+  Also: the laptop venv lacked Pillow (S12): `pip install -r backend/requirements-dev.txt`.
+- **Part A** (`3bd4397`): `app/outbox.py` + `Outbox` table. Every email (sign-in, orders, test orders, alerts, team
+  renewals, watch, contact, shop reports, admin decisions) is saved under a unique key, tried at once (5 s sign-in,
+  10 s order), then retried by the sender job (`outbox_send`, every 20 s, in the monitor scheduler; its own small
+  scheduler when `MONITOR_ENABLED=false`). Backoff 30 s doubling to 30 min with +-20% jitter, 10 tries (~2 h), then
+  `dead` -> team health `outbox_dead` + admin "Email outbox" card (`GET /api/admin/outbox`: counts + error kinds, no
+  bodies/addresses). Permanent = 5xx refusal / bad address; a refused mail sign-in (535) is NOT permanent. Atomic claim
+  (one UPDATE), stale `sending` > 10 min freed, startup reconcile requeues `sending` (same planned Message-ID).
+  Priorities 0 sign-in+orders (never held) / 1 alerts+team / 2 test orders+digest; `SMTP_DAILY_LIMIT=250` is a
+  **placeholder**: priority 2 waits from 80%, priority 1 at 100%; practice mail doesn't count. Sign-in failure answers
+  200 `mail_delayed: true` + "We're having trouble sending email right now. We'll keep trying..." (never "sent"); link
+  rows expire 2 min before the link; their bodies are emptied once sent/dropped. Orders: saved first;
+  `Order.email_status` = queued | sent | retrying | failed (Orders page: "Email to you: ..."). Test-order evidence
+  `smtp_accepted` uses the outbox row's Message-ID, `answer="outbox N, try K"`; a test order held by the budget is
+  "couldn't finish", not failed. The S11b alert retry now rides on the outbox (its tests unchanged and passing).
+  `PUT /api/admin/practice-mail {"down": bool}`: team-only, pretend mail server only (for the planned e2e flow).
+  Contact form: message kept; answers "We have your message. Our email is slow..." when not sent at once.
+- **Part B** (the last merge): `Monitor` runs shops in a pool (`MONITOR_WORKERS=4`) on a one-minute beat `monitor_tick`
+  (replaces `monitor_quick`/`monitor_daily`) with a stable crc32 slot per shop over 15 min and over the day, plus
+  overdue catch-up (quick > 20 min, daily > 25 h). Never two rounds at once, never one shop twice (busy set); a beat
+  waits at most 48 s. Per-check watchdog 150 s (`checker.run_check_watched`: own thread + own Session + copied rows;
+  an abandoned check can't write proof). The daily test order no longer sleeps for the inbox: "accepted" now, up to 3
+  one-minute `inbox_pass` looks (found -> `imap_seen` through `proof.add`; still missing -> row failed + the usual
+  recheck). One shared GoDaddy limiter, 50 calls/min (`app/godaddy/ratelimit.py`). Measured on 40 slow fake shops
+  (`tests/scale_world.py`, `tests/test_s13_scale.py`, times scaled 50x): **quick 534 s -> ~163 s, daily 670 s -> ~300 s**.
+  Capacity note in SPEC section 7: the checks would keep up with 1,000+ shops; the real limit is the mailbox's daily
+  send limit (one test order per shop per day -> about 0.8 x `SMTP_DAILY_LIMIT` shops).
+
+Tests: see BUILD_LOG S13 for the final count; ruff, `tsc --noEmit`, `npm run build` clean.
+**Not run this session: Docker rebuild, `check_m1.sh --local`, e2e, screenshots.** The sign-in "delayed" screen, the
+Orders "Email to you" line and the admin outbox card are unverified in a browser.
+
+Next session, in order:
+1. Rebuild the stack, `bash scripts/check_m1.sh --local`, full e2e. Add the e2e flow: team `PUT /api/admin/practice-mail
+   {"down":true}` -> place an order on a practice shop -> Orders shows "retrying" -> `{"down":false}` -> within about a
+   minute (backoff 30 s + the 20 s job) it shows "sent". On the local stack ORDER emails go to the pretend mailbox, not
+   Mailpit (only sign-in/team mail reaches Mailpit): that's why the switch exists. Optional: stop Mailpit, ask for a
+   sign-in link -> the "trouble sending" screen -> start Mailpit -> the link arrives.
+2. Part C: weekly digest via the outbox (`kind="digest"`, priority 2, signed unsubscribe route in `route_table.py`), and
+   the 8.8.8.8 / 1.1.1.1 / 9.9.9.9 lookup on the daily run as evidence (+ CHECKS_MATRIX row). Brief: the S13 prompt.
+3. Before the VPS: set `SMTP_DAILY_LIMIT` to GoDaddy's real limit in `.env`.
+
+Open / doubts (one line each):
+- At-least-once: a crash right after the server accepted a mail but before we saved "sent" sends it again (same Message-ID).
+- Watch alerts: an older unsent watch email for the same address is marked dead ("replaced") when a newer one is queued.
+- A late (abandoned) check thread keeps running until its own call's timeout; several hung calls could pile up threads.
+- `inbox_pass` jobs live in the scheduler's memory: a restart loses pending looks (that run stays "waiting").
+- Tests default to `MONITOR_WORKERS=1` (the in-memory test DB is one shared connection); the scale tests use a file DB.
 
 ## Session 12 (Opus, 2026-11-16): the UI for the checks and the Doctor, interactive landing, product photos
 
