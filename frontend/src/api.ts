@@ -412,8 +412,8 @@ export const api = {
     request<Business>(`/api/businesses/${id}`, json({ profile, subdomain }, "PUT")),
   contact: (name: string, email: string, message: string, website: string) =>
     request<{ ok: boolean; message: string }>("/api/contact", json({ name, email, message, website })),
-  preview: async (id: number): Promise<string> => {
-    const r = await send(`/api/businesses/${id}/preview`).catch(() => null);
+  preview: async (id: number, page: "home" | "privacy" = "home"): Promise<string> => {
+    const r = await send(`/api/businesses/${id}/preview?page=${page}`).catch(() => null);
     if (!r || !r.ok) throw new ApiError("We couldn't load the preview. Please try again.", r?.status ?? 0);
     return r.text();
   },

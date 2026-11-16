@@ -374,9 +374,10 @@
       <div class="hp" aria-hidden="true"><label for="website">Leave empty</label><input id="website" name="website" tabindex="-1" autocomplete="off"></div>
       <input type="hidden" name="order_token" value="{{ order_token }}">
       <p class="hint">We use these details only to handle your order. <a href="{{ base }}/privacy">Privacy</a></p>
-      {% if preview %}<p class="hint" role="note">This is a preview. Customers can order once your shop is live.</p>{% endif %}
+      {% if preview %}<p class="hint" role="note">This is a preview. Customers can order once your shop is live.</p>
+      <p class="error" id="preview-off" role="status" hidden>Preview: orders are turned off until your shop is live.</p>{% endif %}
       {% if demo %}<p class="hint" role="note">This is a demo shop: sending this form places no order.</p>{% endif %}
-      <button class="btn btn-primary btn-block" type="submit"{% if preview %} disabled{% endif %}>Send order</button>
+      <button class="btn btn-primary btn-block" type="submit">Send order</button>
     </aside>
   </form>
 </main>
@@ -492,6 +493,52 @@
         cat.hidden = !cat.querySelector(".item:not([hidden])");
       });
       none.hidden = shown > 0;
+    });
+  }
+})();
+</script>
+{% endif %}
+{% if preview %}
+<script>
+/* Private preview only (shown in the app inside a sandboxed srcdoc frame). A srcdoc page resolves links against the
+   APP's address, so without this "#menu" would load the app into the frame. In-page links scroll here; the shop's own
+   pages are asked for from the app by name (it checks the message came from this frame); outside links open a new
+   tab; the order form never sends. */
+(function () {
+  var PAGES = { "/": "home", "/privacy": "privacy" };
+  var outside = /^(https?:|tel:|mailto:|upi:)/i;
+  Array.prototype.forEach.call(document.querySelectorAll("a[href]"), function (a) {
+    if (outside.test(a.getAttribute("href"))) { a.target = "_blank"; a.rel = "noopener noreferrer"; }
+  });
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest ? e.target.closest("a[href]") : null;
+    if (!a) return;
+    var href = a.getAttribute("href");
+    if (outside.test(href)) return; /* opens in a new tab (target set above) */
+    e.preventDefault();
+    if (href.charAt(0) === "#") {
+      var el = href.length > 1 ? document.getElementById(href.slice(1)) : null;
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); else window.scrollTo(0, 0);
+    } else if (PAGES[href]) {
+      window.parent.postMessage({ lwPreview: PAGES[href] }, "*");
+    }
+  }, true);
+  /* The frame has no allow-forms, so the browser refuses to send the form before any "submit" event fires: catch the
+     owner's tap on "Send order" (and Enter in a field) and explain instead. */
+  var form = document.getElementById("order-form");
+  function off(e) {
+    e.preventDefault();
+    var note = document.getElementById("preview-off");
+    note.hidden = false;
+    note.scrollIntoView({ block: "center" });
+  }
+  if (form) {
+    form.addEventListener("submit", off);
+    form.addEventListener("click", function (e) {
+      if (e.target.closest && e.target.closest('button[type="submit"]')) off(e);
+    });
+    form.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && e.target.tagName === "INPUT") off(e);
     });
   }
 })();

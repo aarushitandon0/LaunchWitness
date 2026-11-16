@@ -29,6 +29,21 @@ production-like local stack (`deploy/README.md`, `scripts/check_m1.sh --local`, 
 - During the scan one tool call briefly put a placeholder value on a local command line (`git log -S`). It turned out to
   be the default `change-me`; the script has passed values through files ever since.
 
+## The owner's private preview (changed in S10.5)
+
+A draft or practice shop is shown to its owner in an `<iframe srcdoc>` with `sandbox="allow-scripts allow-popups
+allow-popups-to-escape-sandbox"`. There is still **no `allow-same-origin`**, so the shop page runs with an opaque
+origin: it can't read the app's DOM, cookies (the session cookie is HttpOnly anyway), storage or API with the owner's
+rights, and seller text stays HTML-escaped by Jinja as before. There is no `allow-forms` (the order form can't post)
+and no `allow-top-navigation` (the shop can't move the app). What changed: a `srcdoc` page resolves links against the
+app's URL, so `#menu` loaded the app into the frame (blank page). The preview-only script in `seller.html` now scrolls
+in-page anchors itself, opens outside links (WhatsApp, Instagram, `tel:`, UPI) in a new tab with
+`noopener noreferrer` (that's why `allow-popups` and `allow-popups-to-escape-sandbox` were added: the new tab is an
+ordinary page with no link back), and asks the app for the shop's own pages with `postMessage({lwPreview: "home" |
+"privacy"})`. The app accepts that message only when `event.source` is its own preview frame and the value is one of
+those two words, then fetches `/api/businesses/<id>/preview?page=…` itself through the owner gate. Tests:
+`test_s105_preview.py`, e2e `f-preview-links`.
+
 ## Still open (honest list)
 
 - **The admin is whoever reads `ADMIN_EMAIL`'s inbox.** No second factor in the beta.
