@@ -163,3 +163,16 @@ One entry per Claude Code session, newest last. This is what judges read to unde
 - The owner didn't like the three.js hero. Removed it (scene, still image, `three` dependency, its e2e checks and the loop
   recording) and restored the S10.5 SVG hero; everything else from S10.5b stays. The scene remains in git history (`820e824`).
 
+
+### Session 11c — 2026-11-16 (IST) — Pre-flight for the VPS (Fable)
+- Goal: prove shop generation works with live Claude through the app, and remove hosting surprises before Wednesday.
+- Asked Claude to: run Reader/Namer/policy/Doctor live under a $0.25 cap; trace DNS-before-TLS; a wildcard fallback; one
+  approved real DNS write and undo; (if time) a tamper-evident proof log.
+- Claude built: `scripts/preflight_live.py`, 3 new seller inputs + 5 policy cases with live fixtures, `tests/test_s11c_live.py`;
+  `resolve_all` / `points_here`, the tls-ask DNS gate, `DNS_MODE`, `tests/test_s11c_hosting.py`, the guide's new sections;
+  `scripts/preflight_dns_write.py`.
+- What checking caught: the real write showed GoDaddy's two nameservers disagreeing for about 10 s, which the old one-server
+  wait would have accepted; `reader_salon.json` was still a placeholder; a test pinned Claude's exact wording.
+- I changed / rejected: Part 3 not started (budget). The new Namer reply did not replace the pinned fixture.
+- Result: 919 passed, 2 skipped; strict live-fixture gate passes; live spend $0.056; write test 200/200/204/200, zone identical.
+- Next: the VPS (Wed Nov 18), `DNS_MODE=per_shop`.
