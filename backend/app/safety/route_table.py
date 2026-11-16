@@ -49,6 +49,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("DELETE", "/api/businesses/{business_id}"): OWNER,
     ("GET", "/api/businesses/{business_id}/preview"): OWNER,
     ("GET", "/api/businesses/{business_id}/orders"): OWNER,
+    ("POST", "/api/businesses/{business_id}/orders/{order_id}/status"): OWNER,  # S10.5: New → Confirmed → Paid → Done
     ("GET", "/api/businesses/{business_id}/export"): OWNER,
     ("GET", "/api/businesses/{business_id}/names"): OWNER,
     ("POST", "/api/businesses/{business_id}/plans"): OWNER,

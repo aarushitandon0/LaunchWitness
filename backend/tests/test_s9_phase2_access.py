@@ -110,7 +110,8 @@ def owner_urls(biz_id: int, plan_id: int) -> list[tuple[str, str]]:
     out = []
     for (method, path), cls in route_table.ROUTES.items():
         if cls == route_table.OWNER:
-            out.append((method, path.replace("{business_id}", str(biz_id)).replace("{plan_id}", str(plan_id))))
+            out.append((method, path.replace("{business_id}", str(biz_id)).replace("{plan_id}", str(plan_id))
+                        .replace("{order_id}", "1")))
     return sorted(out)
 
 

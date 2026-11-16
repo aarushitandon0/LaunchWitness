@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ShopLink } from "./ShopLink";
-import { api, ApiError, Business, inr, Order, Product, Profile } from "./api";
+import { api, ApiError, Business, Order, Product, Profile } from "./api";
 import { ErrorBox } from "./Describe";
 import { takeNote } from "./Report";
 import { StepHeader } from "./Steps";
@@ -16,7 +16,7 @@ const FIELDS: { key: TextKey; label: string; hint?: string; long?: boolean }[] =
   { key: "area", label: "Area", hint: "Neighbourhood and city." },
   { key: "hours", label: "Opening hours" },
   { key: "phone", label: "Phone number" },
-  { key: "whatsapp", label: "WhatsApp number", hint: "Customers get an “Order on WhatsApp” button." },
+  { key: "whatsapp", label: "WhatsApp number", hint: "Customers use it to reach you: your shop shows a WhatsApp button, and after ordering they can send you the order there." },
   { key: "upi_id", label: "UPI ID", hint: "e.g. yourname@okaxis — we show a QR code customers can scan to pay." },
   {
     key: "upi_display_name",
@@ -278,26 +278,11 @@ export default function Review({ id }: { id: number }) {
       </div>
 
       {orders.length > 0 && (
-        <>
-          <h2>Orders from your website</h2>
-          <ul className="card orders">
-            {orders.map((o) => (
-              <li key={o.id}>
-                <strong>
-                  #{o.id} · {o.customer_name}
-                </strong>{" "}
-                <span className="muted">
-                  {o.customer_phone} · {new Date(o.created_at).toLocaleString()}
-                </span>
-                <div>
-                  {o.items.map((it) => `${it.qty} × ${it.name}`).join(", ") || "See note"} — {inr(o.total_inr)}
-                </div>
-                {o.note && <div className="muted">“{o.note}”</div>}
-                {o.email_status !== "sent" && <div className="warn">We couldn't email this order to you yet.</div>}
-              </li>
-            ))}
-          </ul>
-        </>
+        <p className="card">
+          {orders.length} order{orders.length === 1 ? "" : "s"} from your website
+          {orders.some((o) => o.status === "new") ? `, ${orders.filter((o) => o.status === "new").length} new` : ""}.{" "}
+          <a href={`#/b/${id}/orders`}>See your orders →</a>
+        </p>
       )}
     </form>
   );

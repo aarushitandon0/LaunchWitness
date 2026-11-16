@@ -68,6 +68,15 @@ test("a seller goes from sign-up to a live, proven, shared shop", async ({ brows
   // The seller sees the order; the hidden test orders aren't in the list.
   const orders = await (await api(seller, "GET", `/api/businesses/${id}/orders`)).json();
   expect(orders.some((o: { customer_name: string }) => o.customer_name === "Riya E2E")).toBe(true);
+  // My shops counts it as new; the Orders page shows it with a WhatsApp link to the customer; she confirms it.
+  await seller.goto("/#/shops");
+  await expect(seller.getByText("1 new")).toBeVisible();
+  await seller.getByRole("link", { name: /Orders/ }).first().click();
+  await expect(seller).toHaveURL(new RegExp(`#/b/${id}/orders$`));
+  const card = seller.locator(".order-card", { hasText: "Riya E2E" });
+  await expect(card.getByRole("link", { name: "Message on WhatsApp" })).toHaveAttribute("href", /^https:\/\/wa\.me\/919876543210\?text=/);
+  await card.getByRole("button", { name: "Mark confirmed" }).click();
+  await expect(card.locator(".order-status")).toHaveText("Confirmed");
 
   // Report page, then a share link opened by someone logged out: read-only, no customer data.
   await seller.goto(`/#/b/${id}/report`);
