@@ -6,7 +6,8 @@ requires-python = ">=3.12"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "-p no:cacheprovider"
+addopts = "-p no:cacheprovider -m 'not slow'"
+markers = ["slow: long profiles, not part of the normal run (pytest -m slow)"]
 
 [tool.ruff]
 line-length = 130
