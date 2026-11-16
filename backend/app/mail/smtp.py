@@ -67,10 +67,25 @@ class SmtpMailer:
             s.send_message(msg)
         return msg["Message-ID"]
 
+    def login_test(self) -> str:
+        """Connect and sign in only; nothing is sent. For the Doctor's investigation."""
+        try:
+            with self._connect() as s:
+                if self.security != "plain" or self._password.get_secret_value():
+                    s.login(self.user, self._password.get_secret_value())
+        except smtplib.SMTPAuthenticationError:
+            return "login refused: the mail service did not accept our sign-in"
+        except (OSError, smtplib.SMTPException) as e:
+            return f"unreachable ({type(e).__name__})"
+        return "ok: connected and signed in"
+
 
 class FakeMailer:
     def __init__(self):
         self.sent: list[dict] = []
+
+    def login_test(self) -> str:
+        return "ok: connected and signed in"
 
     def send(self, *, to: str, subject: str, body: str, html: str | None = None) -> str:
         message_id = f"<fake-{len(self.sent) + 1}@launchwitness.test>"

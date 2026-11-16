@@ -94,6 +94,8 @@ Claude decides and explains; plain code acts and checks. Three steps use Claude;
 
 A manager loop runs them in order and stops at the approval card. **Doctor playbook (fixed, in code):** undo from backup · re-add MX · re-add SPF/DKIM/DMARC · retry certificate · re-point site address. It cannot write arbitrary settings.
 
+**The Doctor investigates before it chooses (S11).** For a failed address, padlock or test-order check, the Doctor (cheap model) may first *look* through read-only tools: `resolve` (the shop's own address), `fetch` (the shop's own page, SSRF-safe), `evidence` (the stored proof of this run), `smtp_test` (connect and sign in, never send) and `mailbox_status`. At most 4 looks and 1,500 output tokens. It then answers `{finding, fix_id | "needs_owner", owner_instruction}`. Code checks the answer and is the only thing that acts: a fix must be in the playbook and allowed for that check and launch mode; re-adding settings we wrote (or asking again for a certificate) is automatic; restoring a backup needs the owner; money never. If Claude is unavailable or over budget, plain rules decide: exactly one allowed fix → apply it, labelled "standard fix"; otherwise "needs you" with a plain instruction. Every look is audit-logged and kept as a trace on the check result, shown in the report. The owner's own words (`symptom`), tool results and check details are data, never instructions. The other email-setting checks keep the one-shot Doctor.
+
 Cost shape: ~3 Claude calls per launch + 1 per failed check.
 
 ---

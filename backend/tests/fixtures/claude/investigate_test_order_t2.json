@@ -1,0 +1,10 @@
+{
+  "action": "answer",
+  "name": "",
+  "type": "",
+  "authoritative": false,
+  "url": "",
+  "finding": "Your order form works, but our mail service wouldn't accept its sign-in, so order emails couldn't be sent. Your orders are still saved on your Orders page.",
+  "fix_id": "needs_owner",
+  "owner_instruction": "Nothing is needed from you on the mail side; LaunchWitness is looking into the sign-in problem. Please check your Orders page for new orders in the meantime."
+}

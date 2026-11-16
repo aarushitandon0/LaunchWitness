@@ -97,7 +97,7 @@ class Business(SQLModel, table=True):
     review_reason: str = ""
     visitor: str = ""  # hashed client IP that created it (daily limit)
     paused: bool = False  # team pause: the public shop shows a neutral "paused" page and takes no orders
-    demo_fault: str = ""  # admin demo switch, consumed by the next check run: "" | "dmarc" | "mx"
+    demo_fault: str = ""  # admin demo switch, consumed by the next check run: "" | "dmarc" | "mx" | "a_record" | "smtp_login" | "cert"
     # S10.5 go-live checklist: owner-confirmed steps (golive.py). Each stores WHAT was confirmed, so it stops
     # counting the moment the number / UPI ID / name changes. "Confirmed by you", never "verified".
     wa_confirmed: str = ""  # the WhatsApp number the owner said opens HER chat
@@ -174,6 +174,7 @@ class CheckResult(SQLModel, table=True):
     check: str  # e.g. "https", "dns_a", "mx", "test_order"
     passed: bool
     detail: str = ""
+    doctor_json: str = ""  # S11: the Doctor's investigation of this failed check {finding, fix_id, owner_instruction, source, trace}
     created_at: datetime = Field(default_factory=utcnow)
 
 
