@@ -1,0 +1,55 @@
+{
+  "name": "Soy Wax Candles by Bandra Home",
+  "tagline": "Small-batch, hand-poured soy wax candles",
+  "about": "We make soy wax candles at home in Bandra, Mumbai. Every candle is made in small batches and hand poured. Order through Instagram and pick up your candles or have them couriered to you.",
+  "area": "Bandra, Mumbai",
+  "hours": "",
+  "phone": "",
+  "whatsapp": "",
+  "upi_id": "",
+  "tone": "homely",
+  "selling_point": "Hand-poured soy wax",
+  "min_notice_days": 0,
+  "pickup_available": true,
+  "delivery_available": true,
+  "delivery_fee_inr": 80,
+  "allow_item_message": false,
+  "upi_display_name": "",
+  "fssai_number": "",
+  "kind": "orders",
+  "not_supported_reason": "",
+  "products": [
+    {
+      "name": "Lavender jar candle",
+      "price_inr": 350,
+      "description": "",
+      "category": "Jar candles",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Vanilla jar candle",
+      "price_inr": 350,
+      "description": "",
+      "category": "Jar candles",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Tealights set of 4",
+      "price_inr": 200,
+      "description": "Set of 4 tealights",
+      "category": "Tealights",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Gift box of 3 jars",
+      "price_inr": 950,
+      "description": "Gift box with 3 jar candles",
+      "category": "Gift boxes",
+      "addon": false,
+      "price_from": false
+    }
+  ]
+}

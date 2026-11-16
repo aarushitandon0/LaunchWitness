@@ -1,0 +1,18 @@
+{
+  "id": "tiffin_hinglish",
+  "owner_name": "Sunita Sharma",
+  "city": "Noida",
+  "description": "Hum Sharma Tiffin Service chalate hain, Sector 62 Noida se. Ghar ka bana shudh shakahari khana, kam tel masala. Lunch 12:30 se 2 baje tak aur dinner 7:30 se 9 baje tak deliver karte hain, Sunday chhutti. Monthly tiffin ke liye ek din pehle batana hoga. Delivery Sector 58 se 63 tak free hai. WhatsApp 98110 45672.",
+  "price_list": "Mini thali (2 roti, sabzi, dal) - ₹70\nFull thali (4 roti, 2 sabzi, dal, chawal, salad) - ₹110\nSpecial thali (paneer sabzi + meetha) - ₹150\nMonthly lunch (26 din) - ₹2600\nMonthly lunch + dinner (26 din) - ₹4800\nExtra roti - ₹8\nDahi katori - ₹20",
+  "expected_prices": [
+    70,
+    110,
+    150,
+    2600,
+    4800,
+    8,
+    20
+  ],
+  "optional_prices": [],
+  "from_prices": []
+}

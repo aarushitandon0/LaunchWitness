@@ -1,0 +1,79 @@
+{
+  "name": "Sharma Tiffin Service",
+  "tagline": "Ghar ka bana shudh shakahari tiffin, kam tel masala",
+  "about": "We run Sharma Tiffin Service from Sector 62, Noida. Our food is home-cooked, pure vegetarian, and made with less oil and masala. We deliver lunch and dinner every day except Sunday.",
+  "area": "Sector 62, Noida",
+  "hours": "Lunch delivery 12:30 PM to 2:00 PM, dinner delivery 7:30 PM to 9:00 PM. Closed on Sundays.",
+  "phone": "9811045672",
+  "whatsapp": "9811045672",
+  "upi_id": "",
+  "tone": "homely",
+  "selling_point": "Pure vegetarian home food",
+  "min_notice_days": 1,
+  "pickup_available": false,
+  "delivery_available": true,
+  "delivery_fee_inr": 0,
+  "allow_item_message": false,
+  "upi_display_name": "",
+  "fssai_number": "",
+  "kind": "orders",
+  "not_supported_reason": "",
+  "products": [
+    {
+      "name": "Mini thali",
+      "price_inr": 70,
+      "description": "2 roti, sabzi, dal",
+      "category": "Thalis",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Full thali",
+      "price_inr": 110,
+      "description": "4 roti, 2 sabzi, dal, chawal, salad",
+      "category": "Thalis",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Special thali",
+      "price_inr": 150,
+      "description": "Paneer sabzi and meetha",
+      "category": "Thalis",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Monthly lunch",
+      "price_inr": 2600,
+      "description": "26 days",
+      "category": "Monthly plans",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Monthly lunch + dinner",
+      "price_inr": 4800,
+      "description": "26 days",
+      "category": "Monthly plans",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Extra roti",
+      "price_inr": 8,
+      "description": "",
+      "category": "Extras",
+      "addon": true,
+      "price_from": false
+    },
+    {
+      "name": "Dahi katori",
+      "price_inr": 20,
+      "description": "",
+      "category": "Extras",
+      "addon": true,
+      "price_from": false
+    }
+  ]
+}

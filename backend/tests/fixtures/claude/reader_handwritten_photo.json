@@ -1,49 +1,71 @@
 {
   "name": "Lakshmi's Kitchen",
-  "tagline": "Fresh idli dosa batter and podi from Mylapore, Chennai",
-  "about": "We make fresh idli and dosa batter and podi at home every morning. Place your order before 7 pm and we will have it ready for the next day.",
+  "tagline": "Fresh idli dosa batter and podi, made at home",
+  "about": "We make fresh idli and dosa batter and podi at home every morning. Place your order by the evening and we will have it ready for the next day.",
   "area": "Mylapore, Chennai",
-  "hours": "Orders taken until 7 pm for next-day delivery",
+  "hours": "",
   "phone": "",
   "whatsapp": "",
   "upi_id": "",
   "tone": "homely",
+  "selling_point": "Fresh daily batter",
+  "min_notice_days": 1,
+  "pickup_available": false,
+  "delivery_available": false,
+  "delivery_fee_inr": 0,
+  "allow_item_message": false,
+  "upi_display_name": "",
+  "fssai_number": "",
+  "kind": "orders",
+  "not_supported_reason": "",
   "products": [
     {
       "name": "Idli batter 1 kg",
       "price_inr": 90,
-      "description": "Made fresh at home every morning. Order before 7 pm for next day.",
-      "category": "Batters"
+      "description": "",
+      "category": "Batters",
+      "addon": false,
+      "price_from": false
     },
     {
       "name": "Dosa batter 1 kg",
       "price_inr": 90,
-      "description": "Made fresh at home every morning. Order before 7 pm for next day.",
-      "category": "Batters"
+      "description": "",
+      "category": "Batters",
+      "addon": false,
+      "price_from": false
     },
     {
       "name": "Ragi dosa batter 1 kg",
       "price_inr": 120,
-      "description": "Made fresh at home every morning. Order before 7 pm for next day.",
-      "category": "Batters"
+      "description": "",
+      "category": "Batters",
+      "addon": false,
+      "price_from": false
     },
     {
       "name": "Idli podi 200 g",
       "price_inr": 110,
       "description": "",
-      "category": "Podi & sides"
+      "category": "Podi and sides",
+      "addon": false,
+      "price_from": false
     },
     {
       "name": "Coconut chutney 250 g",
       "price_inr": 60,
       "description": "",
-      "category": "Podi & sides"
+      "category": "Podi and sides",
+      "addon": false,
+      "price_from": false
     },
     {
       "name": "Sambar 500 ml",
       "price_inr": 80,
       "description": "",
-      "category": "Podi & sides"
+      "category": "Podi and sides",
+      "addon": false,
+      "price_from": false
     }
   ]
 }
