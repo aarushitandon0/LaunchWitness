@@ -5,6 +5,7 @@ import {
   api,
   ApiError,
   Business,
+  GoLive,
   lastAssistantNote,
   NameIdea,
   Plan,
@@ -26,8 +27,11 @@ export function LaunchChoice({ businessId }: { businessId: number }) {
   const [error, setError] = useState<ApiError | null>(null);
   const me = useMe(true);
 
+  const [golive, setGolive] = useState<GoLive | null>(null);
+
   useEffect(() => {
     api.get(businessId).then(setBiz).catch(setError);
+    api.golive(businessId).then(setGolive).catch(() => setGolive(null));
   }, [businessId]);
 
   const run = async (label: string, fn: () => Promise<void>) => {
@@ -70,7 +74,24 @@ export function LaunchChoice({ businessId }: { businessId: number }) {
             <strong>{freeHost}</strong> goes on the internet for your customers. It costs nothing. You'll see every
             change before anything happens.
           </p>
-          <button className="btn btn-primary" disabled={!!busy} onClick={() => makePlan("sandbox", undefined, true)}>
+          {golive && !golive.ready && (
+            <div className="status status-info" role="note">
+              <p>Before your shop can go live, please finish:</p>
+              <ul>
+                {golive.items
+                  .filter((i) => !i.done)
+                  .map((i) => (
+                    <li key={i.key}>{i.label}</li>
+                  ))}
+              </ul>
+              <a href={`#/b/${businessId}`}>Finish these on the Review step →</a>
+            </div>
+          )}
+          <button
+            className="btn btn-primary"
+            disabled={!!busy || (golive !== null && !golive.ready)}
+            onClick={() => makePlan("sandbox", undefined, true)}
+          >
             {busy === "real" ? "Preparing…" : "Launch for real"}
           </button>
         </section>

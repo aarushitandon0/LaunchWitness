@@ -28,6 +28,26 @@ export type Profile = {
   fssai_number: string;
   kind: "orders" | "appointments";
   not_supported_reason: string;
+  instagram: string; // handle only
+  delivery_areas: string;
+  niche: "" | "food" | "handmade" | "custom";
+};
+
+export type GoLiveItem = { key: string; label: string; done: boolean; hint: string };
+
+export type GoLive = {
+  ready: boolean;
+  items: GoLiveItem[];
+  whatsapp: string;
+  whatsapp_test_url: string | null;
+  upi_test: { uri: string; qr_svg: string; name: string } | null;
+  confirmed: {
+    whatsapp_at: string | null;
+    upi_at: string | null;
+    own_goods_at: string | null;
+    terms_at: string | null;
+    previewed_at: string | null;
+  };
 };
 
 export type ZoneFinding = {
@@ -258,6 +278,7 @@ export type Report = {
   audit: AuditRow[];
   admin: boolean;
   demo_fault: string | null;
+  confirmed_by_you: { what: "whatsapp" | "upi" | "got_it"; label: string; at: string | null }[];
 };
 
 // ---- who is signed in. The cookies are HttpOnly; the CSRF token comes from /api/auth/me ----
@@ -387,6 +408,9 @@ export const api = {
   list: () => request<BusinessSummary[]>("/api/businesses"),
   get: (id: number) => request<Business>(`/api/businesses/${id}`),
   orders: (id: number) => request<Order[]>(`/api/businesses/${id}/orders`),
+  golive: (id: number) => request<GoLive>(`/api/businesses/${id}/golive`),
+  confirmCheck: (id: number, what: "whatsapp" | "upi" | "agreements", extra: { own_goods?: boolean; terms?: boolean } = {}) =>
+    request<GoLive>(`/api/businesses/${id}/confirm`, json({ what, ...extra })),
   setOrderStatus: (id: number, orderId: number, status: OrderStatus) =>
     request<Order>(`/api/businesses/${id}/orders/${orderId}/status`, json({ status })),
   create: async (description: string, priceList: string, photo: File | null) => {

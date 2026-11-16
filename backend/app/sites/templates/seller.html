@@ -204,9 +204,13 @@
   .narrow { max-width: 680px; }
   .done-mark { width: 56px; height: 56px; border-radius: 18px; display: grid; place-items: center; background: var(--c1-bg); color: var(--c1-ink); }
   .done-mark svg { width: 28px; height: 28px; }
+  /* S10.5: the owner's category picks the main colour (food warm, handmade plum, custom indigo). */
+  .niche-food { --primary: #7c2d12; }
+  .niche-handmade { --primary: #6b2150; }
+  .niche-custom { --primary: #1e3a8a; }
 </style>
 </head>
-<body>
+<body{% if p.niche %} class="niche-{{ p.niche }}"{% endif %}>
 {% if preview %}<div role="note" style="background:#1f2937;color:#fff;text-align:center;padding:8px 12px;font-size:14px">Preview: only you can see this page. It isn't public.</div>{% endif %}
 {% if demo %}<div role="note" class="demo-banner" style="background:#7c2d12;color:#fff;text-align:center;padding:8px 12px;font-size:14px"><strong>Demo shop: orders here are not real.</strong> A sample made by LaunchWitness. <a href="/" style="color:#fff;text-decoration:underline">Back to LaunchWitness</a></div>{% endif %}
 {%- macro icon(name) -%}
@@ -217,6 +221,7 @@
 {%- elif name == "bag" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 7h12l1 13H5L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>
 {%- elif name == "truck" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h11v10H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/></svg>
 {%- elif name == "cal" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+{%- elif name == "ig" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="0.6" fill="currentColor"/></svg>
 {%- elif name == "check" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
 {%- endif -%}
 {%- endmacro -%}
@@ -313,15 +318,17 @@
           </div>{% endif %}
           {% if p.pickup_available or p.delivery_available %}<div class="tile">
             <h3>Getting your order</h3>
-            {% if p.pickup_available %}<p>Pickup{% if p.area %} from {{ p.area }}{% endif %}</p>{% endif %}
-            {% if p.delivery_available %}<p>Delivery{% if p.delivery_fee_inr %}: {{ p.delivery_fee_inr | inr }}{% else %}: free{% endif %}</p>{% endif %}
+            {% if p.pickup_available %}<p>Pickup{% if p.area %} in {{ p.area }}{% endif %}</p>
+            <p class="hint">The exact pickup address is shared on WhatsApp once your order is confirmed.</p>{% endif %}
+            {% if p.delivery_available %}<p>Delivery{% if p.delivery_areas %} to {{ p.delivery_areas }}{% endif %}{% if p.delivery_fee_inr %}: {{ p.delivery_fee_inr | inr }}{% else %}: free{% endif %}</p>{% endif %}
           </div>{% endif %}
-          {% if p.phone or whatsapp_url %}<div class="tile">
+          {% if p.phone or whatsapp_url or p.instagram %}<div class="tile">
             <h3>Contact</h3>
             {% if p.phone %}<p>{{ p.phone }}</p>{% endif %}
             <div class="links">
               {% if p.phone %}<a class="btn btn-line btn-sm" href="tel:{{ p.phone | replace(' ', '') }}">{{ icon("phone") }}Call</a>{% endif %}
               {% if whatsapp_url %}<a class="btn btn-wa btn-sm" href="{{ whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}WhatsApp</a>{% endif %}
+              {% if p.instagram %}<a class="btn btn-line btn-sm" href="https://www.instagram.com/{{ p.instagram }}/" target="_blank" rel="noopener">{{ icon("ig") }}Instagram</a>{% endif %}
             </div>
           </div>{% endif %}
           {% if upi %}<div class="tile wide" id="pay">

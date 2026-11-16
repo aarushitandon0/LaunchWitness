@@ -268,6 +268,9 @@ def two_worlds_client(make_settings, engine, mailer, claude, **settings_kw):
 
 
 def real_plan(c, biz) -> dict:
+    from tests.conftest import ready_for_real
+
+    ready_for_real(c, biz["id"])
     r = c.post(f"/api/businesses/{biz['id']}/plans", json={"mode": "sandbox", "real": True})
     assert r.status_code == 201, r.text
     return r.json()
