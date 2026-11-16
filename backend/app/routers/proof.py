@@ -2,16 +2,19 @@
 public read-only "Check any address" tool."""
 
 import secrets
+import time
+from collections import deque
 from datetime import UTC, datetime, timedelta
 from html import escape
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 from sqlmodel import Session, func, select
 
-from app import audit, proof
+from app import audit, chain, proof
 from app.agents.launch_check import latest_launched_plan
 from app.checks.dns_resolver import DnsResolver, RealDnsResolver
 from app.checks.safe_fetch import SafeWeb
@@ -95,17 +98,53 @@ GONE = ("<!doctype html><meta charset=utf-8><meta name=viewport content='width=d
 @router.get("/r/{token}", response_class=HTMLResponse)
 def shared_report(token: str, session: Annotated[Session, Depends(get_session)]):
     """Read-only. No customer data at all: check names, results, hop times and the servers that answered."""
-    row = session.exec(select(ReportShare).where(ReportShare.token_hash == sha(token[:200]))).first()
-    b = session.get(Business, row.business_id) if row and row.revoked_at is None else None
-    if b is None or b.paused:  # a shop the team has paused shows no "Proven" page to the public
+    b = shared_business(session, token)
+    if b is None:
         return HTMLResponse(GONE, status_code=404)
     plan = latest_launched_plan(session, b.id)
     run_row = session.exec(select(CheckRun).where(CheckRun.business_id == b.id, CheckRun.trigger.in_(OWNER_RUNS),
                                                   CheckRun.status == "done").order_by(CheckRun.id.desc())).first()
     run = run_out(session, run_row) if run_row and plan else None
     summary = proof.summary(session, run)
-    return HTMLResponse(render_shared(b, run, summary), headers={"Cache-Control": "no-store",
-                                                                  "X-Robots-Tag": "noindex"})
+    html = render_shared(b, run, summary, receipt=chain.receipt(session, b.id), verify_href=f"/r/{quote(token, safe='')}/verify")
+    return HTMLResponse(html, headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
+
+
+def shared_business(session: Session, token: str) -> Business | None:
+    """The shop behind a share link, or None: unknown or revoked link, or a shop the team has paused
+    (a paused shop shows no "Proven" page to the public)."""
+    row = session.exec(select(ReportShare).where(ReportShare.token_hash == sha(token[:200]))).first()
+    b = session.get(Business, row.business_id) if row and row.revoked_at is None else None
+    return None if b is None or b.paused else b
+
+
+VERIFY_PER_MINUTE = 20
+_verify_hits: dict[str, deque[float]] = {}  # hashed visitor -> recent hit times (one process, in memory)
+
+
+def verify_allowed(visitor: str) -> bool:
+    now = time.monotonic()
+    if len(_verify_hits) > 10_000:  # never grows without bound
+        _verify_hits.clear()
+    hits = _verify_hits.setdefault(visitor, deque())
+    while hits and now - hits[0] > 60:
+        hits.popleft()
+    if len(hits) >= VERIFY_PER_MINUTE:
+        return False
+    hits.append(now)
+    return True
+
+
+@router.get("/r/{token}/verify")
+def verify_receipt(token: str, request: Request, session: Annotated[Session, Depends(get_session)]) -> JSONResponse:
+    """Recompute the shop's proof chain. Answers only intact / rows / head (or where it breaks):
+    no customer data, no evidence contents, not even the shop's name."""
+    if not verify_allowed(visitor_id(request)):
+        raise HTTPException(status_code=429, detail="That's a lot of checks for now. Please try again in a minute.")
+    b = shared_business(session, token)
+    if b is None:
+        raise HTTPException(status_code=404, detail="This report isn't available.")
+    return JSONResponse(chain.verify(session, b.id), headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
 
 
 def hhmmss(iso: str | None) -> str:
@@ -115,7 +154,9 @@ def hhmmss(iso: str | None) -> str:
     return at.strftime("%d %b %H:%M:%S IST")
 
 
-def render_shared(b: Business, run: dict | None, summary: dict) -> str:
+def render_shared(b: Business, run: dict | None, summary: dict, receipt: str = "", verify_href: str = "") -> str:
+    proof_line = (f"<p style='color:#6b7280;font-size:.9rem'>Receipt {escape(receipt)} · "
+                  f"<a href='{escape(verify_href)}'>verify</a></p>") if receipt else ""
     practice = b.practice or any(h.get("practice") for c in (run or {}).get("checks", []) for h in c.get("hops", []))
     rows = []
     for c in (run or {}).get("checks", []):
@@ -137,7 +178,8 @@ def render_shared(b: Business, run: dict | None, summary: dict) -> str:
             + (f" · last checked {escape(hhmmss(summary['last_checked_at']))}" if summary.get("last_checked_at") else "")
             + "</p>" + stale + "<ul>" + "".join(rows) + "</ul><p style='color:#6b7280;font-size:.9rem'>Read-only. "
             "No customer details are shown. \"Mail server accepted\" means our mail server took the email; it is "
-            "counted as delivered only when it was seen in the inbox or the owner confirmed it.</p></body></html>")
+            "counted as delivered only when it was seen in the inbox or the owner confirmed it.</p>"
+            + proof_line + "</body></html>")
 
 
 # ---------- "Check any address" (public, read-only) ----------

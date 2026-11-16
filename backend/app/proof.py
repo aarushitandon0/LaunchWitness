@@ -46,11 +46,10 @@ def marker(business: Business) -> str:
 
 def add(session: Session, *, business: Business, run_id: int | None, check: str, step: str, practice: bool,
         **fields) -> Evidence:
+    from app import chain
+
     row = Evidence(business_id=business.id, run_id=run_id, check=check, step=step, practice=practice, **fields)
-    session.add(row)
-    session.commit()
-    session.refresh(row)
-    return row
+    return chain.append(session, row)  # the only way in: every row is a link in the shop's hash chain
 
 
 def evidence_for_run(session: Session, run_id: int) -> list[Evidence]:

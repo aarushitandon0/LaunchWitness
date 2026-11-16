@@ -88,7 +88,7 @@ scripts/               # build-replay.sh and helpers
 - Seller site gallery (6 very different sellers, phone + laptop screenshots): `.venv/bin/python scripts/render_site_gallery.py <tmp_dir> && node scripts/shoot_site_gallery.js <tmp_dir> docs/screenshots/<session>` (warns on sideways scrolling)
 - App pages: `/` landing + contact form + "Check any address" (`#check`) · `/#/new` describe (signed in) · `/#/try` describe (guest practice) · `/#/signin[?next=]` · `/#/shops` · `/#/b/<id>` review · `/#/b/<id>/launch` name · `/#/b/<id>/plan/<pid>` approve · `/#/b/<id>/report` · `/#/b/<id>/orders` · `/#/account` · `/#/admin` team · `/#/got-it?token=` ("Yes, I got it") · `/r/<token>` shared report · `/demo/meera|imran|sunita` demo shops · `/build` replay
 - Go-live checklist (S10.5): `app/golive.py`; only real launches are gated. Tests use `tests/conftest.py::ready_for_real`, e2e `helpers.readyForReal`.
-- Proof chain: every report claim comes from `Evidence` rows (`app/proof.py`); the checker reaches shops only through `shop_web` (in-process for practice, `SafeWeb` SSRF guard otherwise). Handoff for the next session: `docs/STATE_FOR_NEXT_SESSION.md`.
+- Proof chain: every report claim comes from `Evidence` rows (`app/proof.py`); the checker reaches shops only through `shop_web` (in-process for practice, `SafeWeb` SSRF guard otherwise). Evidence is a per-shop hash chain, append-only (`app/chain.py`; write only through `proof.add`; public check `GET /r/<token>/verify`). Handoff for the next session: `docs/STATE_FOR_NEXT_SESSION.md`.
 
 ## Style
 

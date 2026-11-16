@@ -4,6 +4,10 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
+**Session 11d (Nov 16, Fable): tamper-evident proof log merged.** Evidence rows are a per-shop hash chain, append-only in
+code; the shared report shows a receipt and `/r/<token>/verify` recomputes the chain (no data in the answer). 951 passed,
+2 skipped. Existing rows are chained once at the first start-up after the merge (the chain starts there).
+
 **Session 11c (Nov 16, Fable): VPS pre-flight merged.** Every live Claude path ran through the app (Reader ×5, Namer, the
 go-live policy check ×5 for the first time, the investigating Doctor): all correct, $0.056. One real GoDaddy write was made
 and undone (200 / 200 / 204 / 200, zone identical): **Wednesday uses `DNS_MODE=per_shop`**. `wait_dns` and `/internal/tls-ask`
@@ -199,6 +203,12 @@ Everything below is behind an interface with a working fake; tests cover the fak
 | Availability check method | Undecided | gddy / Domains API / OTE / RDAP — interface + fake ready (`GoDaddyAvailabilityChecker` stub) |
 
 ## Decisions
+
+- **S11d (2026-11-16 IST):** The row id is not part of an evidence hash; order is proven by the `prev_hash` links. Reason: one
+  INSERT per row, so the append-only guard never has to allow an UPDATE. The verify rate limit (20 a minute per visitor) is
+  kept in memory, not in a table: one process is guaranteed, and a restart resetting it is harmless. A shop with no evidence
+  shows no receipt (its start value would only encode the shop's number). The "chain purged" audit event carries the row
+  count only. Known limits, accepted: a whole-database rewrite and cutting rows off the end are not detectable from inside.
 
 - **S11c (2026-11-16 IST):** A shop is turned on only when **every** nameserver of the zone answers our server, and tls-ask
   re-checks that on a real server (fail closed: no answer = no certificate attempt). Reason: the real write test showed the two

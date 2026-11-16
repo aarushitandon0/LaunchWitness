@@ -55,18 +55,24 @@ def purge_business(session: Session, settings: Settings, integ: Integrations, b:
 
 def delete_business_rows(session: Session, b: Business) -> None:
     """Every row that belongs to the shop, children first (foreign keys are enforced), then the shop."""
+    from app import chain
+
+    chained = chain.purge(session, b.id)  # the only place evidence is ever deleted: the whole chain goes
     _purge_extra(session, b.id)
     for table in (Alert, CheckResult, CheckRun, Order, Approval, DnsBackup, AuditEvent, Membership, ShopReport):
         session.exec(delete(table).where(table.business_id == b.id))
     session.exec(delete(Plan).where(Plan.business_id == b.id))
     session.delete(b)
+    if chained:  # anonymous on purpose: no shop id, no name, no hashes (commits the deletion with it)
+        audit.record(session, actor="system", action="evidence_chain_purged", result="ok",
+                     detail=f"chain purged: {chained} proof row(s) removed with a deleted shop")
 
 
 def _purge_extra(session: Session, business_id: int) -> None:
     """Tables added by later phases (evidence, shared reports) register here."""
     from app import models
 
-    for name in ("Evidence", "ReportShare", "TestTicket", "ZoneFinding"):
+    for name in ("ReportShare", "TestTicket", "ZoneFinding"):  # Evidence: chain.purge, above
         table = getattr(models, name, None)
         if table is not None:
             session.exec(delete(table).where(table.business_id == business_id))

@@ -30,6 +30,10 @@ Tests on main: **607 passed, 2 skipped** (`cd backend && ../.venv/Scripts/python
 Docker stack and on the dev server (`e2e/README.md`). Ruff, `npx tsc --noEmit`, `npm run build` clean. Keep the stash
 `fable-p2-wip-backup` (never drop it).
 
+## Session 11d (Fable, 2026-11-16): tamper-evident proof log
+
+Evidence rows form a per-shop hash chain (`app/chain.py`; `proof.add` → `chain.append` is the only way in; append-only guards; `/r/<token>/verify`). **The chain starts at the first start-up after this merge**: `init_db` backfills earlier rows once, in id order (audit `evidence_chain_backfilled`), so it vouches for those rows only as they were at that moment. Not detectable: a full rewrite by someone with the database file, or rows cut off the end. Not built (not in the brief): checking an older saved receipt against the chain.
+
 ## Session 11c (Fable, 2026-11-16): pre-flight for the VPS
 
 Merged on `main`: S11c P1 (live pre-flight), S11c P2 (hosting pre-flight + the real write test). Tests: **919 passed, 2 skipped,

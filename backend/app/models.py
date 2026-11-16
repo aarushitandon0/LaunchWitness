@@ -255,6 +255,9 @@ class Evidence(SQLModel, table=True):
     cert_not_after: datetime | None = None
     answer: str = ""  # DNS answer or a short excerpt
     practice: bool = False  # from the pretend world: always labelled
+    # S11d tamper-evident chain (app/chain.py): hash = sha256(prev_hash + canonical JSON of the fields above)
+    prev_hash: str = ""
+    hash: str = ""
 
 
 class TestTicket(SQLModel, table=True):
