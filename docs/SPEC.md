@@ -239,6 +239,19 @@ Every step goes to the audit log shown in the report.
   handmade / custom: picks the colours), FSSAI number (shown, not checked). Never collected: Aadhaar, PAN, bank account or
   card numbers, passwords, full home address, date of birth. The Report lists the owner's checks (WhatsApp, UPI name test,
   "Yes, I got it") under "Checked by you", apart from machine-proven hops.
+- **Landing (S10.5b).** Only claims what the code does (`test_s105b_landing_claims.py` pins the numbers to
+  `monitor/scheduler.py` and `renewals.py`). Sections: How it works · How the proof works (the six hops) · We keep watching
+  after launch (every 15 min: opens securely; daily: the whole order path incl. a test order proving form → mail server,
+  delivery proven at launch and on "Yes, I got it"; renewals 30/7/1 days, certificate 7/1; failures re-checked after a minute,
+  a safe Doctor fix if allowed, one email per problem; money never spent) · Security & privacy · Check any address · Who
+  it's for. A **Product menu** in the top bar (What it does · Who it's for · Free tools · Learn), a full-screen sheet on phones.
+- **Hero.** A lazy-loaded three.js scene (landing only, after first paint, 126 kB gzipped extra): six softly folded sheets, one
+  per proof hop, with the logo as a glass lens on top; a light carries the test order up and lights each sheet's edge, then the
+  check. Real GPU only: software WebGL, reduced motion and no-WebGL get a pre-rendered still (`src/hero/still.webp`).
+  Pauses off-screen and in hidden tabs; pixel ratio ≤ 2.
+- **Watch this address (S10.5b).** Signed-in users can watch up to 3 addresses: the same read-only public checks as
+  Check any address, once a day, one email per NEW problem to their own sign-in address; never submits forms, emails that
+  domain or changes anything there. Listed on My shops, removable, deleted with the account.
 - **Not built yet:** stored product photos (3–6). No upload storage, re-encoding or EXIF stripping exists today (the
   price-list photo is only read in memory by the Reader); see PROGRESS Decisions.
 

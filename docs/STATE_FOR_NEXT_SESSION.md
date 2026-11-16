@@ -50,6 +50,15 @@ IMAP delivery proof (needs a shop owned by `hello@launchwitness.com`) · real `d
 (feeds Renewals + the team alert) · zone hygiene against the real zone · monitoring emails through hello@ (send limit
 unknown).
 
+## New in S10.5b, in one line each
+
+- Landing: `#how`, `#proof`, `#watch` (`#fix`), `#security`, `#check`, `#who-*`; numbers pinned by `test_s105b_landing_claims.py`.
+- `frontend/src/ProductMenu.tsx` (top bar, both signed in and out). Anchors from app pages land via Landing's mount effect.
+- `app/watch.py`, `routers/watch.py` (`/api/watches`, 3 AUTH routes), `WatchedAddress`, monitor job `watch_addresses`
+  (registered with the team jobs, i.e. on the server, not in tests).
+- `frontend/src/hero/scene.ts` (three@0.169.0, lazy chunk), `HeroScene.tsx`, `still.webp` (re-render: open `/?hero-still`
+  and save `window.__lwHeroStill`, see `e2e/screens/s105b.spec.ts` notes). Real GPU only.
+
 ## New in S10.5, in one line each
 
 - `app/sites/demo.py`: demo shops from the saved Reader fixtures (contact fields forced empty); `/demo/` is 404 on shop hosts.

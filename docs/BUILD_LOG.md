@@ -145,3 +145,17 @@ One entry per Claude Code session, newest last. This is what judges read to unde
   Live Claude spend: $0.
 - Next: the Fable session, then the VPS (Wed Nov 18).
 
+### Session 10.5b — 2026-11-16 (IST) — Landing: keep watching, Product menu, watch any address, a 3D hero (Opus)
+- Goal: make the landing say clearly that we keep watching, add a product menu, a next step after Check any address, and a
+  hero that means something, with every sentence matched to the code.
+- Asked Claude to: a monitoring section from the real schedule, a Product mega-menu, "Watch this address" only if small and
+  clean, and the hero first as a meaningful SVG stack, then (changed mid-session) a lazy three.js "witness" scene.
+- Claude built: landing sections #proof/#watch/#security, `ProductMenu.tsx`, `app/watch.py` + `routers/watch.py` +
+  `WatchedAddress`, `src/hero/scene.ts` + `HeroScene.tsx` + a rendered still, e2e flow `g`, screenshot run `s105b`.
+- What checking caught: two landing claims true only in practice mode (own name, orders@ mailbox); the mailbox renewal is
+  the team's, not the seller's; headless Chrome's software WebGL made the scene starve the page, which real GPU-less visitors
+  would also feel (now: still image); the first scene looked washed out and its check unreadable (iterated on real-GPU
+  screenshots: richer colours, lens turned to the camera, labels kept inside the card, phone bleed fixed).
+- Result: see PROGRESS; scene 60 fps on Intel Iris Xe at 1917/1440/375; Live Claude spend $0.
+- Next: the Fable session, then the VPS (Wed Nov 18).
+

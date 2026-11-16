@@ -1,7 +1,9 @@
-import { motion, MotionValue, useScroll, useSpring, useTransform } from "framer-motion";
+import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { AddressResult, api, ApiError } from "./api";
 import { ErrorBox } from "./Describe";
+import { HeroScene } from "./hero/HeroScene";
+import { useMe } from "./Account";
 import { EASE, useCalm } from "./motion";
 
 const STEPS: { title: string; text: string; icon: ReactNode }[] = [
@@ -44,7 +46,7 @@ const STEPS: { title: string; text: string; icon: ReactNode }[] = [
   },
   {
     title: "Keep checking and fixing",
-    text: "After launch we keep checking quietly. If something breaks we explain it in plain words and repair it, or undo it, and tell you.",
+    text: "After launch we keep checking quietly. If something breaks we explain it in plain words, repair it when a safe fix exists, and tell you.",
     icon: (
       <svg viewBox="0 0 64 64" className="step-icon" aria-hidden>
         <path d="M32 7l20 7v15c0 13-8.5 23-20 28C20.5 52 12 42 12 29V14z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
@@ -55,18 +57,78 @@ const STEPS: { title: string; text: string; icon: ReactNode }[] = [
 ];
 
 const PIECES = [
-  ["Domains", "Your own name, found, priced and adopted"],
+  ["Domains", "A free shop address now; your own name, found and priced, in practice"],
   ["DNS", "Every setting backed up before it changes"],
-  ["Email", "orders@ your name, signed and protected"],
+  ["Email", "Order emails from our mailbox, with its anti-spam settings checked daily"],
   ["VPS", "Your shop served from a GoDaddy server"],
   ["HTTPS", "A secure padlock, checked for real"],
   ["Monitoring", "Quiet checks every 15 minutes after launch"],
 ];
 
-const WHO = [
-  ["Home food", "Cakes, tiffin, pickles and snacks, made in your kitchen and ordered ahead."],
-  ["Handmade goods", "Candles, crafts, jewellery and gift hampers, made in small batches."],
-  ["Custom work", "Tailoring, embroidery and art commissions, made to each customer's order."],
+const WHO: { id: string; title: string; text: string; demos: [string, string][] }[] = [
+  {
+    id: "who-food",
+    title: "Home food",
+    text: "Cakes, tiffin, pickles and snacks, made in your kitchen and ordered ahead.",
+    demos: [["/demo/meera", "a home baker"], ["/demo/sunita", "a tiffin service"]],
+  },
+  {
+    id: "who-handmade",
+    title: "Handmade goods",
+    text: "Candles, crafts, jewellery and gift hampers, made in small batches.",
+    demos: [],
+  },
+  {
+    id: "who-custom",
+    title: "Custom work",
+    text: "Tailoring, embroidery and art commissions, made to each customer's order.",
+    demos: [["/demo/imran", "a tailor"]],
+  },
+];
+
+/** The proof, hop by hop: the same six hops as the hero's layers (bottom to top). */
+export const HOPS: { name: string; text: string }[] = [
+  { name: "Address", text: "Your shop's address leads to our GoDaddy server." },
+  { name: "Secure page", text: "It opens securely, with a valid padlock." },
+  { name: "Your shop", text: "The page that opens is really your shop: we look for its own hidden marker." },
+  { name: "Order form", text: "A real test order goes in through your shop's own order form, like a customer's." },
+  { name: "Mail server", text: "The mail server accepts the order email for you." },
+  { name: "Your inbox", text: "It reaches you: you tap “Yes, I got it” in that email." },
+];
+
+/** What runs after launch. Matches monitor/scheduler.py (QUICK_MINUTES, daily jobs, RECHECK_SECONDS) and
+ * renewals.py (THRESHOLDS 30/7/1, CERT_THRESHOLDS 7/1). Change both together. */
+const WATCH: { when: string; title: string; text: string }[] = [
+  {
+    when: "Every 15 minutes",
+    title: "Your shop opens",
+    text: "Your address still leads to your shop, and it opens securely.",
+  },
+  {
+    when: "Every day",
+    title: "The whole order path",
+    text:
+      "Everything above, plus: the settings that keep order emails out of spam are still there, nothing we set at " +
+      "launch has changed, and a real test order goes through your order form. The daily run proves your form took " +
+      "the order and the mail server accepted it. That it reached your inbox is proven at launch, and again whenever " +
+      "you tap “Yes, I got it”.",
+  },
+  {
+    when: "Before things run out",
+    title: "Renewals",
+    text:
+      "The padlock renews itself for free; if it hasn't with 7 days left, you hear from us (and again at 1 day). " +
+      "Your shop's address and our order mailbox are renewed by our team, who are warned 30, 7 and 1 days ahead. " +
+      "We never renew or pay for anything by ourselves.",
+  },
+  {
+    when: "When something breaks",
+    title: "Check, fix, tell you",
+    text:
+      "We check again a minute later, to rule out a blip. If it's still broken, the Doctor works out what broke and " +
+      "applies a safe fix if one is allowed; otherwise your report says exactly what to do. Then we check again; " +
+      "if it's still broken, we email you once about that problem. Money is never spent without you.",
+  },
 ];
 
 const PROMISES = [
@@ -84,6 +146,13 @@ export default function Landing() {
   const scale = useTransform(p, [0, 1], [1, calm ? 1 : 0.88]);
   const y = useTransform(p, [0, 1], [0, calm ? 0 : -36]);
   const dim = useTransform(p, [0, 1], [0, calm ? 0 : 0.55]);
+  useEffect(() => {
+    const h = window.location.hash;
+    if (h.length > 1 && !h.startsWith("#/")) {
+      const t = window.setTimeout(() => document.getElementById(h.slice(1))?.scrollIntoView({ block: "start" }), 120);
+      return () => window.clearTimeout(t);
+    }
+  }, []);
 
   return (
     <div className="landing">
@@ -112,7 +181,7 @@ export default function Landing() {
                 <Line i={2}>for customers?</Line>
               </h1>
             </div>
-            <HeroShape progress={p} />
+            <HeroScene progress={p} />
             <motion.div
               className="hero-copy"
               initial={calm ? false : { opacity: 0, y: 12 }}
@@ -154,6 +223,61 @@ export default function Landing() {
         </section>
       </div>
 
+      <section className="dark dark-cont on-dark" id="proof" aria-labelledby="proof-title">
+        <div className="wrap">
+          <SectionHead id="proof-title" title="How the proof works" label="/ one real test order, hop by hop">
+            Before we call your shop ready, a real test order travels the same path a customer's would. Each hop is saved
+            with its time and the server that answered, and your report only claims what was saved.
+          </SectionHead>
+          <ol className="hops">
+            {HOPS.map((h, i) => (
+              <Reveal as="li" key={h.name} delay={i * 0.05} className="hop">
+                <span className="label">/0{i + 1}</span>
+                <strong>{h.name}</strong>
+                <span>{h.text}</span>
+              </Reveal>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section className="dark dark-cont on-dark" id="watch" aria-labelledby="watch-title">
+        <div className="wrap">
+          <SectionHead id="watch-title" title="We keep watching after launch" label="/ not a one-off check">
+            Launch day isn't the end. For every live shop, we keep checking on a schedule, fix what we safely can, and tell
+            you about the rest.
+          </SectionHead>
+          <ol className="watch-grid">
+            {WATCH.map((w, i) => (
+              <Reveal as="li" key={w.title} delay={i * 0.06} className={`watch-item${i === 3 ? " watch-fix" : ""}`}>
+                <span className="label">{w.when}</span>
+                <strong id={i === 3 ? "fix" : undefined}>{w.title}</strong>
+                <p>{w.text}</p>
+              </Reveal>
+            ))}
+          </ol>
+          <details className="tech-details">
+            <summary>Technical details</summary>
+            <ul>
+              <li>Every 15 minutes: the shop's A record points at our server, and HTTPS answers with a valid certificate.</li>
+              <li>
+                Daily: the same, plus MX, SPF, DKIM and DMARC records, a comparison of the DNS records against the backup
+                taken at launch, and a test order with a fresh code through the public form (proof: form POST accepted,
+                SMTP accepted; IMAP or the owner's tap for delivery).
+              </li>
+              <li>
+                Failures are re-checked after 60 seconds. The Doctor (Claude) only chooses from a fixed playbook in code:
+                re-point the A record, re-add MX, re-add SPF/DKIM/DMARC, retry the certificate, or restore the DNS backup.
+                Code applies it and re-checks.
+              </li>
+              <li>Alerts go to the owner's sign-in email, once per problem until it passes again.</li>
+              <li>Renewal warnings: certificate at 7 and 1 days left; domain and team mailbox at 30, 7 and 1 days.</li>
+            </ul>
+          </details>
+          <div style={{ height: "clamp(3rem, 7vw, 6rem)" }} />
+        </div>
+      </section>
+
       <section className="dark dark-cont on-dark" aria-labelledby="pieces-title">
         <div className="wrap">
           <SectionHead id="pieces-title" title="Built on GoDaddy" label="/ the pieces we set up for you">
@@ -181,9 +305,28 @@ export default function Landing() {
             <p className="tagline">
               Already have a website? Type its address and we'll look, from the outside, at whether it opens securely and
               whether its email is set up so orders don't land in spam. We only read public information: we change
-              nothing, send no email and keep nothing about the address.
+              nothing, send no email and keep nothing about the address. Signed in, you can ask us to watch up to three
+              addresses this way every day.
             </p>
             <CheckAnyAddress />
+          </Reveal>
+        </div>
+      </section>
+
+      <section className="security-sec" id="security" aria-labelledby="security-title">
+        <div className="wrap">
+          <Reveal>
+            <p className="eyebrow">Security &amp; privacy</p>
+            <h2 id="security-title">Your shop is yours alone.</h2>
+            <ul className="security-list">
+              <li>No passwords: you sign in with a link we email you.</li>
+              <li>Only you can open your shop's details, orders and reports. Anyone else just gets “not found”.</li>
+              <li>Nothing is bought and no setting changes without your approval, and settings are backed up first.</li>
+              <li>We never ask for Aadhaar, PAN, bank or card numbers, or your home address.</li>
+            </ul>
+            <p className="small">
+              Read our <a href="#/privacy">Privacy page</a> and <a href="#/terms">Terms</a>.
+            </p>
           </Reveal>
         </div>
       </section>
@@ -198,10 +341,21 @@ export default function Landing() {
               without learning how websites work.
             </p>
             <ul className="who-groups">
-              {WHO.map(([title, text]) => (
-                <li key={title}>
-                  <strong>{title}</strong>
-                  <span>{text}</span>
+              {WHO.map((g) => (
+                <li key={g.id} id={g.id}>
+                  <strong>{g.title}</strong>
+                  <span>{g.text}</span>
+                  {g.demos.length > 0 && (
+                    <span className="small">
+                      Demo:{" "}
+                      {g.demos.map(([href, label], i) => (
+                        <span key={href}>
+                          {i > 0 && " · "}
+                          <a href={href}>{label}</a>
+                        </span>
+                      ))}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -213,9 +367,7 @@ export default function Landing() {
                 See a demo shop
               </a>
             </div>
-            <p className="small demo-others">
-              More demo shops: <a href="/demo/imran">a tailor in Lucknow</a> · <a href="/demo/sunita">a tiffin service in Bengaluru</a>
-            </p>
+
           </Reveal>
           <Reveal delay={0.1}>
             <p className="eyebrow">Contact us</p>
@@ -357,136 +509,6 @@ function Marquee() {
   );
 }
 
-/** Abstract "launch layers": six soft, rounded layers (site, name, email, order, proof…) that breathe gently and
- * fan apart as you scroll. Each layer is a static SVG on its own GPU layer; only transforms animate, so it stays smooth. */
-const LAYERS = [
-  { fill: "url(#lw-g-ink)", side: "#141412" },
-  { fill: "url(#lw-g-plum)", side: "#7a4a63" },
-  { fill: "url(#lw-g-amber)", side: "#cf7a33" },
-  { fill: "url(#lw-g-coral)", side: "#d9776a" },
-  { fill: "url(#lw-g-lime)", side: "#a6bb34" },
-  { fill: "url(#lw-g-paper)", side: "#d6cab4" },
-];
-const BASE_Y = 340; // centre of the lowest layer
-const STEP = 42; // gap between layers at rest
-
-function HeroShape({ progress }: { progress: MotionValue<number> }) {
-  const calm = useCalm();
-  // One scroll value drives everything; each layer reads it through a cheap linear map.
-  const spread = useTransform(progress, [0, 1], [0, calm ? 0 : 1]);
-  const ys = LAYERS.map((_, i) => useTransform(spread, (v) => -v * i * 22)); // eslint-disable-line react-hooks/rules-of-hooks
-  const ringY = useTransform(spread, (v) => -v * 150);
-  const tilt = useTransform(spread, (v) => -v * 6);
-  return (
-    <motion.div
-      className="hero-shape"
-      aria-hidden
-      initial={calm ? false : { opacity: 0, y: 30, scale: 0.96 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 1.2, delay: 0.2, ease: EASE }}
-    >
-      <motion.div className="shape-rot" style={{ rotate: tilt }}>
-        <svg className="shape-layer" viewBox="0 0 400 460">
-          <Defs />
-          <ellipse cx="200" cy="420" rx="168" ry="30" fill="url(#lw-g-shadow)" />
-        </svg>
-        {LAYERS.map((l, i) => (
-          <motion.div key={i} className="shape-layer" style={{ y: ys[i] }}>
-            <div className={calm ? "shape-layer" : "shape-layer breathe"} style={{ animationDelay: `${-i * 0.45}s` }}>
-              <svg viewBox="0 0 400 460">
-                <Pebble cy={BASE_Y - i * STEP} fill={l.fill} side={l.side} size={1 - i * 0.035} />
-                {i === LAYERS.length - 1 && <Seal cy={BASE_Y - i * STEP} />}
-              </svg>
-            </div>
-          </motion.div>
-        ))}
-        <motion.div className="shape-layer" style={{ y: ringY }}>
-          <div className={calm ? "shape-layer" : "shape-layer orbit"}>
-            <svg viewBox="0 0 400 460">
-              <ellipse cx="200" cy="40" rx="122" ry="26" fill="none" stroke="url(#lw-g-ring)" strokeWidth="3" />
-              <circle cx="312" cy="30" r="20" fill="url(#lw-g-ball)" />
-              <circle cx="90" cy="50" r="9" fill="url(#lw-g-ball2)" />
-            </svg>
-          </div>
-        </motion.div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-/** An isometric rounded square ("pebble") with a smooth extruded edge. */
-function Pebble({ cy, fill, side, size }: { cy: number; fill: string; side: string; size: number }) {
-  const half = 104 * size, r = 46 * size, depth = 16;
-  const iso = (y: number) => `translate(200 ${y}) scale(1 0.56) rotate(45)`;
-  const rect = (paint: string, y: number, key?: number) => (
-    <rect key={key} x={-half} y={-half} width={half * 2} height={half * 2} rx={r} fill={paint} transform={iso(y)} />
-  );
-  return (
-    <g>
-      {/* the edge: a few copies stepping down, so the side reads as one smooth curved band */}
-      {Array.from({ length: 6 }, (_, k) => rect(side, cy + depth - k * (depth / 6), k))}
-      {rect(fill, cy)}
-      <rect
-        x={-half + 6}
-        y={-half + 6}
-        width={half * 2 - 12}
-        height={half * 2 - 12}
-        rx={r - 4}
-        fill="none"
-        stroke="rgba(255,255,255,0.35)"
-        strokeWidth="2"
-        transform={iso(cy)}
-      />
-    </g>
-  );
-}
-
-function Seal({ cy }: { cy: number }) {
-  return (
-    <g>
-      <ellipse cx="200" cy={cy} rx="42" ry="24" fill="#161614" />
-      <path d={`M183 ${cy + 1} q6 4 11 7 q10 -8 22 -15`} fill="none" stroke="#dcf06a" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-    </g>
-  );
-}
-
-function Defs() {
-  const lin = (id: string, a: string, b: string) => (
-    <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stopColor={a} />
-      <stop offset="1" stopColor={b} />
-    </linearGradient>
-  );
-  return (
-    <defs>
-      {lin("lw-g-ink", "#4a4a45", "#191917")}
-      {lin("lw-g-plum", "#f0c9dc", "#b7799a")}
-      {lin("lw-g-amber", "#ffd9ad", "#f09a50")}
-      {lin("lw-g-coral", "#ffd0c4", "#ee8f80")}
-      {lin("lw-g-lime", "#f6fcc4", "#cde353")}
-      {lin("lw-g-paper", "#ffffff", "#efe6d6")}
-      <linearGradient id="lw-g-ring" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0" stopColor="rgba(31,31,29,0)" />
-        <stop offset="0.5" stopColor="rgba(31,31,29,0.45)" />
-        <stop offset="1" stopColor="rgba(31,31,29,0)" />
-      </linearGradient>
-      <radialGradient id="lw-g-ball" cx="0.35" cy="0.3" r="0.75">
-        <stop offset="0" stopColor="#fbffd9" />
-        <stop offset="0.45" stopColor="#dcf06a" />
-        <stop offset="1" stopColor="#7f8f1f" />
-      </radialGradient>
-      <radialGradient id="lw-g-ball2" cx="0.35" cy="0.3" r="0.75">
-        <stop offset="0" stopColor="#ffe7d1" />
-        <stop offset="1" stopColor="#e0803d" />
-      </radialGradient>
-      <radialGradient id="lw-g-shadow" cx="0.5" cy="0.5" r="0.5">
-        <stop offset="0" stopColor="rgba(60,40,10,0.26)" />
-        <stop offset="1" stopColor="rgba(60,40,10,0)" />
-      </radialGradient>
-    </defs>
-  );
-}
-
 function ContactForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -603,7 +625,66 @@ function CheckAnyAddress() {
               </li>
             ))}
           </ul>
+          <WatchThis address={result.address} />
+          <div className="check-next">
+            <p>
+              <strong>Want this checked every day, with a fix when it breaks?</strong> Launch your shop on LaunchWitness:
+              we watch it from day one.
+            </p>
+            <a className="btn btn-primary" href="#/new">
+              Start
+            </a>
+          </div>
         </>
+      )}
+    </div>
+  );
+}
+
+/** "Watch this address" (signed in): the same read-only checks once a day, an email once per new problem. */
+function WatchThis({ address }: { address: string }) {
+  const me = useMe();
+  const [state, setState] = useState<"idle" | "busy" | "done">("idle");
+  const [error, setError] = useState("");
+  if (!me) return null;
+  if (!me.user)
+    return (
+      <p className="muted small watch-this">
+        <a href={`#/signin?next=shops`}>Sign in</a> to have us watch {address} every day (read-only, up to 3 addresses).
+      </p>
+    );
+  if (state === "done")
+    return (
+      <p className="status status-ok watch-this" role="status">
+        We'll check {address} once a day and email you if something new goes wrong. See it on{" "}
+        <a href="#/shops">My shops</a>.
+      </p>
+    );
+  return (
+    <div className="watch-this">
+      <button
+        type="button"
+        className="btn btn-ghost btn-sm"
+        disabled={state === "busy"}
+        onClick={async () => {
+          setState("busy");
+          setError("");
+          try {
+            await api.addWatch(address);
+            setState("done");
+          } catch (e) {
+            setError(e instanceof ApiError ? e.message : "That didn't work. Please try again.");
+            setState("idle");
+          }
+        }}
+      >
+        {state === "busy" ? "Adding…" : "Watch this address every day"}
+      </button>
+      <span className="muted small"> Read-only: we never fill in its forms, email it, or change anything there.</span>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
       )}
     </div>
   );

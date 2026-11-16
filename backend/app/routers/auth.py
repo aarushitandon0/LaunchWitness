@@ -176,6 +176,10 @@ def delete_account(body: Confirm, response: Response, user: Annotated[User, Depe
     for b in shops:
         purge_business(session, settings, for_business(b, server, practice), b)
     user_id = user.id
+    from app.models import WatchedAddress
+
+    for w in session.exec(select(WatchedAddress).where(WatchedAddress.user_id == user_id)).all():
+        session.delete(w)  # watched addresses go with the account
     accounts.revoke_sessions(session, user_id)
     user.email, user.status, user.status_reason = f"deleted-{user_id}@deleted.invalid", "deleted", ""
     session.add(user)

@@ -238,6 +238,8 @@ export type Hop = {
 
 export type AddressResult = { check: string; ok: boolean | null; plain: string; detail: string };
 
+export type Watch = { id: number; address: string; problems: string[]; results: AddressResult[]; last_checked_at: string | null };
+
 export type Repair = {
   check: string;
   title: string;
@@ -448,6 +450,9 @@ export const api = {
   share: (id: number) => request<{ url: string }>(`/api/businesses/${id}/share`, { method: "POST" }),
   unshare: (id: number) => request<{ ok: boolean }>(`/api/businesses/${id}/share`, { method: "DELETE" }),
   confirmTestOrder: (token: string) => request<{ ok: boolean; shop: string }>("/api/proof/confirm", json({ token })),
+  watches: () => request<{ limit: number; watches: Watch[] }>("/api/watches"),
+  addWatch: (address: string) => request<Watch>("/api/watches", json({ address })),
+  removeWatch: (id: number) => request<{ ok: boolean; left: number }>(`/api/watches/${id}`, { method: "DELETE" }),
   checkAddress: (address: string) =>
     request<{ address: string; read_only: boolean; results: AddressResult[] }>("/api/check-address", json({ address })),
   // ---- team ----

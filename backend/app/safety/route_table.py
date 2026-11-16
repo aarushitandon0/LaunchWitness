@@ -40,6 +40,10 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/auth/logout-all"): AUTH,
     ("POST", "/api/account/delete-request"): AUTH,
     ("POST", "/api/account/delete"): AUTH,
+    # --- watched addresses (S10.5b): the caller's own only (filtered in the query; others' answer 404) ---
+    ("GET", "/api/watches"): AUTH,
+    ("POST", "/api/watches"): AUTH,  # max 3 per account, adds rate-limited, read-only checks via SafeWeb
+    ("DELETE", "/api/watches/{watch_id}"): AUTH,
     # --- shops: creating and listing are open to guests (practice), and only ever touch the caller's own ---
     ("POST", "/api/businesses"): PUBLIC,
     ("GET", "/api/businesses"): PUBLIC,

@@ -4,6 +4,14 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
+**Session 10.5b (Nov 16, Opus): landing follow-ups merged.** "We keep watching after launch" + "How the proof works" +
+Security & privacy sections (copy pinned to the code by a test; two over-claims removed), Check any address → a clear next
+step + **Watch this address** (built: up to 3 per account, read-only daily, one email per new problem), a **Product menu**,
+and the hero rebuilt as a lazy **three.js** scene (126 kB gz, landing only; still image for reduced motion / no GPU / while
+loading). Also fixed: Check any address called a "null MX" (`0 .`, e.g. example.com) "emails have somewhere to go".
+Unit 622 passed, 2 skipped · e2e 11/11 (Docker, 56 s; dev server) · `check_m1.sh --local` all PASS · scene 60 fps on
+Intel Iris Xe · screenshots + a loop recording: `docs/screenshots/s10-5b/`.
+
 **Session 10.5 (Nov 16, Opus): owner experience fixed before Fable. §1–§5 merged.** Landing for small sellers in general +
 demo shops (`/demo/meera|imran|sunita`); sign in first with guest practice as a quiet secondary path; real-app routing
 (own URL per page, step header, resume, 404 page); an Orders inbox per shop (status, WhatsApp to the customer, counts, richer
@@ -185,6 +193,12 @@ Everything below is behind an interface with a working fake; tests cover the fak
 | Availability check method | Undecided | gddy / Domains API / OTE / RDAP — interface + fake ready (`GoDaddyAvailabilityChecker` stub) |
 
 ## Decisions
+
+- **S10.5b (2026-11-16 IST):** The hero's 3D scene runs only on a real GPU: software WebGL (SwiftShader, llvmpipe) gets the
+  still image, because rendering it on the CPU starved the page (found when e2e went from 1 to 10+ minutes). Landing copy
+  says "our order mailbox" and "a free shop address" for real launches (own name + orders@ are practice-only). Watched
+  addresses: first look shown, not emailed; a problem that clears and comes back is emailed again; limit 3 and 10 adds/day.
+  Mailbox renewal is the team's (alerts to ADMIN_EMAIL), so the landing says the team is warned, not the seller.
 
 - **S10.5 (2026-11-16 IST):** Describe needs sign-in; `#/try` is guest practice. Demo shops are rendered from the saved
   Reader fixtures with phone/WhatsApp/UPI forced empty (never point a demo at a real person). Order status flow: new →
