@@ -19,6 +19,7 @@ from sqlmodel import Session, select
 
 from app import audit
 from app.agents.planner import DKIM_PENDING
+from app.checks.dns_resolver import points_here
 from app.config import Settings
 from app.godaddy.client import PurchaseNotSupported
 from app.integrations import Integrations
@@ -119,6 +120,11 @@ def mail_write_decision(ctx: Ctx, ch: dict, records: list[dict]) -> str:
 
 def write_change(ctx: Ctx, ch: dict, after: list[dict] | None = None) -> None:
     assert_can_write(ctx, ch["zone"], ch["name"])
+    if shared_address(ctx):
+        audit.record(ctx.session, actor="executor", action="dns_write", target=f"{ch['type']} {ch['name']} @ {ch['zone']}",
+                     result="refused", business_id=ctx.business.id, detail="DNS_MODE=wildcard: the app writes no DNS")
+        raise StepFailed("This shop's address is looked after by our team, so we changed nothing.",
+                         "DNS_MODE=wildcard: no DNS writes")
     if latest_backup(ctx.session, ctx.plan) is None:
         raise StepFailed("Stopped: we couldn't save a copy of your settings first, so nothing was changed.",
                          "no DnsBackup for this plan")
@@ -154,7 +160,14 @@ def restore_change(ctx: Ctx, ch: dict) -> None:
 
 # ---------- steps ----------
 
+def shared_address(ctx: Ctx) -> bool:
+    """DNS_MODE=wildcard and a shop on our own domain: its address already exists, so nothing is read or written."""
+    return ctx.settings.dns_mode == "wildcard" and ctx.plan.zone.lower() == ctx.settings.app_domain.lower()
+
+
 def step_backup_dns(ctx: Ctx) -> str:
+    if shared_address(ctx):
+        return "Nothing to save: this launch changes no settings."
     records = ctx.integ.godaddy.get_records(ctx.plan.zone)
     b = DnsBackup(business_id=ctx.business.id, plan_id=ctx.plan.id, domain=ctx.plan.zone,
                   records_json=json.dumps(records))
@@ -164,6 +177,8 @@ def step_backup_dns(ctx: Ctx) -> str:
 
 
 def step_point_site(ctx: Ctx) -> str:
+    if shared_address(ctx):
+        return "Your address already leads to our server."
     for ch in ctx.changes:
         if ch["type"] == "A":
             write_change(ctx, ch)
@@ -243,7 +258,9 @@ def step_email_records(ctx: Ctx) -> str:
 def step_wait_dns(ctx: Ctx) -> str:
     host, want = ctx.plan.site_host, ctx.settings.server_ip
     for i in range(DNS_POLLS):
-        if want in ctx.integ.dns.resolve(host, "A"):
+        # Every nameserver must agree before the shop is turned on: turning it on is what lets Caddy ask
+        # Let's Encrypt for a certificate, and Let's Encrypt may ask any one of them (5 failures an hour at most).
+        if points_here(ctx.integ.dns, host, want):
             return f"{host} now points to your website."
         if i < DNS_POLLS - 1:
             ctx.integ.sleep(DNS_POLL_SECONDS)

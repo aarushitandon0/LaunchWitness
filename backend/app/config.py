@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     # fakes (practice mode, nothing real changes). Set false on the VPS once the
     # real integrations are filled in (see PROGRESS.md "Real integration TODO").
     use_fakes: bool = True
+    # How shop addresses exist in DNS. "per_shop": the app writes one A record per shop (the default).
+    # "wildcard": the owner made `*.APP_DOMAIN -> SERVER_IP` by hand (GoDaddy's API refused our writes); the app
+    # then writes and reads NOTHING at GoDaddy for shops, and still proves each one (nameservers + padlock + marker).
+    dns_mode: Literal["per_shop", "wildcard"] = "per_shop"
     # Pretend world only: pause this many seconds before each launch step (0 = none). For demos, and for
     # the "kill the app mid-launch" check in deploy/README.md. Never affects real launches.
     practice_step_seconds: float = 0.0

@@ -35,6 +35,8 @@ def shop_names(records: list[dict]) -> dict[str, list[str]]:
 def compare(settings: Settings, session: Session, records: list[dict]) -> list[dict]:
     """What's wrong right now: [{kind, name, found, want, fix, plain, business_id}]. Reads only."""
     zone, ip = settings.app_domain, settings.server_ip
+    if settings.dns_mode == "wildcard":
+        return compare_wildcard(settings, records)
     # On a practice server the "real" zone is the pretend one that practice launches write to as well.
     real = (lambda b: True) if settings.use_fakes else (lambda b: not b.practice)
     have = shop_names(records)
@@ -55,6 +57,26 @@ def compare(settings: Settings, session: Session, records: list[dict]) -> list[d
         if b.status == "live" and real(b) and name not in have and slug_problem(name) is None:
             out.append({"kind": "missing", "name": name, "found": "", "want": ip, "fix": "set", "business_id": b.id,
                         "plain": f"{b.name} is live but {name}.{zone} has no address record. Add it."})
+    return out
+
+
+def compare_wildcard(settings: Settings, records: list[dict]) -> list[dict]:
+    """DNS_MODE=wildcard: the zone should hold ONE hand-made `*` record to our server and no record per shop.
+    Every finding is for the team to fix by hand at GoDaddy (fix "manual"): the app writes no DNS in this mode."""
+    zone, ip = settings.app_domain, settings.server_ip
+    stars = sorted(str(r.get("data", "")) for r in records if r.get("type") == "A" and str(r.get("name")) == "*")
+    out = []
+    if stars != [ip]:
+        state = "is missing" if not stars else "points at " + ", ".join(stars)
+        out.append({"kind": "missing" if not stars else "wrong_target", "name": "*", "found": ", ".join(stars), "want": ip,
+                    "fix": "manual", "business_id": None,
+                    "plain": f"Every shop depends on the record * on {zone} pointing at {ip}. It {state}. "
+                             "Fix it by hand at GoDaddy."})
+    for name, datas in sorted(shop_names(records).items()):
+        out.append({"kind": "dangling", "name": name, "found": ", ".join(datas), "want": "", "fix": "manual",
+                    "business_id": None,
+                    "plain": f"{name}.{zone} has its own record, which overrides the shared one. "
+                             "Remove it by hand at GoDaddy."})
     return out
 
 
@@ -99,6 +121,8 @@ def approve(engine: Engine, settings: Settings, godaddy, finding_id: int, by: st
             raise NoLongerTrue(f.name)
         before = f.found
         try:
+            if f.fix == "manual" or settings.dns_mode == "wildcard":
+                raise PermissionError("by hand at GoDaddy: the app writes no DNS in wildcard mode")
             if f.fix == "delete":
                 godaddy.delete_records(settings.app_domain, "A", f.name)
             else:
