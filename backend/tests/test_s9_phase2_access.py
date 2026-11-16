@@ -315,14 +315,14 @@ def test_session_new_id_each_sign_in_sliding_expiry_logout(client, new_client, e
     assert first and second and first != second
     with Session(engine) as s:
         row = s.exec(select(UserSession).where(UserSession.token_hash == sha(second))).one()
-        assert (accounts.aware(row.expires_at) - utcnow()).days == 13  # 14 days, minus a moment
+        assert (accounts.aware(row.expires_at) - utcnow()).days in (13, 14)  # 14 days, minus a moment (or none: coarse clocks)
         row.last_seen_at, row.expires_at = utcnow() - timedelta(minutes=11), utcnow() + timedelta(days=1)
         s.add(row)
         s.commit()
     assert client.get("/api/auth/me").json()["user"]["email"] == "m@example.org"
     with Session(engine) as s:
         row = s.exec(select(UserSession).where(UserSession.token_hash == sha(second))).one()
-        assert (accounts.aware(row.expires_at) - utcnow()).days == 13  # slid forward
+        assert (accounts.aware(row.expires_at) - utcnow()).days in (13, 14)  # slid forward
         row.expires_at = utcnow() - timedelta(seconds=1)
         s.add(row)
         s.commit()

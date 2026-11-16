@@ -32,8 +32,8 @@ Docker stack and on the dev server (`e2e/README.md`). Ruff, `npx tsc --noEmit`, 
 
 ## Session 11 (Fable, 2026-11-16): review + the investigating Doctor
 
-Merged on `main`: `bb3d985` (S11 review fixes) and `0cd8603` (S11: investigating Doctor). Tests now:
-**645 passed, 2 skipped**; ruff, `tsc --noEmit`, `npm run build` clean. **No e2e, Docker or screenshots were run this
+Merged on `main`: `bb3d985` (S11 review fixes), `0cd8603` (S11: investigating Doctor), then the invariant test. Tests now:
+**646 passed, 2 skipped, 1 deselected (slow)**; ruff, `tsc --noEmit`, `npm run build` clean. **No e2e, Docker or screenshots were run this
 session** (left for the next one): the report page change is unverified in a browser.
 
 ### Review (P0 hunt over everything since Phase 1)
@@ -53,7 +53,7 @@ Open, not fixed (one line each):
 - P1: demo faults `dmarc`/`mx` can be armed on any own-domain shop (practice-only today because own-domain real is cut); the three new faults are restricted properly.
 - P2: a server that ignores `identity` can still expand one compressed chunk in memory before the cap applies.
 - P2: `is_global` lets NAT64/6to4 addresses through (only matters on a host with such routing).
-- P2: `test_session_new_id_each_sign_in_sliding_expiry_logout` failed once in a full run, passed alone and on the rerun (intermittent, not investigated).
+- Fixed: `test_session_new_id_each_sign_in_sliding_expiry_logout` was intermittent (it assumed two clock reads differ; on Windows they can be equal). Test-only change.
 - P2: Claude spend figures come from the app's own price table (`PRICES_PER_MTOK`, Haiku 0.10/0.50 per MTok); not checked against the real price list.
 
 ### The investigating Doctor
@@ -86,6 +86,26 @@ Open, not fixed (one line each):
 The marker-missing half of fault 3 has no staged switch; the Doctor sees `shop_marker=MISSING` from `fetch` but no fixture covers it.
 
 **Live Claude spend this session: $0.0042** by the app's price table (24 Haiku calls over 4 capture runs, about 1.2k tokens in / 80 out each; cap was $0.30). `.env` is back on `CLAUDE_MODE=fixture` (it was only overridden per command). Re-capture: `cd backend && CLAUDE_MODE=live ../.venv/Scripts/python ../scripts/capture_doctor_investigation.py [--dry-run]`.
+
+### Whole-system invariant test (`tests/test_s11_invariants.py`)
+
+A seeded random loop (not Hypothesis: no new dependency, so no automatic shrinking; a failure prints its seed and
+faults, reproduce with `one_run(seed, make_settings)`). Default profile: 20 seeds, about 40 s. Long profile:
+`pytest -m slow tests/test_s11_invariants.py` (seeds 20–259, about 6 min); `slow` is now deselected by default in
+`pyproject.toml`. Tests with it: **646 passed, 2 skipped, 1 deselected**.
+
+Each run: two approved users → shop → go-live checklist → real launch on the stand-in "real" world → resume if it
+failed → checks + Doctor → monitor quick + daily (+ two rechecks) → a customer order + 4 random status changes →
+reconciler. 12 fault kinds at 30% each. All 8 invariants are asserted, and the default test also asserts that every
+fault kind was injected and that launches, resumes, proven checks, DNS writes, alert emails and orders all really
+happened (the first version passed with zero alert emails ever sent; that guard caught it).
+
+**Bugs found: none** in 260 seeds. What it does not prove (so don't read "none" as more than it is):
+- "Two check runs at once" and "restart" are simulated in sequence (a stuck `running` row, then the reconciler); nothing here runs truly in parallel or kills a process mid-step.
+- The owner's "Yes, I got it" tap is never made, so delivery is only ever "waiting" for a real shop; `imap_seen` isn't reached.
+- "A GoDaddy write failing halfway" is the first `set_records` call raising; a launch has only that one write.
+- The backup-before-write check compares timestamps of `DnsBackup` and the first `dns_write` audit row.
+- Failures are cleared before resume, so "a failed plan can be resumed" means the resume call is accepted and ends done/failed, not that it survives a second fault.
 
 ## Proven in Docker on the laptop (S10)
 
