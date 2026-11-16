@@ -159,3 +159,7 @@ One entry per Claude Code session, newest last. This is what judges read to unde
 - Result: see PROGRESS; scene 60 fps on Intel Iris Xe at 1917/1440/375; Live Claude spend $0.
 - Next: the Fable session, then the VPS (Wed Nov 18).
 
+### Session 10.5c — 2026-11-16 (IST) — Undo the 3D hero (Opus)
+- The owner didn't like the three.js hero. Removed it (scene, still image, `three` dependency, its e2e checks and the loop
+  recording) and restored the S10.5 SVG hero; everything else from S10.5b stays. The scene remains in git history (`820e824`).
+

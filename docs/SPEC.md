@@ -245,10 +245,8 @@ Every step goes to the audit log shown in the report.
   delivery proven at launch and on "Yes, I got it"; renewals 30/7/1 days, certificate 7/1; failures re-checked after a minute,
   a safe Doctor fix if allowed, one email per problem; money never spent) · Security & privacy · Check any address · Who
   it's for. A **Product menu** in the top bar (What it does · Who it's for · Free tools · Learn), a full-screen sheet on phones.
-- **Hero.** A lazy-loaded three.js scene (landing only, after first paint, 126 kB gzipped extra): six softly folded sheets, one
-  per proof hop, with the logo as a glass lens on top; a light carries the test order up and lights each sheet's edge, then the
-  check. Real GPU only: software WebGL, reduced motion and no-WebGL get a pre-rendered still (`src/hero/still.webp`).
-  Pauses off-screen and in hidden tabs; pixel ratio ≤ 2.
+- **Hero.** The six rounded layers in SVG from S10.5 (transform-only motion). A three.js "witness" scene was built in
+  S10.5b and removed at the owner's request (S10.5c); it's in git history (`820e824`) if wanted later.
 - **Watch this address (S10.5b).** Signed-in users can watch up to 3 addresses: the same read-only public checks as
   Check any address, once a day, one email per NEW problem to their own sign-in address; never submits forms, emails that
   domain or changes anything there. Listed on My shops, removable, deleted with the account.
