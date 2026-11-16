@@ -393,3 +393,36 @@ def test_authoritative_resolver_asks_the_zone_nameservers():
     r = AuthoritativeResolver(finder=Finder(), query=query)
     assert r.resolve("meera.launchwitness.com", "A") == ["203.0.113.7"]
     assert asked == ["97.74.100.1", "173.201.68.1"] and r.last_server == "ns2.domaincontrol.com (173.201.68.1)"
+
+
+# ---------- S11 review: a page can't make us read without end ----------
+
+def test_safe_web_stops_reading_a_huge_page():
+    from app.checks import safe_fetch
+    sent = []
+
+    def endless():
+        for _ in range(400):  # 400 x 64 KB = 25 MB if nobody stops us
+            sent.append(1)
+            yield b"a" * 65536
+
+    web = SafeWeb(lambda h: True, resolve=lambda h: ["93.184.216.34"],
+                  transport=httpx.MockTransport(lambda req: httpx.Response(200, content=endless())))
+    page = web.get("https://big.example.com/")
+    assert page.status == 200 and len(page.html) == safe_fetch.MAX_BODY
+    assert len(sent) <= safe_fetch.MAX_BODY // 65536 + 2
+
+
+def test_safe_web_gives_up_on_a_page_that_drips_forever(monkeypatch):
+    from app.checks import safe_fetch
+    clock = iter(range(0, 100000, 7))  # every look at the clock is 7 "seconds" later
+    monkeypatch.setattr(safe_fetch, "now", lambda: next(clock))
+
+    def drip():
+        for _ in range(1000):
+            yield b"a"
+
+    web = SafeWeb(lambda h: True, resolve=lambda h: ["93.184.216.34"],
+                  transport=httpx.MockTransport(lambda req: httpx.Response(200, content=drip())))
+    page = web.get("https://slow.example.com/")
+    assert page.status is None and page.error == "TooSlow"
