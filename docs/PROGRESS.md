@@ -4,6 +4,13 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
+**Session 10.5 (Nov 16, Opus): owner experience fixed before Fable. §1–§5 merged.** Landing for small sellers in general +
+demo shops (`/demo/meera|imran|sunita`); sign in first with guest practice as a quiet secondary path; real-app routing
+(own URL per page, step header, resume, 404 page); an Orders inbox per shop (status, WhatsApp to the customer, counts, richer
+order email); the preview blank-page bug fixed (sandbox gained `allow-popups*`, see SECURITY.md); the go-live checklist gating
+only real launches. Also: hero no longer cut off on short screens, new hero shape, `HEAD /` no longer 405.
+Unit 607 passed, 2 skipped · e2e 7/7 (Docker + dev server) · `check_m1.sh --local` all PASS · screenshots `docs/screenshots/s10-5/`.
+
 **Session 10 (Nov 16, Opus): deployable and safe for real users. Parts A–E merged.** The production-like Docker stack runs
 locally (Caddy local CA, real `__Host-` cookies, Mailpit) and `scripts/check_m1.sh --local` passes. Also: SQLite
 WAL/busy_timeout/foreign keys, online backups (7 daily + 4 weekly) with a tested restore, the startup self-check, fixture-mode
@@ -18,6 +25,9 @@ dangling-CNAME finding, the XSS test, `docs/SECURITY.md`, the e2e suite (4 flows
 **M1 + M5: everything that doesn't need real infra is done** (session 4): landing page + contact form, `/build`, prod compose, backup/restore, `docs/RUNBOOK_M1.md`, `scripts/check_m1.sh`, demo seeder, README, project brief draft, public replay built and secret-scanned. Session 5 (design + motion pass) done: new look and motion for the landing page and the whole demo flow. **Session 6 (real Claude agents) done**, and **session 7 captured all 17 live Claude fixtures** on the owner's laptop ($0.0726, every quality gate passes, measured ≈ 1 cent per launch). **Session 8 rebuilt the seller shop template** (one generic template for every seller, basket, new profile fields, booking scope guard). **M1 on the VPS must happen by Nov 17** (`docs/RUNBOOK_M1.md`); session 9 (orders, UPI, tracking, trust & safety) is ready in `docs/NEXT_SESSION_S9.md`. M4 done against fakes (AC5 needs real infra). M3 done except the real-infra AC. M0 · M2 done.
 
 ## Next up
+
+- **S10.5 follow-ups:** stored product photos (needs Pillow, storage under `data/`, serving on shop hosts, backup + delete with
+  the shop); the Fable session is next per the owner.
 
 - **Wed Nov 18: `docs/NEXT_SESSION_VPS.md`** (SSH/firewall → Docker → clone → owner fills `.env` → staging CA → `A @` → real CA →
   `check_m1.sh` → backup cron → first real shop A record → HTTPS + marker → outside-in test order + IMAP proof).
@@ -175,6 +185,20 @@ Everything below is behind an interface with a working fake; tests cover the fak
 | Availability check method | Undecided | gddy / Domains API / OTE / RDAP — interface + fake ready (`GoDaddyAvailabilityChecker` stub) |
 
 ## Decisions
+
+- **S10.5 (2026-11-16 IST):** Describe needs sign-in; `#/try` is guest practice. Demo shops are rendered from the saved
+  Reader fixtures with phone/WhatsApp/UPI forced empty (never point a demo at a real person). Order status flow: new →
+  confirmed|cancelled; confirmed → paid|done|cancelled; paid → done|cancelled; done/cancelled final. WhatsApp must be an
+  Indian mobile (6–9 + 9 digits) and is stored as `+91XXXXXXXXXX`; a Reader reply with an unusable number is blanked (the
+  owner adds it) rather than failing the describe. UPI ID: `handle@psp`, PSP letters/digits only. Instagram: handle only
+  (1–30 of letters, digits, `.`, `_`; no leading/trailing/double dot). Owner confirmations live on `Business`
+  (`wa_confirmed`, `upi_confirmed`, …) storing the confirmed value, so edits reset them. "Preview opened" is recorded when
+  the OWNER fetches the preview (the team's look doesn't count). Working days/hours = the existing `hours` text (required);
+  notice days = `min_notice_days` (0 allowed). Pickup uses the existing public `area`; there is no address field at all.
+  New owner-only profile fields (`instagram`, `delivery_areas`, `niche`) are not in the Reader schema/prompt
+  (`reader.OWNER_ONLY`), so no live fixture needed recapturing. **Product photos were not built**: the brief assumed
+  existing re-encode/EXIF rules, but none exist (only the in-memory price-list photo). The real-launch refusal lists what's
+  missing in `detail` and by key in the `X-Missing` header.
 
 - 2026-11-16 (S10): **one app process** is enforced (startup lock next to the DB + `WEB_CONCURRENCY` guard), not only documented.
 - 2026-11-16 (S10): `/api/health` shows **only harmless warnings publicly** (mailbox expiry, email not set up, database not writable);

@@ -1,4 +1,4 @@
-# State for the next session (written 2026-11-16 IST, end of Session 10)
+# State for the next session (written 2026-11-16 IST, end of Session 10.5)
 
 Read `CLAUDE.md` first (rules + commands), then this. **If today is the VPS day, follow `docs/NEXT_SESSION_VPS.md`
 step by step**: it's self-contained. You shouldn't need to read the whole codebase.
@@ -19,8 +19,14 @@ the owner's "Yes, I got it"), repairs what breaks, and keeps checking. GoDaddy h
 | `7e5f944` | **S10 C**: Renewals card + team alerts, zone hygiene with admin approval, dangling-CNAME finding |
 | `a176b07` | **S10 D**: XSS test (every field, HTML-parsed), upload-limit test, `scripts/secret_scan.sh` (clean), `docs/SECURITY.md` |
 | `4b01fa6` | **S10 E**: `docs/NEXT_SESSION_VPS.md`, this file, PROGRESS / BUILD_LOG / CLAUDE.md commands |
+| `f441be1` | **S10.5 §1**: landing for home-based made-to-order sellers in general; demo shops `/demo/meera|imran|sunita` |
+| `4a31632` | **S10.5 §2**: sign in first (guest practice = `#/try`), real-app routing, step header, resume, 404 page; hero fix + new shape |
+| `807b0f5` | **S10.5 §3**: Orders page (status New→Confirmed→Paid→Done/Cancelled, WhatsApp to the customer), new-order counts, order email links |
+| `3929f03` | **S10.5 §4**: preview links fixed (blank frame on `#menu`); sandbox now also `allow-popups*` (SECURITY.md) |
+| `da01e5c` | **S10.5 §5**: go-live checklist gating only real launches; owner confirmations ("confirmed by you") |
+| (final merge) | **S10.5**: `HEAD /` no longer 405, docs, screenshots `docs/screenshots/s10-5/` |
 
-Tests on main: **523 passed, 2 skipped** (`cd backend && ../.venv/Scripts/python -m pytest -q`). E2E: **4/4** on the
+Tests on main: **607 passed, 2 skipped** (`cd backend && ../.venv/Scripts/python -m pytest -q`). E2E: **7/7** on the
 Docker stack and on the dev server (`e2e/README.md`). Ruff, `npx tsc --noEmit`, `npm run build` clean. Keep the stash
 `fable-p2-wip-backup` (never drop it).
 
@@ -44,6 +50,20 @@ IMAP delivery proof (needs a shop owned by `hello@launchwitness.com`) · real `d
 (feeds Renewals + the team alert) · zone hygiene against the real zone · monitoring emails through hello@ (send limit
 unknown).
 
+## New in S10.5, in one line each
+
+- `app/sites/demo.py`: demo shops from the saved Reader fixtures (contact fields forced empty); `/demo/` is 404 on shop hosts.
+- `frontend/src/App.tsx` `parseRoute`: one URL per page; `#/new` needs sign-in (`NeedsSignIn`), `#/try` is guest practice.
+- `frontend/src/Steps.tsx`: 5-step header + `resumeHash` (from `business.latest_plan`).
+- `POST /api/businesses/{id}/orders/{order_id}/status` (owner, audited) · `Order.status`; `sites/orders.py` `STATUS_STEPS`,
+  `customer_whatsapp_link`, `tel_link`; My shops `new_orders`.
+- `seller.html` preview-only script + `ShopLink.tsx` message handler (only from its own frame, only "home"/"privacy").
+- `app/golive.py` + `GET /golive`, `POST /confirm` (owner only; the team gets 404) · `Business.wa_confirmed`,
+  `upi_confirmed`, `own_goods_at`, `terms_at`, `previewed_at` · Profile `instagram`, `delivery_areas`, `niche` (owner-only,
+  not in the Reader schema) · WhatsApp stored as `+91XXXXXXXXXX` · report `confirmed_by_you`.
+- Real launches need the checklist: tests call `tests/conftest.py::ready_for_real`, e2e `helpers.readyForReal`.
+- On the VPS day: a real launch of the demo shop now needs the owner's WhatsApp + UPI checks and the two ticks first.
+
 ## New since S9F, in one line each
 
 - `app/singleton.py`: one process per database (lock file next to it, `WEB_CONCURRENCY` guard).
@@ -62,7 +82,8 @@ unknown).
 - **The pretend world forgets on restart.** On a practice server the fake GoDaddy zone is in memory; after a restart,
   practice "live" shops have no records, so monitoring and zone hygiene see them as missing. Harmless on the VPS (real
   zone), confusing in a local demo after a restart. Re-launch, or accept it.
-- `HEAD /` answers 405 (FastAPI GET routes). Point uptime monitors at `GET /api/health`.
+- Stored product photos (3–6) are not built: no upload storage / re-encoding / EXIF stripping exists yet (S10.5 decision).
+- Demo pages `/demo/*` answer 405 to HEAD (only the page catch-all accepts HEAD now). Point monitors at `/` or `/api/health`.
 - E2E can't tap "Yes, I got it" on a practice server (the test email stays in the pretend inbox); pytest covers it, and
   on the VPS it's a manual step.
 - Daily monitoring sends one test-order email per live shop per day through hello@: check GoDaddy's send limit.

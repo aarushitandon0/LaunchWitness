@@ -124,3 +124,24 @@ One entry per Claude Code session, newest last. This is what judges read to unde
 - What checking caught: `foreign_keys=ON` exposed the admin demo delete leaving proof rows behind (fixed); the old restore would have replayed a stale WAL into a restored DB; the stack check's own token would have used up the admin's daily sign-in links on the VPS; a `.env` value with spaces before its comment could hide a leaked password from the leak check; the local compose loaded the real `.env` into a local container; a naive XSS assertion flagged escaped text (switched to an HTML parser); Git Bash path conversion broke the backup scripts on Windows.
 - Result: 523 passed, 2 skipped; ruff, tsc and build clean; e2e 4/4 on the Docker stack and on the dev server; `check_m1.sh --local` all PASS; secret scan of repo + history clean. Live Claude spend: $0.
 - Next: the VPS (Wed Nov 18) with `docs/NEXT_SESSION_VPS.md`.
+
+### Session 10.5 — 2026-11-16 (IST) — What the owner found while testing (Opus)
+- Goal: fix four problems found on the local Docker stack and gather the right details before a shop can go live, for real
+  sellers, without changing any backend security rule.
+- Asked Claude to: rewrite the landing for small sellers (Meera only as a demo shop), sign in first with guest practice as a
+  secondary path and proper routing, an Orders page with WhatsApp to the customer and statuses, fix the blank preview, and a
+  go-live checklist that only gates real launches. Mid-session: fix the cut-off hero headline and make the hero shape smoother,
+  rounder, with more layers; restart Docker after the session was interrupted.
+- Claude built: `sites/demo.py`, `Steps.tsx`, `Orders.tsx`, `GoLive.tsx`, `golive.py`, a new router + top bar, order status
+  route + links, the preview link script + sandbox change, Profile fields/validators, owner confirmations, the Report's
+  "Checked by you", e2e flows `e`/`f` (+ orders and the gate in `a`), `e2e/screens/` for screenshots, 4 new test files.
+- What checking caught: the preview bug's real cause (a `srcdoc` frame resolves `#menu` against the APP's URL); a
+  sandboxed frame without `allow-forms` refuses a form before any `submit` event, so the first fix never ran; Meera's sample
+  offers delivery, so the gate correctly refused her without delivery areas; the hero was clipped because a fixed-height card
+  centred content taller than short screens. The interrupted session left two files as blank bytes (restored from git and
+  redone; every tracked file re-scanned).
+- I changed / rejected: product photos deferred (no upload storage exists yet, despite the brief).
+- Result: unit 607 passed, 2 skipped; ruff/tsc/build clean; e2e 7/7 on Docker and dev server; `check_m1.sh --local` all PASS.
+  Live Claude spend: $0.
+- Next: the Fable session, then the VPS (Wed Nov 18).
+

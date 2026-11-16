@@ -209,6 +209,41 @@ Every step goes to the audit log shown in the report.
 
 ---
 
+## 9c. Owner experience (S10.5)
+
+- **Sign in first.** Describe (`#/new`) asks you to sign in, with the reason ("Your shop and its orders belong to your
+  account"), and the emailed link brings you back to Describe. A quiet secondary link keeps **guest practice**
+  ("Try it without an account": `#/try`, practice only, deleted after 24 hours). Judges never hit a wall.
+- **Demo shops.** `/demo/meera`, `/demo/imran`, `/demo/sunita`: the three sample profiles rendered by the app, logged out,
+  no database row, labelled "Demo shop: orders here are not real"; the form places no order. Never served on a shop host.
+  The landing page is about home-based, made-to-order sellers in general (home food, handmade goods, custom work); Meera
+  appears only as a demo.
+- **Routing.** Every page has its own URL (Back/Forward, refresh, deep links). Top bar: signed out Home · See a demo shop ·
+  Sign in; signed in My shops · New shop · Account · Team (admins). A clickable 5-step header (Describe → Review → Name →
+  Approve → Launch & report), resume at the right step from My shops, a real "Page not found", and a plain message with
+  "Back to My shops" when a shop answers 404. Client guards are convenience only; the server decides.
+- **Orders inbox.** Each shop has an Orders page (`#/b/<id>/orders`, mobile-first, newest first, test orders hidden): ref,
+  time, items, total, name, note, the full phone (owner only; masked/absent in audit logs), a "Message on WhatsApp" `wa.me`
+  link to the **customer** with a ready-typed message (nothing is sent by us), and a status the owner sets: New → Confirmed →
+  Paid → Done, or Cancelled (Paid may be skipped; Done/Cancelled are final; audited). No customer-facing status page. My shops
+  shows the count of new orders. The order email carries the ref, items, total, a `tel:` link, a WhatsApp link and a link to
+  the Orders page.
+- **Go-live checklist.** Only "Launch for real" is gated (at plan time and again at approval); drafts and practice never are.
+  Required: verified sign-in email · shop name + address + one priced item · WhatsApp (Indian mobile, stored as +91XXXXXXXXXX;
+  the owner taps "Test this number" then "Yes, that's me") · UPI ID + the name her UPI app shows (the **₹1 UPI name test**:
+  she scans her shop's real UPI QR for ₹1 with her own phone and confirms the name; paying is optional) · pickup (area only,
+  never the home address: she sends the exact address on WhatsApp after confirming) and/or delivery (areas + fee, ₹0 allowed)
+  · working days/hours (+ notice days) · two ticks (own goods; Terms) with the time · the preview opened once. Owner checks are
+  stored with the exact value confirmed and labelled **"confirmed by you"**, never "verified"; a changed number or UPI
+  ID/name resets them. Only the owner can confirm (the team and others get 404). Optional: Instagram handle, niche (food /
+  handmade / custom: picks the colours), FSSAI number (shown, not checked). Never collected: Aadhaar, PAN, bank account or
+  card numbers, passwords, full home address, date of birth. The Report lists the owner's checks (WhatsApp, UPI name test,
+  "Yes, I got it") under "Checked by you", apart from machine-proven hops.
+- **Not built yet:** stored product photos (3–6). No upload storage, re-encoding or EXIF stripping exists today (the
+  price-list photo is only read in memory by the Reader); see PROGRESS Decisions.
+
+---
+
 ## 9b. Watchdog features, and what's out of scope (S10)
 
 In scope (decided; nothing beyond these): **Renewals** (certificate days left, domain end date, the team mailbox's plan; alerts at
