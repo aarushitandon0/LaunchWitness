@@ -141,3 +141,19 @@ export async function approveUser(admin: Page, email: string) {
   const r = await api(admin, "POST", `/api/admin/users/${user.id}/approve`);
   expect(r.status(), await r.text()).toBe(200);
 }
+
+/** The S10.5 go-live checklist, done as the owner would (details, preview, WhatsApp + UPI checks, two promises). */
+export async function readyForReal(page: Page, id: number) {
+  const biz = await (await api(page, "GET", `/api/businesses/${id}`)).json();
+  const profile = {
+    ...biz.profile, whatsapp: "98765 43210", upi_id: "meera.cakes@okaxis", upi_display_name: "Meera Joshi",
+    pickup_available: true, area: "Baner, Pune", delivery_areas: "Baner, Aundh", hours: "Tue-Sun, 10am-7pm",
+  };
+  expect((await api(page, "PUT", `/api/businesses/${id}`, { profile, subdomain: biz.subdomain })).status()).toBe(200);
+  expect((await api(page, "GET", `/api/businesses/${id}/preview`)).status()).toBe(200);
+  for (const body of [{ what: "whatsapp" }, { what: "upi" }, { what: "agreements", own_goods: true, terms: true }]) {
+    const r = await api(page, "POST", `/api/businesses/${id}/confirm`, body);
+    expect(r.status(), await r.text()).toBe(200);
+  }
+  expect((await (await api(page, "GET", `/api/businesses/${id}/golive`)).json()).ready).toBe(true);
+}

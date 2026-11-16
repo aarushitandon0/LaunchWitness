@@ -98,6 +98,15 @@ class Business(SQLModel, table=True):
     visitor: str = ""  # hashed client IP that created it (daily limit)
     paused: bool = False  # team pause: the public shop shows a neutral "paused" page and takes no orders
     demo_fault: str = ""  # admin demo switch, consumed by the next check run: "" | "dmarc" | "mx"
+    # S10.5 go-live checklist: owner-confirmed steps (golive.py). Each stores WHAT was confirmed, so it stops
+    # counting the moment the number / UPI ID / name changes. "Confirmed by you", never "verified".
+    wa_confirmed: str = ""  # the WhatsApp number the owner said opens HER chat
+    wa_confirmed_at: datetime | None = None
+    upi_confirmed: str = ""  # "<upi_id>|<upi_display_name>" the owner saw in her own UPI app
+    upi_confirmed_at: datetime | None = None
+    own_goods_at: datetime | None = None  # "I make or sell these myself, and I'm allowed to sell them"
+    terms_at: datetime | None = None  # "I accept the Terms"
+    previewed_at: datetime | None = None  # first time the owner opened the private preview
     created_at: datetime = Field(default_factory=utcnow)
 
 

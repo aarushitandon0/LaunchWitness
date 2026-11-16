@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, func, select
 
-from app import audit
+from app import audit, golive
 from app.agents.claude_client import FALLBACK_NAMES_NOTE, Claude, ClaudeBudgetExceeded
 from app.agents.executor import reset_for_resume, run_plan
 from app.agents.launch_check import AlreadyChecking, run_checks
@@ -91,6 +91,15 @@ def card_out(plan: Plan, settings: Settings) -> dict:
 HELD_FIXTURE = "Our team looks at every new shop before it goes live."
 
 
+def require_checklist(session: Session, b: Business) -> None:
+    """S10.5: a REAL launch needs the go-live checklist done (golive.py). Drafts and practice are never blocked.
+    The refusal lists what's missing in plain words (detail) and by key (header X-Missing)."""
+    missing = golive.missing(session, b)
+    if missing:
+        raise HTTPException(status_code=409, detail=golive.refusal(missing),
+                            headers={"X-Missing": ",".join(i.key for i in missing)})
+
+
 @router.post("/businesses/{business_id}/plans", status_code=201)
 def create_plan(body: PlanRequest, actor: ActorDep, b: Annotated[Business, Depends(require_business_access)],
                 settings: Annotated[Settings, Depends(get_settings)],
@@ -102,6 +111,7 @@ def create_plan(body: PlanRequest, actor: ActorDep, b: Annotated[Business, Depen
             raise HTTPException(status_code=403, detail=NOT_APPROVED if actor.user else "Please sign in to launch for real.")
         if body.mode != "sandbox":
             raise HTTPException(status_code=422, detail=SUBDOMAINS_ONLY)
+        require_checklist(session, b)
     elif not b.practice:
         raise HTTPException(status_code=409, detail="This shop is real now, so it can't be launched in practice mode.")
     try:
@@ -179,6 +189,7 @@ def approve_plan(body: ApproveRequest, request: Request, background: BackgroundT
                                 "Nothing was changed. Please try again in a few days.")
         if b.paused:
             raise HTTPException(status_code=409, detail="This shop is paused by our team, so it can't be launched right now.")
+        require_checklist(session, b)  # again at approval: details may have changed since the plan was made
         if b.review != "cleared" and not integ.fake and fixture_on_real_server(settings):
             # Fail closed: with saved Claude answers the policy check would always say OK, so on a server that
             # launches real shops every real launch waits for the team (Team page: "Looks fine").

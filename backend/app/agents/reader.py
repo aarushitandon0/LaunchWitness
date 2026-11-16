@@ -23,6 +23,30 @@ IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
 
+UPI_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{1,63}@[A-Za-z][A-Za-z0-9]{1,31}")
+INSTAGRAM = re.compile(r"(?!.*\.\.)(?!\.)[A-Za-z0-9._]{1,30}(?<!\.)")
+
+
+def indian_mobile(value: str) -> str | None:
+    """'98765 43210', '+91 98765-43210', '091 9876543210', '919876543210' -> '+919876543210'. None if it isn't an
+    Indian mobile (10 digits starting 6-9 after +91 / 91 / 0)."""
+    if not re.fullmatch(r"\+?[\d\s()-]{10,20}", value.strip()):
+        return None
+    d = re.sub(r"\D", "", value)
+    for prefix in ("0091", "091", "91", "0"):
+        if len(d) == 10 + len(prefix) and d.startswith(prefix):
+            d = d[len(prefix):]
+            break
+    return f"+91{d}" if re.fullmatch(r"[6-9]\d{9}", d) else None
+
+
+def instagram_handle(value: str) -> str | None:
+    """'@meera.bakes', 'instagram.com/meera.bakes/', 'https://www.instagram.com/meera.bakes?igsh=x' -> 'meera.bakes'."""
+    v = value.strip()
+    v = re.sub(r"^(https?://)?(www\.)?instagram\.com/", "", v, flags=re.I).split("?")[0].strip("/").lstrip("@")
+    return v if INSTAGRAM.fullmatch(v) else None
+
+
 class Product(BaseModel):
     model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
 
@@ -73,20 +97,46 @@ class Profile(BaseModel):
     # Scope guard: v1 builds shops that take orders, not booking systems.
     kind: Literal["orders", "appointments"] = "orders"
     not_supported_reason: str = Field(default="", max_length=300)
+    # S10.5 go-live details. Set by the owner on the Review form (the Reader leaves them empty).
+    instagram: str = Field(default="", max_length=60)  # handle only, shown as a link
+    delivery_areas: str = Field(default="", max_length=200)  # where she delivers, e.g. "Baner, Aundh, Pashan"
+    niche: Literal["", "food", "handmade", "custom"] = ""  # picks the shop's colours
+    # NOTE: there is deliberately no address field. `area` is the public locality; the exact pickup address is
+    # shared by the seller herself on WhatsApp after she confirms an order.
 
-    @field_validator("phone", "whatsapp")
+    @field_validator("phone")
     @classmethod
     def _phone_chars(cls, v: str) -> str:
         if v and not re.fullmatch(r"\+?[\d\s-]{7,20}", v):
             raise ValueError("phone numbers may contain only digits, spaces, dashes and a leading +")
         return v
 
+    @field_validator("whatsapp")
+    @classmethod
+    def _whatsapp(cls, v: str) -> str:
+        if not v:
+            return v
+        n = indian_mobile(v)
+        if n is None:
+            raise ValueError("WhatsApp number: please give an Indian mobile number, 10 digits (for example 98765 43210)")
+        return n
+
     @field_validator("upi_id")
     @classmethod
     def _upi(cls, v: str) -> str:
-        if v and not re.fullmatch(r"[A-Za-z0-9._-]{2,64}@[A-Za-z0-9.-]{2,32}", v):
-            raise ValueError("UPI ID should look like name@bank")
+        if v and not UPI_ID.fullmatch(v):
+            raise ValueError("UPI ID should look like name@bank (for example meera.cakes@okaxis)")
         return v
+
+    @field_validator("instagram", mode="before")
+    @classmethod
+    def _instagram(cls, v):
+        if not isinstance(v, str) or not v.strip():
+            return ""
+        h = instagram_handle(v)
+        if h is None:
+            raise ValueError("Instagram: just your handle, like @meera.bakes (letters, numbers, . and _)")
+        return h
 
     @field_validator("fssai_number")
     @classmethod
@@ -96,6 +146,10 @@ class Profile(BaseModel):
             raise ValueError("A food licence (FSSAI) number has 14 digits")
         return v
 
+
+# Profile fields only the owner sets (Review form, S10.5). The Reader isn't asked for them, so its schema and
+# prompt (and its saved fixtures) stay as they were; they default to "".
+OWNER_ONLY = {"instagram", "delivery_areas", "niche"}
 
 # JSON schema sent to the API (structured output). Kept to the plain subset:
 # every field required, strings for optional values ("" when unknown).
@@ -199,6 +253,8 @@ def read_business(
     for _attempt in range(2):  # first try + one retry
         try:
             data = claude.ask_json(fixture=fixture, tier="strong", system=SYSTEM, user=content, schema=PROFILE_SCHEMA)
+            if isinstance(data, dict) and data.get("whatsapp") and indian_mobile(str(data["whatsapp"])) is None:
+                data["whatsapp"] = ""  # not a usable Indian mobile: the owner adds it on the Review form
             return tidy_profile(Profile.model_validate(data))
         except (ClaudeBadJson, ValidationError) as e:
             last_error = str(e)

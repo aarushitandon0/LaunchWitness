@@ -239,3 +239,24 @@ def set_user(engine: Engine, email: str, **fields) -> int:
         s.add(u)
         s.commit()
         return u.id
+
+
+GO_LIVE = {"whatsapp": "98765 43210", "upi_id": "meera.cakes@okaxis", "upi_display_name": "Meera Joshi",
+           "pickup_available": True, "area": "Baner, Pune", "delivery_areas": "Baner, Aundh",
+           "hours": "Tue-Sun, 10am-7pm"}
+
+
+def ready_for_real(client, business_id: int, **profile) -> dict:
+    """Do the S10.5 go-live checklist as the owner would: fill the details, open the preview, test the WhatsApp
+    number, do the UPI name test, tick the two boxes. (Sign-in, shop name and a priced item are already there.)"""
+    biz = client.get(f"/api/businesses/{business_id}").json()
+    r = client.put(f"/api/businesses/{business_id}",
+                   json={"profile": {**biz["profile"], **GO_LIVE, **profile}, "subdomain": biz["subdomain"]})
+    assert r.status_code == 200, r.text
+    assert client.get(f"/api/businesses/{business_id}/preview").status_code == 200
+    for body in ({"what": "whatsapp"}, {"what": "upi"}, {"what": "agreements", "own_goods": True, "terms": True}):
+        r = client.post(f"/api/businesses/{business_id}/confirm", json=body)
+        assert r.status_code == 200, r.text
+    out = client.get(f"/api/businesses/{business_id}/golive").json()
+    assert out["ready"], out
+    return out

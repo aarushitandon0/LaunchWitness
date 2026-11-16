@@ -56,10 +56,15 @@ def whatsapp_link(profile: Profile) -> str | None:
     return f"https://wa.me/{number}?{urlencode({'text': text}, quote_via=quote)}"
 
 
-def upi_uri(profile: Profile) -> str | None:
+def upi_uri(profile: Profile, amount_inr: int | None = None) -> str | None:
+    """amount_inr: only for the owner's Rs 1 UPI name test (she pays herself, or cancels at the PIN screen)."""
     if not profile.upi_id:
         return None
-    return "upi://pay?" + urlencode({"pa": profile.upi_id, "pn": profile.name, "cu": "INR"}, quote_via=quote, safe="@")
+    q = {"pa": profile.upi_id, "pn": profile.name, "cu": "INR"}
+    if amount_inr is not None:
+        q = {"pa": profile.upi_id, "pn": profile.name, "am": f"{amount_inr}.00", "cu": "INR",
+             "tn": "LaunchWitness UPI test"}
+    return "upi://pay?" + urlencode(q, quote_via=quote, safe="@")
 
 
 def upi_qr_svg(uri: str) -> Markup:

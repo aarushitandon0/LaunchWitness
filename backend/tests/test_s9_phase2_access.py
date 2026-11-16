@@ -26,7 +26,7 @@ from app.routers.businesses import get_claude
 from app.safety import route_table
 from app.safety.access import csrf_for, sha
 from app.tenancy import purge_old_guest_shops
-from tests.conftest import ADMIN_TOKEN, AppClient, publish, set_user, sign_in
+from tests.conftest import ADMIN_TOKEN, AppClient, publish, ready_for_real, set_user, sign_in
 from tests.test_m3_launch import SELLERS, approve, meera, plan
 
 ADMIN = {"X-Admin-Token": ADMIN_TOKEN}
@@ -474,6 +474,7 @@ def approved_shop(c, engine, email="m@example.org", sub="meera"):
 
 
 def real_approve(c, biz):
+    ready_for_real(c, biz["id"])
     p = c.post(f"/api/businesses/{biz['id']}/plans", json={"mode": "sandbox", "real": True})
     assert p.status_code == 201, p.text
     return c.post(f"/api/plans/{p.json()['id']}/approve", json={"approved_by": "M"})

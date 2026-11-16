@@ -1,7 +1,7 @@
 // (a) sign up -> pending -> team approves -> describe -> practice launch -> real launch (pretend GoDaddy on this
 // server) -> a customer order through the public shop -> report -> share link opened logged out.
 import { expect, test } from "@playwright/test";
-import { ADMIN_EMAIL, api, approveUser, BASE, describe, launch, me, newSignedIn, setAddress, shopUrl, statusOf, unique } from "./helpers";
+import { ADMIN_EMAIL, api, approveUser, BASE, describe, launch, me, newSignedIn, readyForReal, setAddress, shopUrl, statusOf, unique } from "./helpers";
 
 test("a seller goes from sign-up to a live, proven, shared shop", async ({ browser }) => {
   const sellerCtx = await browser.newContext();
@@ -41,6 +41,16 @@ test("a seller goes from sign-up to a live, proven, shared shop", async ({ brows
   expect((await me(admin)).user.role).toBe("admin");
   await approveUser(admin, email);
   await expect.poll(async () => (await me(seller)).user.status).toBe("approved");
+
+  // Real launch needs the go-live checklist: the Launch page says what's missing and holds the button.
+  await seller.goto(`/#/b/${id}/launch`);
+  await expect(seller.getByText("Before your shop can go live, please finish:")).toBeVisible();
+  await expect(seller.getByRole("button", { name: "Launch for real" })).toBeDisabled();
+  const refused = await api(seller, "POST", `/api/businesses/${id}/plans`, { mode: "sandbox", real: true });
+  expect(refused.status()).toBe(409); // the server decides, not the button
+  await readyForReal(seller, id);
+  await seller.reload();
+  await expect(seller.getByRole("button", { name: "Launch for real" })).toBeEnabled();
 
   // Real launch (on this server GoDaddy is pretend; the shop really is served through Caddy).
   await launch(seller, id, true);

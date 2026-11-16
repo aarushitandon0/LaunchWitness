@@ -131,7 +131,9 @@ def test_old_saved_profiles_still_load():
 
 
 def test_reader_schema_lists_every_profile_field():
-    assert set(PROFILE_SCHEMA["required"]) == set(Profile.model_fields)
+    from app.agents.reader import OWNER_ONLY
+
+    assert set(PROFILE_SCHEMA["required"]) == set(Profile.model_fields) - OWNER_ONLY
     assert set(PROFILE_SCHEMA["properties"]["products"]["items"]["required"]) == set(Product.model_fields)
 
 

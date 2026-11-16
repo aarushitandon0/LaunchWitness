@@ -51,6 +51,8 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/businesses/{business_id}/orders"): OWNER,
     ("POST", "/api/businesses/{business_id}/orders/{order_id}/status"): OWNER,  # S10.5: New → Confirmed → Paid → Done
     ("GET", "/api/businesses/{business_id}/export"): OWNER,
+    ("GET", "/api/businesses/{business_id}/golive"): OWNER,  # S10.5 go-live checklist
+    ("POST", "/api/businesses/{business_id}/confirm"): OWNER,  # owner-confirmed steps; the team gets 404 too
     ("GET", "/api/businesses/{business_id}/names"): OWNER,
     ("POST", "/api/businesses/{business_id}/plans"): OWNER,
     ("GET", "/api/businesses/{business_id}/plans"): OWNER,

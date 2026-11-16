@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from sqlmodel import Session, func, select
 
-from app import accounts, audit
+from app import accounts, audit, golive
 from app.agents.claude_client import FALLBACK_NOTE, Claude, ClaudeBudgetExceeded, make_claude_client
 from app.agents.reader import MAX_IMAGE_BYTES, Profile, ReaderError, read_business
 from app.config import Settings, get_settings
@@ -30,7 +30,7 @@ from app.safety.access import (
 )
 from app.sites.hosts import is_public, site_url, slug_problem
 from app.sites.orders import STATUS_LABELS, STATUS_STEPS, can_move, customer_whatsapp_link, tel_link
-from app.sites.render import render_site
+from app.sites.render import render_site, upi_qr_svg, upi_uri
 from app.tenancy import purge_business
 
 router = APIRouter(prefix="/api", tags=["businesses"])
@@ -241,6 +241,7 @@ def update_business(body: ProfileUpdate, actor: ActorDep, b: Annotated[Business,
     if taken:
         raise HTTPException(status_code=409, detail="That site address is already taken. Please pick another.")
     old_sub = b.subdomain
+    reset = reset_confirmations(b, body.profile)
     b.name = body.profile.name
     b.profile_json = body.profile.model_dump_json()
     b.subdomain = sub
@@ -249,12 +250,108 @@ def update_business(body: ProfileUpdate, actor: ActorDep, b: Annotated[Business,
     session.refresh(b)
     audit.record(session, actor="owner", action="profile_saved", target=f"business:{b.id}", result="ok",
                  business_id=b.id, user_id=actor.user_id, detail=f"subdomain {old_sub} -> {sub}" if old_sub != sub else "")
+    for what in reset:
+        audit.record(session, actor="system", action="confirmation_reset", target=f"business:{b.id}", result="ok",
+                     business_id=b.id, user_id=actor.user_id, detail=f"{what} changed: please check it again")
     return business_out(b, settings, session)
 
 
+def reset_confirmations(b: Business, new: Profile) -> list[str]:
+    """A changed WhatsApp number or UPI ID / name undoes the owner's confirmation of the old one."""
+    out = []
+    if b.wa_confirmed and b.wa_confirmed != new.whatsapp:
+        b.wa_confirmed, b.wa_confirmed_at = "", None
+        out.append("WhatsApp number")
+    if b.upi_confirmed and b.upi_confirmed != golive.upi_key(new):
+        b.upi_confirmed, b.upi_confirmed_at = "", None
+        out.append("UPI ID or name")
+    return out
+
+
+def is_own(session: Session, actor, b: Business) -> bool:
+    """The caller OWNS this shop (not just may see it, as the team may)."""
+    if actor.token_admin:
+        return False
+    if actor.user is not None:
+        return session.exec(select(Membership.id).where(Membership.user_id == actor.user.id,
+                                                        Membership.business_id == b.id)).first() is not None
+    return bool(actor.guest) and b.guest_hash == actor.guest
+
+
+@router.get("/businesses/{business_id}/golive")
+def golive_checklist(b: Annotated[Business, Depends(require_business_access)],
+                     session: Annotated[Session, Depends(get_session)]) -> dict:
+    """What's still needed before a real launch, in plain words, plus the owner's two checks:
+    "Test this number" (a wa.me link to her own number) and the Rs 1 UPI test (her shop's real UPI QR for Rs 1)."""
+    profile = Profile.model_validate_json(b.profile_json)
+    res = golive.out(session, b)
+    res["whatsapp"] = profile.whatsapp
+    res["whatsapp_test_url"] = f"https://wa.me/{profile.whatsapp.lstrip('+')}" if profile.whatsapp else None
+    uri = upi_uri(profile, amount_inr=1) if profile.upi_id else None
+    res["upi_test"] = {"uri": uri, "qr_svg": str(upi_qr_svg(uri)), "name": profile.upi_display_name} if uri else None
+    res["confirmed"] = {"whatsapp_at": iso(b.wa_confirmed_at) if golive.whatsapp_confirmed(b, profile) else None,
+                        "upi_at": iso(b.upi_confirmed_at) if golive.upi_confirmed(b, profile) else None,
+                        "own_goods_at": iso(b.own_goods_at), "terms_at": iso(b.terms_at),
+                        "previewed_at": iso(b.previewed_at)}
+    return res
+
+
+def iso(when) -> str | None:
+    return when.replace(tzinfo=None).isoformat() + "Z" if when else None
+
+
+class Confirmation(BaseModel):
+    what: Literal["whatsapp", "upi", "agreements"]
+    own_goods: bool = False
+    terms: bool = False
+
+
+@router.post("/businesses/{business_id}/confirm")
+def confirm(body: Confirmation, actor: ActorDep, b: Annotated[Business, Depends(require_business_access)],
+            session: Annotated[Session, Depends(get_session)]) -> dict:
+    """The owner's own checks, stored as "confirmed by you" (never "verified"): her WhatsApp number opens her chat;
+    her UPI app shows her name for the shop's UPI ID; she makes/sells these herself and accepts the Terms.
+    Only the shop's owner may confirm: anyone else, the team included, gets 404."""
+    if not is_own(session, actor, b):
+        raise HTTPException(status_code=404, detail="We couldn't find that shop.")
+    profile = Profile.model_validate_json(b.profile_json)
+    now = utcnow()
+    if body.what == "whatsapp":
+        if not profile.whatsapp:
+            raise HTTPException(status_code=422, detail="Please add your WhatsApp number and save first.")
+        b.wa_confirmed, b.wa_confirmed_at = profile.whatsapp, now
+        detail = "WhatsApp number confirmed by the owner (opens her chat)"
+    elif body.what == "upi":
+        if not (profile.upi_id and profile.upi_display_name.strip()):
+            raise HTTPException(status_code=422,
+                                detail="Please add your UPI ID and the name your UPI app shows, and save first.")
+        b.upi_confirmed, b.upi_confirmed_at = golive.upi_key(profile), now
+        detail = "UPI name test: the owner saw the expected name in her own UPI app"
+    else:
+        if not (body.own_goods and body.terms):
+            raise HTTPException(status_code=422, detail="Please tick both boxes.")
+        b.own_goods_at, b.terms_at = now, now
+        detail = "owner: makes/sells these herself and may sell them; accepted the Terms"
+    session.add(b)
+    session.commit()
+    session.refresh(b)
+    audit.record(session, actor=actor.label, action=f"owner_confirmed_{body.what}", target=f"business:{b.id}",
+                 result="ok", business_id=b.id, user_id=actor.user_id, detail=detail)
+    return golive_checklist(b, session)
+
+
 @router.get("/businesses/{business_id}/preview", response_class=HTMLResponse)
-def preview(b: Annotated[Business, Depends(require_business_access)], page: str = "home") -> HTMLResponse:
-    """The owner's private look at their shop (drafts and practice shops are never public)."""
+def preview(b: Annotated[Business, Depends(require_business_access)], actor: ActorDep,
+            session: Annotated[Session, Depends(get_session)], page: str = "home") -> HTMLResponse:
+    """The owner's private look at their shop (drafts and practice shops are never public). The owner's first
+    look is recorded for the go-live checklist (the team looking doesn't count)."""
+    if b.previewed_at is None and is_own(session, actor, b):
+        b.previewed_at = utcnow()
+        session.add(b)
+        session.commit()
+        session.refresh(b)
+        audit.record(session, actor=actor.label, action="preview_opened", target=f"business:{b.id}", result="ok",
+                     business_id=b.id, user_id=actor.user_id, detail="first look (go-live checklist)")
     profile = Profile.model_validate_json(b.profile_json)
     return HTMLResponse(render_site(profile, page="privacy" if page == "privacy" else "home", preview=True),
                         headers={"X-Robots-Tag": "noindex", "Cache-Control": "no-store"})

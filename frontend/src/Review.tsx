@@ -4,26 +4,40 @@ import { api, ApiError, Business, Order, Product, Profile } from "./api";
 import { ErrorBox } from "./Describe";
 import { takeNote } from "./Report";
 import { StepHeader } from "./Steps";
+import { GoLiveCard } from "./GoLive";
 
 type TextKey = {
-  [K in keyof Profile]: Profile[K] extends string ? (K extends "kind" | "not_supported_reason" ? never : K) : never;
+  [K in keyof Profile]: Profile[K] extends string
+    ? K extends "kind" | "not_supported_reason" | "niche" | "delivery_areas"
+      ? never
+      : K
+    : never;
 }[keyof Profile];
 
 const FIELDS: { key: TextKey; label: string; hint?: string; long?: boolean }[] = [
   { key: "name", label: "Business name" },
   { key: "tagline", label: "One line about you", hint: "Shown at the top of your site." },
   { key: "about", label: "About", long: true },
-  { key: "area", label: "Area", hint: "Neighbourhood and city." },
-  { key: "hours", label: "Opening hours" },
+  {
+    key: "area",
+    label: "Area or locality",
+    hint: "Neighbourhood and city, e.g. Baner, Pune. Only this is shown, never your home address: you share the exact pickup address yourself on WhatsApp after you confirm an order.",
+  },
+  { key: "hours", label: "Working days and hours", hint: "e.g. Tue–Sun, 10am–7pm. Closed Mondays." },
   { key: "phone", label: "Phone number" },
-  { key: "whatsapp", label: "WhatsApp number", hint: "Customers use it to reach you: your shop shows a WhatsApp button, and after ordering they can send you the order there." },
+  { key: "whatsapp", label: "WhatsApp number", hint: "An Indian mobile number. Customers use it to reach you: your shop shows a WhatsApp button, and after ordering they can send you the order there." },
+  { key: "instagram", label: "Instagram (optional)", hint: "Just your handle, e.g. @meera.bakes. Shown as a link on your shop." },
   { key: "upi_id", label: "UPI ID", hint: "e.g. yourname@okaxis — we show a QR code customers can scan to pay." },
   {
     key: "upi_display_name",
     label: "Name your UPI app shows",
     hint: "Customers see “Your UPI app should show: …” so they know they're paying the right person.",
   },
-  { key: "fssai_number", label: "Food licence (FSSAI) number", hint: "Optional, 14 digits. Shown at the bottom of your site." },
+  {
+    key: "fssai_number",
+    label: "Food licence (FSSAI) number (optional)",
+    hint: "14 digits. Home food businesses in India generally need FSSAI registration. We only show the number on your site; we don't check it.",
+  },
 ];
 
 const emptyProduct = (category: string): Product => ({
@@ -166,6 +180,33 @@ export default function Review({ id }: { id: number }) {
             <small>0 means free delivery.</small>
           </label>
         )}
+        {profile.delivery_available && (
+          <label className="field">
+            <span>Areas you deliver to</span>
+            <input
+              value={profile.delivery_areas}
+              maxLength={200}
+              placeholder="e.g. Baner, Aundh, Pashan"
+              onChange={(e) => update({ delivery_areas: e.target.value })}
+            />
+          </label>
+        )}
+        {profile.pickup_available && (
+          <p className="muted small">
+            Pickup: customers see only your area ({profile.area || "add it above"}). You send the exact address on
+            WhatsApp once you confirm the order.
+          </p>
+        )}
+        <label className="field">
+          <span>What kind of shop is it?</span>
+          <select value={profile.niche} onChange={(e) => update({ niche: e.target.value as Profile["niche"] })}>
+            <option value="">Not sure</option>
+            <option value="food">Home food (cakes, tiffin, pickles, snacks)</option>
+            <option value="handmade">Handmade goods (candles, crafts, jewellery, hampers)</option>
+            <option value="custom">Custom work (tailoring, embroidery, art)</option>
+          </select>
+          <small>It picks your shop's colours.</small>
+        </label>
         <label className="check">
           <input
             type="checkbox"
@@ -276,6 +317,8 @@ export default function Review({ id }: { id: number }) {
         {savedAt && !dirty && <span className="saved">✅ Saved. Your website is up to date.</span>}
         {dirty && <span className="muted">You have unsaved changes.</span>}
       </div>
+
+      <GoLiveCard businessId={id} version={savedAt ? savedAt.getTime() : 0} />
 
       {orders.length > 0 && (
         <p className="card">

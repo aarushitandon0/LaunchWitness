@@ -127,7 +127,28 @@ def report(b: Annotated[Business, Depends(require_business_access)], actor: Acto
                    "result": e.result, "detail": e.detail} for e in events],
         "admin": admin,
         "demo_fault": b.demo_fault if admin else None,
+        "confirmed_by_you": confirmed_by_you(session, b),
     }
+
+
+def confirmed_by_you(session: Session, b: Business) -> list[dict]:
+    """The owner's own checks (S10.5), shown as their own lines labelled "confirmed by you". They are never
+    counted as, or mixed with, the machine-proven hops above. No numbers or IDs here, only what and when."""
+    from app import golive
+    from app.agents.reader import Profile
+    from app.models import Evidence
+
+    p = Profile.model_validate_json(b.profile_json)
+    got_it = session.exec(select(Evidence).where(Evidence.business_id == b.id, Evidence.step == "owner_confirmed")
+                          .order_by(Evidence.id.desc())).first()
+    return [
+        {"what": "whatsapp", "label": "Your WhatsApp number opens your own chat",
+         "at": iso(b.wa_confirmed_at) if golive.whatsapp_confirmed(b, p) else None},
+        {"what": "upi", "label": "UPI name test: your UPI app showed the right name",
+         "at": iso(b.upi_confirmed_at) if golive.upi_confirmed(b, p) else None},
+        {"what": "got_it", "label": "“Yes, I got it”: the test order email reached you",
+         "at": iso(got_it.at) if got_it else None},
+    ]
 
 
 @router.post("/businesses/{business_id}/checks", status_code=202)

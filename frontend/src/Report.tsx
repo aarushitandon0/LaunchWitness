@@ -339,6 +339,33 @@ export function ReportPage({ businessId }: { businessId: number }) {
         </details>
       )}
 
+      {rep.confirmed_by_you && (
+        <>
+          <h2>Checked by you</h2>
+          <p className="muted small">
+            These are your own checks. They are kept apart from what our machines proved above.
+          </p>
+          <ul className="card confirmed-list">
+            {rep.confirmed_by_you.map((c) => (
+              <li key={c.what} className={c.at ? "ok" : "todo"}>
+                <span className="mark" aria-hidden>
+                  {c.at ? "✓" : "○"}
+                </span>
+                <span>
+                  {c.label}
+                  <br />
+                  <small className="muted">
+                    {c.at
+                      ? `Confirmed by you · ${new Date(c.at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
+                      : "Not confirmed yet"}
+                  </small>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
       {run && !waiting && run.repairs.length > 0 && (
         <>
           <h2>What went wrong, and what we did</h2>

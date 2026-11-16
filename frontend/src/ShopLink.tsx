@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api";
+import { PREVIEWED_EVENT } from "./GoLive";
 
 /**
  * Link to a seller's shop. A public (live, real) shop opens at its own address.
@@ -55,6 +56,7 @@ export function ShopLink({
     setError("");
     try {
       setHtml(await api.preview(businessId));
+      window.dispatchEvent(new Event(PREVIEWED_EVENT)); // the go-live checklist ticks "looked at your preview"
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "We couldn't load the preview. Please try again.");
     } finally {
