@@ -17,8 +17,8 @@ const STEPS: { title: string; text: string; icon: ReactNode }[] = [
     ),
   },
   {
-    title: "Check your website",
-    text: "We turn it into your website. Fix anything we got wrong, then pick a free address or your own name with its real price.",
+    title: "Launch it on GoDaddy",
+    text: "We turn it into your shop. Check the details, then approve the launch: you see every change and the exact cost before anything happens.",
     icon: (
       <svg viewBox="0 0 64 64" className="step-icon" aria-hidden>
         <rect x="8" y="10" width="48" height="40" rx="8" fill="none" stroke="currentColor" strokeWidth="1.6" />
@@ -31,8 +31,8 @@ const STEPS: { title: string; text: string; icon: ReactNode }[] = [
     ),
   },
   {
-    title: "Approve every change",
-    text: "You see every step, every setting we'll change (before and after) and the exact cost. Nothing happens until you say yes.",
+    title: "Prove a real order reaches you",
+    text: "A real test order goes through your shop's own order form, hop by hop: the address, the secure padlock, the form, the mail server, your inbox.",
     icon: (
       <svg viewBox="0 0 64 64" className="step-icon" aria-hidden>
         <rect x="12" y="8" width="40" height="48" rx="8" fill="none" stroke="currentColor" strokeWidth="1.6" />
@@ -43,8 +43,8 @@ const STEPS: { title: string; text: string; icon: ReactNode }[] = [
     ),
   },
   {
-    title: "Get proof it works",
-    text: "We launch it, then prove it: the site opens securely, your email is set up, and a real test order lands in your inbox. Anything broken is repaired or undone.",
+    title: "Keep checking and fixing",
+    text: "After launch we keep checking quietly. If something breaks we explain it in plain words and repair it, or undo it, and tell you.",
     icon: (
       <svg viewBox="0 0 64 64" className="step-icon" aria-hidden>
         <path d="M32 7l20 7v15c0 13-8.5 23-20 28C20.5 52 12 42 12 29V14z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
@@ -61,6 +61,12 @@ const PIECES = [
   ["VPS", "Your shop served from a GoDaddy server"],
   ["HTTPS", "A secure padlock, checked for real"],
   ["Monitoring", "Quiet checks every 15 minutes after launch"],
+];
+
+const WHO = [
+  ["Home food", "Cakes, tiffin, pickles and snacks, made in your kitchen and ordered ahead."],
+  ["Handmade goods", "Candles, crafts, jewellery and gift hampers, made in small batches."],
+  ["Custom work", "Tailoring, embroidery and art commissions, made to each customer's order."],
 ];
 
 const PROMISES = [
@@ -114,19 +120,21 @@ export default function Landing() {
               transition={{ duration: 0.7, delay: 0.45, ease: EASE }}
             >
               <p>
-                Website builders stop at “your site is ready”. LaunchWitness proves it can take a customer’s order —
-                a real test order has to land in your inbox — fixes it when it can’t, and keeps watching after launch.
-                No website yet? Type a few lines and your price list and we build one too.
+                Describe your business. LaunchWitness puts it online on GoDaddy, proves a real order reaches you, fixes
+                what breaks, and keeps checking.
               </p>
               <div className="hero-meta">
                 <a className="btn btn-primary" href="#/try">
-                  Try it (practice mode)
+                  Start
                 </a>
-                <a className="dotlink" href="/build">
-                  How this was built
+                <a className="dotlink" href="/demo/meera">
+                  See a demo shop
                 </a>
               </div>
-              <p className="small">Practice mode uses a pretend GoDaddy: nothing is bought and no real settings change.</p>
+              <p className="small">
+                Just looking? You can try it without an account, in practice mode: nothing is bought and nothing goes on
+                the internet.
+              </p>
             </motion.div>
           </div>
           <motion.div className="hero-dim" style={{ opacity: dim }} aria-hidden />
@@ -137,9 +145,9 @@ export default function Landing() {
 
         <section className="dark on-dark" id="how" ref={darkRef} aria-labelledby="how-title">
           <div className="wrap">
-            <SectionHead id="how-title" title="How it works" label="/ 4 steps · about 10 minutes">
-              The point is the proof: a real test order reaching your inbox, plain-English fixes when something breaks,
-              and a check-in every 15 minutes after launch. Building the site is the easy part.
+            <SectionHead id="how-title" title="How it works" label="/ describe · launch · prove · keep checking">
+              Building the page is the easy part. The point is the proof: a real test order that reaches you, plain-English
+              fixes when something breaks, and quiet checks after launch.
             </SectionHead>
             <Steps />
           </div>
@@ -180,21 +188,34 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="closing" id="contact" aria-labelledby="meera-title">
+      <section className="closing" id="contact" aria-labelledby="who-title">
         <div className="wrap closing-grid">
           <Reveal>
             <p className="eyebrow">Who it's for</p>
-            <h2 id="meera-title">Meera bakes eggless cakes in Pune.</h2>
+            <h2 id="who-title">Home-based, made-to-order sellers.</h2>
             <p className="tagline">
-              Her customers find her on Instagram and order in messages, but she has no website, no business email, and
-              no time to learn what “DNS” means. LaunchWitness turns her two lines and a price list into a live shop with
-              her own name and email, and checks that a real order reaches her inbox before her first customer does.
+              You take orders on Instagram and WhatsApp, and you'd like a proper shop page customers can order from,
+              without learning how websites work.
             </p>
+            <ul className="who-groups">
+              {WHO.map(([title, text]) => (
+                <li key={title}>
+                  <strong>{title}</strong>
+                  <span>{text}</span>
+                </li>
+              ))}
+            </ul>
             <div className="actions">
               <a className="btn btn-primary" href="#/try">
                 Try it yourself
               </a>
+              <a className="btn btn-ghost" href="/demo/meera">
+                See a demo shop
+              </a>
             </div>
+            <p className="small demo-others">
+              More demo shops: <a href="/demo/imran">a tailor in Lucknow</a> · <a href="/demo/sunita">a tiffin service in Bengaluru</a>
+            </p>
           </Reveal>
           <Reveal delay={0.1}>
             <p className="eyebrow">Contact us</p>

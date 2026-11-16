@@ -208,6 +208,7 @@
 </head>
 <body>
 {% if preview %}<div role="note" style="background:#1f2937;color:#fff;text-align:center;padding:8px 12px;font-size:14px">Preview: only you can see this page. It isn't public.</div>{% endif %}
+{% if demo %}<div role="note" class="demo-banner" style="background:#7c2d12;color:#fff;text-align:center;padding:8px 12px;font-size:14px"><strong>Demo shop: orders here are not real.</strong> A sample made by LaunchWitness. <a href="/" style="color:#fff;text-decoration:underline">Back to LaunchWitness</a></div>{% endif %}
 {%- macro icon(name) -%}
 {%- if name == "pin" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.1-7-11.5a7 7 0 0 1 14 0C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
 {%- elif name == "clock" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
@@ -239,11 +240,11 @@
 
 <header class="bar">
   <div class="wrap">
-    <a class="brand" href="/"><span class="mono" aria-hidden="true">{{ monogram }}</span><span>{{ p.name }}</span></a>
+    <a class="brand" href="{{ base }}/"><span class="mono" aria-hidden="true">{{ monogram }}</span><span>{{ p.name }}</span></a>
     {% if page == "home" %}
     <nav class="links" aria-label="Sections"><a href="#menu">Menu</a>{% if p.about %}<a href="#about">About</a>{% endif %}<a href="#info">Contact</a></nav>
     <a class="btn btn-primary btn-sm" href="#order">Order</a>
-    {% else %}<a class="btn btn-line btn-sm" href="/">Back to the shop</a>{% endif %}
+    {% else %}<a class="btn btn-line btn-sm" href="{{ base }}/">Back to the shop</a>{% endif %}
   </div>
 </header>
 
@@ -267,7 +268,7 @@
     </div>
   </div>
 
-  <form class="layout" method="post" action="/order" id="order-form">
+  <form class="layout" method="post" action="{{ base }}/order" id="order-form">
     <div>
       <section id="menu" aria-labelledby="menu-h">
         <h2 class="section-h" id="menu-h">Menu</h2>
@@ -372,8 +373,9 @@
       </div>
       <div class="hp" aria-hidden="true"><label for="website">Leave empty</label><input id="website" name="website" tabindex="-1" autocomplete="off"></div>
       <input type="hidden" name="order_token" value="{{ order_token }}">
-      <p class="hint">We use these details only to handle your order. <a href="/privacy">Privacy</a></p>
+      <p class="hint">We use these details only to handle your order. <a href="{{ base }}/privacy">Privacy</a></p>
       {% if preview %}<p class="hint" role="note">This is a preview. Customers can order once your shop is live.</p>{% endif %}
+      {% if demo %}<p class="hint" role="note">This is a demo shop: sending this form places no order.</p>{% endif %}
       <button class="btn btn-primary btn-block" type="submit"{% if preview %} disabled{% endif %}>Send order</button>
     </aside>
   </form>
@@ -385,8 +387,10 @@
   <div class="hero" style="grid-template-columns:1fr">
     <span class="done-mark" style="grid-column:1">{{ icon("check") }}</span>
     <div style="grid-column:1">
-      <h1>Thank you{% if order %}, {{ order.customer_name }}{% endif %}!</h1>
-      <p class="tagline">{{ p.name }} has your order and will contact you soon to confirm it.</p>
+      {% if demo %}<h1>This is a demo</h1>
+      <p class="tagline" role="status">This is a demo shop, so no order was placed and nobody was contacted. On a real shop, the order would reach the seller's inbox and you would get an order reference here.</p>
+      {% else %}<h1>Thank you{% if order %}, {{ order.customer_name }}{% endif %}!</h1>
+      <p class="tagline">{{ p.name }} has your order and will contact you soon to confirm it.</p>{% endif %}
       {% if order and order.ref %}<p class="hint">Your order reference: <strong>{{ order.ref }}</strong></p>{% endif %}
     </div>
   </div>
@@ -399,7 +403,7 @@
     {% if order["items"] %}<div class="total"><span>Estimated total</span><span>{{ order.total_inr | inr }}</span></div>{% endif %}
     {% if order.note %}<p class="hint">Your note: {{ order.note }}</p>{% endif %}
     <p class="hint">The final amount{% if p.delivery_available %} (for example delivery){% endif %} is confirmed by the shop.</p>
-    <div class="cta">{% if order_whatsapp_url %}<a class="btn btn-wa" href="{{ order_whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}Send this order to the shop</a>{% elif whatsapp_url %}<a class="btn btn-wa" href="{{ whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}Message on WhatsApp</a>{% endif %}<a class="btn btn-line" href="/">Back to the shop</a></div>
+    <div class="cta">{% if order_whatsapp_url %}<a class="btn btn-wa" href="{{ order_whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}Send this order to the shop</a>{% elif whatsapp_url %}<a class="btn btn-wa" href="{{ whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}Message on WhatsApp</a>{% endif %}<a class="btn btn-line" href="{{ base }}/">Back to the shop</a></div>
   </section>
   {% endif %}
   <div style="height:40px"></div>
@@ -422,7 +426,7 @@
 <footer>
   <div class="wrap">
     <span>© {{ p.name }}{% if p.area %} · {{ p.area }}{% endif %}{% if p.fssai_number %} · FSSAI licence no. {{ p.fssai_number }}{% endif %}</span>
-    <span><a href="/privacy">Privacy</a>{% if not preview %} · <a href="/report-shop" rel="nofollow">Report this shop</a>{% endif %} · Site by LaunchWitness</span>
+    <span><a href="{{ base }}/privacy">Privacy</a>{% if not preview and not demo %} · <a href="/report-shop" rel="nofollow">Report this shop</a>{% endif %} · Site by LaunchWitness</span>
   </div>
 </footer>
 {% if page == "home" %}
