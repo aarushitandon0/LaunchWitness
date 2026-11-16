@@ -65,7 +65,7 @@ export default function Describe() {
             rows={6}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Hi, I'm Meera. I bake eggless cakes at home in Baner, Pune…"
+            placeholder="I make … at home in (area, city). Customers order on Instagram and WhatsApp, at least … days ahead…"
             maxLength={4000}
           />
         </label>

@@ -1,7 +1,7 @@
 """One guard in front of every request.
 
 1. **Shop hosts serve shop pages only.** `<name>.<APP_DOMAIN>` never answers /api, /internal,
-   /assets, /build or /r: the app's API simply doesn't exist there. (The session cookie is
+   /assets, /build, /r or /demo: the app's API simply doesn't exist there. (The session cookie is
    host-only and isn't sent to shop hosts anyway; this is a second wall.)
 2. **Origin check.** A state-changing /api request must come from the app's own origin
    (`Origin`, or else `Referer`). A request with neither is allowed only when it carries no
@@ -21,7 +21,7 @@ from app.safety.access import csrf_for
 from app.sites.hosts import normalize_host, subdomain_label
 
 UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
-APP_ONLY = ("/api/", "/internal/", "/assets/", "/build", "/r/")
+APP_ONLY = ("/api/", "/internal/", "/assets/", "/build", "/r/", "/demo/")
 STALE = "This page is out of date. Please refresh it and try again."
 
 

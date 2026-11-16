@@ -115,7 +115,7 @@ function TopBar({ page }: { page: Route["page"] }) {
             Team
           </a>
         )}
-        <a href="/build">Build log</a>
+        <a href="/demo/meera">See a demo shop</a>
         {page === "home" && <a href="#contact">Contact</a>}
       </nav>
       <div className="topbar-end">

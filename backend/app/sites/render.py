@@ -116,9 +116,11 @@ def area_is_repeated(profile: Profile) -> bool:
 
 
 def render_site(profile: Profile, *, page: str = "home", order: dict | None = None, form_error: str = "",
-                form_values: dict | None = None, preview: bool = False, shop: str = "") -> str:
+                form_values: dict | None = None, preview: bool = False, shop: str = "", demo: bool = False,
+                base: str = "") -> str:
     """page: 'home' | 'privacy' | 'thanks'. preview=True: the owner's private look at a shop that
-    isn't public (banner on top, the order button is off)."""
+    isn't public (banner on top, the order button is off). demo=True: a sample shop served by the app at
+    `base` (e.g. /demo/meera), labelled as a demo; its form places no order."""
     uri = upi_uri(profile)
     return _env.get_template("seller.html").render(
         p=profile,
@@ -138,4 +140,6 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
         order_token=(form_values or {}).get("order_token") or secrets.token_urlsafe(16),
         preview=preview,
         shop=shop,  # printed as <meta name="lw-shop">: the HTTPS check looks for it
+        demo=demo,
+        base=base,  # prefix for the shop's own links ("" on a shop host)
     )

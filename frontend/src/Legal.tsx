@@ -144,7 +144,7 @@ export function TermsPage() {
 export function LegalLinks() {
   return (
     <span className="legal-links">
-      <a href="#/privacy">Privacy</a> · <a href="#/terms">Terms</a>
+      <a href="#/privacy">Privacy</a> · <a href="#/terms">Terms</a> · <a href="/build">How this was built</a>
     </span>
   );
 }

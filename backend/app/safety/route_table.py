@@ -28,6 +28,10 @@ ROUTES: dict[tuple[str, str], str] = {
     # --- public shop pages (served on shop hosts only) ---
     ("POST", "/order"): PUBLIC,
     ("POST", "/report-shop"): PUBLIC,
+    # --- demo shops (S10.5): sample profiles, no database row, the form places no order ---
+    ("GET", "/demo/{name}"): PUBLIC,
+    ("GET", "/demo/{name}/privacy"): PUBLIC,
+    ("POST", "/demo/{name}/order"): PUBLIC,
     # --- sign-in ---
     ("POST", "/api/auth/request-link"): PUBLIC,
     ("POST", "/api/auth/confirm"): PUBLIC,
