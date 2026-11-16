@@ -437,7 +437,7 @@ export const api = {
   // ---- account ----
   me: () => session.me(true),
   requestLink: (email: string, next?: string) =>
-    request<{ ok: boolean; message: string; dev_link?: string }>("/api/auth/request-link", json({ email, next: next ?? null })),
+    request<{ ok: boolean; message: string; dev_link?: string; mail_delayed?: boolean }>("/api/auth/request-link", json({ email, next: next ?? null })),
   confirm: async (token: string) => {
     const m = await request<Me>("/api/auth/confirm", json({ token }));
     session.set(m);
@@ -532,12 +532,20 @@ export const api = {
     reports: () => request<ShopReportRow[]>("/api/admin/reports"),
     closeReport: (id: number, reason: string) => request<{ ok: boolean }>(`/api/admin/reports/${id}/close`, json({ reason })),
     zoneFindings: () => request<ZoneFinding[]>("/api/admin/zone-findings"),
+    outbox: () => request<OutboxSummary>("/api/admin/outbox"),
     zoneCheck: () => request<{ open: ZoneFinding[] }>("/api/admin/zone-check", { method: "POST" }),
     zoneApprove: (id: number) => request<ZoneFinding>(`/api/admin/zone-findings/${id}/approve`, { method: "POST" }),
     zoneDismiss: (id: number) => request<ZoneFinding>(`/api/admin/zone-findings/${id}/dismiss`, { method: "POST" }),
   },
   setDemoFault: (id: number, fault: DemoFaultName) =>
     request<{ ok: boolean; demo_fault: string }>(`/api/admin/businesses/${id}/demo-fault`, json({ fault }, "PUT")),
+};
+
+export type OutboxSummary = {
+  counts: Record<"queued" | "sending" | "sent" | "failed" | "dead", number>;
+  sent_today: number;
+  daily_limit: number;
+  recent_errors: { id: number; kind: string; status: string; attempts: number; error: string; at: string }[];
 };
 
 export const inr = (n: number) => "₹" + new Intl.NumberFormat("en-IN").format(n);

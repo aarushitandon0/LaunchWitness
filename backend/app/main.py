@@ -33,6 +33,34 @@ BUILD_COMING_SOON = """<!doctype html><meta charset="utf-8"><meta name="viewport
 on this page shortly.</p><p><a href="/">← Back to LaunchWitness</a></p></body>"""
 
 
+def mailer_for(channel: str):
+    """The outbox's sender job: practice mail goes to the pretend world, everything else to the real mail server."""
+    from app.integrations import get_practice_integrations
+    from app.mail.smtp import get_mailer
+
+    return get_practice_integrations().mailer if channel == "practice" else get_mailer()
+
+
+def start_mail_sender(settings: Settings):
+    """MONITOR_ENABLED=false still needs the outbox's sender job (S13): saved emails must go out."""
+    from apscheduler.schedulers.background import BackgroundScheduler
+
+    from app import outbox
+    from app.db import get_engine
+    from app.monitor.scheduler import OUTBOX_SECONDS
+
+    scheduler = BackgroundScheduler(timezone="UTC")
+    scheduler.add_job(lambda: outbox.run_once(get_engine(), settings, mailer_for), "interval", seconds=OUTBOX_SECONDS,
+                      id="outbox_send", replace_existing=True, max_instances=1, coalesce=True)
+    scheduler.start()
+
+    class _Stop:
+        def shutdown(self):
+            scheduler.shutdown(wait=False)
+
+    return _Stop()
+
+
 def start_monitor(settings: Settings):
     """Light monitoring (SPEC §7). Off with MONITOR_ENABLED=false; tests never run this."""
     from app.agents.claude_client import make_claude_client
@@ -43,7 +71,7 @@ def start_monitor(settings: Settings):
     engine = get_engine()
     claude = make_claude_client(settings, engine if settings.claude_mode == "live" else None)
     monitor = Monitor(engine, settings, lambda b: for_business(b, get_integrations(), get_practice_integrations()),
-                      claude, team=get_integrations())
+                      claude, team=get_integrations(), mailer_for=mailer_for)
     monitor.start()
     from app.tenancy import purge_old_guest_shops
 
@@ -78,7 +106,7 @@ async def lifespan(_app: FastAPI):
     for w in warnings(settings):  # startup self-check: wrong-for-production settings, never a secret
         logging.getLogger("launchwitness").warning("self-check [%s]: %s", w.code, w.text)
     purge_old_guest_shops(get_engine(), settings, get_practice_integrations())
-    monitor = start_monitor(settings) if settings.monitor_enabled else None
+    monitor = start_monitor(settings) if settings.monitor_enabled else start_mail_sender(settings)
     yield
     if monitor is not None:
         monitor.shutdown()

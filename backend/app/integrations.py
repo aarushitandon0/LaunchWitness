@@ -29,7 +29,8 @@ class DeliveringFakeMailer(FakeMailer):
         super().__init__()
         self.inbox, self.sender, self.drop = inbox, sender, False
 
-    def send(self, *, to: str, subject: str, body: str, html: str | None = None) -> str:
+    def send(self, *, to: str, subject: str, body: str, html: str | None = None, message_id: str | None = None,
+             timeout: float | None = None) -> str:
         message_id = super().send(to=to, subject=subject, body=body, html=html)
         if not self.drop:
             self.inbox.deliver(sender=self.sender, to=to, subject=subject, body=body)

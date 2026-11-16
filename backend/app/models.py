@@ -217,7 +217,7 @@ class Order(SQLModel, table=True):
     nonce: str = ""  # test orders: random code in the email subject + body, so an old email can never pass
     visitor: str = Field(default="", index=True)  # hashed client IP (order rate limit); never the IP itself
     client_token: str = Field(default="", index=True)  # hidden form field: a double submit makes one order
-    email_status: str = "pending"  # pending | sent | failed
+    email_status: str = "pending"  # S13: queued | sent | retrying | failed (from its Outbox row); "pending" = older rows
     email_message_id: str = ""
     # S10.5: the owner's own progress on the order (sites/orders.py STATUS_STEPS). Only the owner sets it.
     status: str = Field(default="new", index=True)  # new | confirmed | paid | done | cancelled
@@ -357,3 +357,33 @@ class Photo(SQLModel, table=True):
     large_h: int
     alt: str = Field(default="", max_length=200)
     created_at: datetime = Field(default_factory=utcnow)
+
+
+class Outbox(SQLModel, table=True):
+    """S13: every email the app sends. Saved first, then sent (now, or later by the sender job), so a slow or
+    down mail server never loses a sign-in link, an order or an alert. `key` is unique: the same order or alert is
+    never queued (or sent) twice. `last_error` holds an error KIND and SMTP code only, never a secret or a body."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    key: str = Field(unique=True, index=True)  # idempotency key, e.g. "order:12", "login:7", "alert:3:check_failed:https:0"
+    kind: str = Field(index=True)  # login | order | test_order | alert | team | watch | contact | digest
+    priority: int = 1  # 0 = sign-in links + orders (never held), 1 = alerts + team mail, 2 = test orders + digest
+    channel: str = "smtp"  # smtp (the real mail server) | practice (the pretend world: never leaves the server)
+    to_addr: str
+    subject: str
+    body: str = ""  # sign-in links: emptied once sent or dropped (the link is a key to the account)
+    html: str = ""
+    business_id: int | None = Field(default=None, index=True)
+    order_id: int | None = Field(default=None, index=True)
+    user_id: int | None = None
+    ref_json: str = "{}"  # what to update when it's sent (alert key, watched problems, audit names)
+    status: str = Field(default="queued", index=True)  # queued | sending | sent | failed (will retry) | dead
+    attempts: int = 0
+    next_try_at: datetime = Field(default_factory=utcnow, index=True)
+    expires_at: datetime | None = None  # sign-in links / test orders: not sent after this (it would arrive useless)
+    claimed_at: datetime | None = None
+    last_error: str = ""
+    message_id: str = ""  # the Message-ID the mail server accepted
+    sent_at: datetime | None = Field(default=None, index=True)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)

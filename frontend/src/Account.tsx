@@ -33,7 +33,7 @@ const asError = (e: unknown) => (e instanceof ApiError ? e : new ApiError(String
 export function SignInPage() {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
-  const [sent, setSent] = useState<{ message: string; dev_link?: string } | null>(null);
+  const [sent, setSent] = useState<{ message: string; dev_link?: string; mail_delayed?: boolean } | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const next = hashParams().get("next");
 
@@ -54,8 +54,12 @@ export function SignInPage() {
     return (
       <>
         <p className="eyebrow">Sign in</p>
-        <h1>Check your email</h1>
-        <p className="tagline">{sent.message}</p>
+        <h1>{sent.mail_delayed ? "Your email is on its way, slowly" : "Check your email"}</h1>
+        {sent.mail_delayed ? (
+          <p className="status status-info" role="status">{sent.message}</p>
+        ) : (
+          <p className="tagline">{sent.message}</p>
+        )}
         <p className="muted">Open the email on this phone or computer and tap “Sign in”. No password needed.</p>
         {sent.dev_link && (
           <section className="card" role="note">

@@ -78,6 +78,8 @@ ROUTES: dict[tuple[str, str], str] = {
     # --- team ---
     ("GET", "/api/admin/check"): ADMIN,
     ("GET", "/api/admin/users"): ADMIN,
+    ("GET", "/api/admin/outbox"): ADMIN,
+    ("PUT", "/api/admin/practice-mail"): ADMIN,
     ("POST", "/api/admin/users/{user_id}/approve"): ADMIN,
     ("POST", "/api/admin/users/{user_id}/reject"): ADMIN,
     ("POST", "/api/admin/users/{user_id}/suspend"): ADMIN,

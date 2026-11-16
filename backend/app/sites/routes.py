@@ -146,9 +146,11 @@ async def submit_order(
         return HTMLResponse(PAUSED, status_code=503)
     form = {k: v for k, v in (await request.form()).items() if isinstance(v, str)}
     # The mailer is chosen per business: a practice shop can never reach the real mail server.
-    mailer = for_business(business, server, practice).mailer
-    status, html = accept_order_form(session, settings, mailer, business=business, profile=profile, form=form,
-                                     visitor=visitor_id(request))
+    from app.outbox import channel_of
+
+    integ = for_business(business, server, practice)
+    status, html = accept_order_form(session, settings, integ.mailer, business=business, profile=profile, form=form,
+                                     visitor=visitor_id(request), channel=channel_of(integ))
     return HTMLResponse(html, status_code=status)
 
 

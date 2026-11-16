@@ -147,6 +147,7 @@ def test_symptom_reaches_the_doctor_as_data(client, engine, monkeypatch):
     assert r.status_code == 202, r.text
     c = check_of(report(client, biz), "site_points")
     import json as _json
+
     from app.agents.claude_client import FIXTURE_DIR
     last = sorted(FIXTURE_DIR.glob("investigate_site_points_symptom_t*.json"))[-1]
     # the symptom conversation (its own saved fixture, not the plain one) was used

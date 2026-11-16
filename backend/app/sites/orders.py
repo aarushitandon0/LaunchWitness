@@ -181,13 +181,18 @@ def order_view(order: Order) -> dict:
 
 def place_order(session: Session, mailer: Mailer, settings: Settings, *, business: Business, profile: Profile,
                 data: dict, is_test: bool = False, nonce: str = "", visitor: str = "", token: str = "",
-                confirm_url: str = "") -> Order:
-    """Store the order, then email it to `order_recipients`. The launch check's test order and a
-    customer's order both come through here, so a passing test order proves the real path."""
+                confirm_url: str = "", channel: str = "smtp") -> Order:
+    """Store the order, then email it to `order_recipients` through the outbox. The launch check's test order and
+    a customer's order both come through here, so a passing test order proves the real path.
+
+    S13: the order is saved first and its email queued; the outbox tries it at once and keeps retrying if the
+    mail server is slow or down, so a customer's order is never lost. `email_status` follows the outbox row."""
+    from app import outbox
+
     order = Order(business_id=business.id, customer_name=data["customer_name"], customer_phone=data["customer_phone"],
                   items_json=json.dumps(data["items"], ensure_ascii=False), total_inr=data["total_inr"],
                   note=data["note"], is_test=is_test, nonce=nonce, visitor=visitor, ref=new_ref(),
-                  client_token=token if TOKEN.match(token) else "")
+                  client_token=token if TOKEN.match(token) else "", email_status="queued")
     session.add(order)
     session.commit()
     session.refresh(order)
@@ -197,23 +202,18 @@ def place_order(session: Session, mailer: Mailer, settings: Settings, *, busines
     recipients = order_recipients(session, settings, business)
     orders_url = f"{settings.app_base_url.rstrip('/')}/#/b/{business.id}/orders"
     subject, body = order_email(business, profile, order, data["items"], confirm_url, orders_url)
-    try:
-        order.email_message_id = mailer.send(to=", ".join(recipients), subject=subject, body=body)
-        order.email_status = "sent"
-        result, detail = "ok", f"to {len(recipients)} address(es), {order.email_message_id}"
-    except Exception as e:  # keep the order even if the mail server is down
-        order.email_status = "failed"
-        result, detail = "failed", type(e).__name__
-    session.add(order)
-    session.commit()
+    kind = "test_order" if is_test else "order"
+    outbox.send(session, settings, mailer, kind=kind, key=f"order:{order.id}", to=", ".join(recipients),
+                subject=subject, body=body, channel=channel, business_id=business.id, order_id=order.id,
+                # a test order that can't go out soon is useless (the next check sends a new one)
+                expires_at=utcnow() + timedelta(minutes=30) if is_test else None,
+                ref={"audit": {"actor": "system", "action": "order_email", "target": f"order:{order.id}"}})
     session.refresh(order)
-    audit.record(session, actor="system", action="order_email", target=f"order:{order.id}", result=result,
-                 business_id=business.id, detail=detail)
     return order
 
 
 def accept_order_form(session: Session, settings: Settings, mailer: Mailer, *, business: Business, profile: Profile,
-                      form: dict[str, str], visitor: str) -> tuple[int, str]:
+                      form: dict[str, str], visitor: str, channel: str = "smtp") -> tuple[int, str]:
     """What the shop's order form does with a POST: (HTTP status, page HTML). The public route and the
     checker's practice test order both come through here, so the test order exercises the real path.
 
@@ -237,11 +237,11 @@ def accept_order_form(session: Session, settings: Settings, mailer: Mailer, *, b
         except TooManyOrders:
             return 429, render_site(profile, form_error=TOO_MANY, form_values=form)
         order = place_order(session, mailer, settings, business=business, profile=profile, data=data, visitor=visitor,
-                            token=token)
+                            token=token, channel=channel)
     else:
         confirm_url = proof.issue_confirm_link(session, settings, ticket)
         order = place_order(session, mailer, settings, business=business, profile=profile, data=data, is_test=True,
-                            nonce=ticket.nonce, visitor="", token=token, confirm_url=confirm_url)
+                            nonce=ticket.nonce, visitor="", token=token, confirm_url=confirm_url, channel=channel)
         proof.ticket_used(session, ticket, order)
     return 200, render_site(profile, page="thanks", order=order_view(order))
 

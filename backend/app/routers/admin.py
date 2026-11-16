@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 from app import accounts, audit
 from app.config import Settings, get_settings
 from app.db import get_session
-from app.integrations import Integrations, get_integrations
+from app.integrations import Integrations, get_integrations, get_practice_integrations
 from app.mail.smtp import Mailer, get_mailer
 from app.models import Business, Membership, ShopReport, User
 from app.safety.access import Actor, require_admin
@@ -32,16 +32,19 @@ def user_out(session: Session, u: User) -> dict:
             "created_at": iso(u.created_at), "last_login_at": iso(u.last_login_at), "shops": list(shops)}
 
 
-def tell(mailer: Mailer, session: Session, user: User, subject: str, body: str) -> bool:
-    """Email the user about a decision. A mail failure never undoes the decision; it is logged."""
-    try:
-        mailer.send(to=user.email, subject=subject, body=body + "\n\n- LaunchWitness")
-        return True
-    except Exception as e:
-        log.warning("could not email a decision: %s", type(e).__name__)
-        audit.record(session, actor="system", action="decision_email", target=f"user:{user.id}", result="failed",
-                     detail=type(e).__name__)
-        return False
+def tell(settings: Settings, mailer: Mailer, session: Session, user: User, subject: str, body: str) -> bool:
+    """Email the user about a decision, through the outbox (kept and retried if the mail server is down).
+    A mail failure never undoes the decision. True if it went out now."""
+    import secrets
+
+    from app import outbox
+
+    row = outbox.send(session, settings, mailer, kind="team", key=f"decision:{user.id}:{secrets.token_hex(8)}",
+                      to=user.email, subject=subject, body=body + "\n\n- LaunchWitness", user_id=user.id,
+                      ref={"audit": {"actor": "system", "action": "decision_email", "target": f"user:{user.id}"}})
+    if row.status != "sent":
+        log.warning("could not email a decision at once: %s", row.last_error)
+    return row.status == "sent"
 
 
 def get_user(session: Session, user_id: int) -> User:
@@ -80,7 +83,7 @@ def approve_user(user_id: int, admin: AdminDep, settings: Annotated[Settings, De
     session.add(u)
     session.commit()
     audit.record(session, actor="admin", action="user_approved", target=f"user:{u.id}", result="ok", user_id=admin.user_id)
-    emailed = tell(mailer, session, u, "You're approved on LaunchWitness",
+    emailed = tell(settings, mailer, session, u, "You're approved on LaunchWitness",
                    "Good news: your LaunchWitness account is approved. You can now launch your shop for real.\n\n"
                    f"Sign in here: {settings.app_base_url.rstrip('/')}/#/signin")
     return {**user_out(session, u), "emailed": emailed}
@@ -101,7 +104,8 @@ def _suspend(session: Session, u: User, reason: str) -> int:
 
 
 @router.post("/users/{user_id}/reject")
-def reject_user(user_id: int, body: Reason, admin: AdminDep, session: Annotated[Session, Depends(get_session)],
+def reject_user(user_id: int, body: Reason, admin: AdminDep, settings: Annotated[Settings, Depends(get_settings)],
+                session: Annotated[Session, Depends(get_session)],
                 mailer: Annotated[Mailer, Depends(get_mailer)]) -> dict:
     """Turn down a sign-up: the account can't sign in; the user gets the reason by email."""
     u = get_user(session, user_id)
@@ -110,7 +114,7 @@ def reject_user(user_id: int, body: Reason, admin: AdminDep, session: Annotated[
     _suspend(session, u, body.reason)
     audit.record(session, actor="admin", action="user_rejected", target=f"user:{u.id}", result="ok",
                  user_id=admin.user_id, detail=body.reason)
-    emailed = tell(mailer, session, u, "About your LaunchWitness sign-up",
+    emailed = tell(settings, mailer, session, u, "About your LaunchWitness sign-up",
                    "Thank you for signing up. We can't approve your account right now."
                    + (f"\n\nReason: {body.reason.strip()}" if body.reason.strip() else "")
                    + "\n\nIf you think this is a mistake, reply through the contact form on our home page.")
@@ -118,7 +122,8 @@ def reject_user(user_id: int, body: Reason, admin: AdminDep, session: Annotated[
 
 
 @router.post("/users/{user_id}/suspend")
-def suspend_user(user_id: int, body: Reason, admin: AdminDep, session: Annotated[Session, Depends(get_session)],
+def suspend_user(user_id: int, body: Reason, admin: AdminDep, settings: Annotated[Settings, Depends(get_settings)],
+                 session: Annotated[Session, Depends(get_session)],
                  mailer: Annotated[Mailer, Depends(get_mailer)]) -> dict:
     """Suspended users can't sign in, every session ends at once, and their shops are paused."""
     u = get_user(session, user_id)
@@ -127,7 +132,7 @@ def suspend_user(user_id: int, body: Reason, admin: AdminDep, session: Annotated
     paused = _suspend(session, u, body.reason)
     audit.record(session, actor="admin", action="user_suspended", target=f"user:{u.id}", result="ok",
                  user_id=admin.user_id, detail=f"{body.reason} ({paused} shop(s) paused)")
-    emailed = tell(mailer, session, u, "Your LaunchWitness account is suspended",
+    emailed = tell(settings, mailer, session, u, "Your LaunchWitness account is suspended",
                    "Your LaunchWitness account has been suspended and your shops are paused."
                    + (f"\n\nReason: {body.reason.strip()}" if body.reason.strip() else "")
                    + "\n\nIf you think this is a mistake, reply through the contact form on our home page.")
@@ -270,3 +275,32 @@ def zone_dismiss(finding_id: int, admin: AdminDep, session: Annotated[Session, D
         return finding_out(dismiss(session.get_bind(), finding_id, admin.user.email if admin.user else "admin token"))
     except LookupError as e:
         raise HTTPException(status_code=404, detail="That finding isn't open any more.") from e
+
+
+# ---------- S13: the email outbox ----------
+
+@router.get("/outbox")
+def outbox_summary(admin: AdminDep, settings: Annotated[Settings, Depends(get_settings)],
+                   session: Annotated[Session, Depends(get_session)]) -> dict:
+    """Counts by status and the last errors (kind, tries, error kind). No bodies, no addresses, no customer data."""
+    from app import outbox
+
+    return outbox.summary(session, settings)
+
+
+class PracticeMail(BaseModel):
+    down: bool
+
+
+@router.put("/practice-mail")
+def practice_mail(body: PracticeMail, admin: AdminDep, session: Annotated[Session, Depends(get_session)],
+                  practice: Annotated[Integrations, Depends(get_practice_integrations)]) -> dict:
+    """Practice only: make the PRETEND mail server refuse (or accept again), to show an order kept while email is
+    down. It can't touch the real mail server: it only exists in the pretend world."""
+    mailer = practice.mailer
+    if not practice.fake or not hasattr(mailer, "fail"):
+        raise HTTPException(status_code=409, detail="This only works on the pretend mail server.")
+    mailer.fail = body.down
+    audit.record(session, actor="admin", action="practice_mail", target="pretend mail server", result="ok",
+                 user_id=admin.user_id, detail="down" if body.down else "up")
+    return {"down": mailer.fail, "practice": True}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AdminShop, AdminUser, api, ApiError, ShopReportRow, ZoneFinding } from "./api";
+import { AdminShop, AdminUser, api, ApiError, OutboxSummary, ShopReportRow, ZoneFinding } from "./api";
 import { useMe } from "./Account";
 import { ErrorBox } from "./Describe";
 
@@ -18,16 +18,18 @@ export function AdminPage() {
   const [shops, setShops] = useState<AdminShop[] | null>(null);
   const [reports, setReports] = useState<ShopReportRow[] | null>(null);
   const [zone, setZone] = useState<ZoneFinding[] | null>(null);
+  const [mail, setMail] = useState<OutboxSummary | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
-    Promise.all([api.admin.users(), api.admin.shops(), api.admin.reports(), api.admin.zoneFindings()])
-      .then(([u, s, r, z]) => {
+    Promise.all([api.admin.users(), api.admin.shops(), api.admin.reports(), api.admin.zoneFindings(), api.admin.outbox()])
+      .then(([u, s, r, z, m]) => {
         setUsers(u);
         setShops(s);
         setReports(r);
         setZone(z);
+        setMail(m);
       })
       .catch(setError);
   }, []);
@@ -133,6 +135,34 @@ export function AdminPage() {
             </li>
           ))}
         </ul>
+      )}
+
+      <h2>Email outbox</h2>
+      <p className="muted">
+        Every email is saved first, then sent; if the mail server is slow or down we keep trying (about 2 hours), then
+        give up and show it here. Sign-in links and orders are never held back by the daily limit.
+      </p>
+      {mail && (
+        <section className="card" aria-label="Email outbox">
+          <p>
+            Sent today: {mail.sent_today} of {mail.daily_limit} · waiting: {mail.counts.queued} · sending:{" "}
+            {mail.counts.sending} · retrying: {mail.counts.failed} · gave up: {mail.counts.dead} · sent in all:{" "}
+            {mail.counts.sent}
+          </p>
+          {mail.recent_errors.length > 0 && (
+            <details>
+              <summary>Last errors ({mail.recent_errors.length})</summary>
+              <ul className="muted">
+                {mail.recent_errors.map((e) => (
+                  <li key={e.id}>
+                    #{e.id} {e.kind}: {e.status}, {e.attempts} tr{e.attempts === 1 ? "y" : "ies"}, {e.error} (
+                    {new Date(e.at).toLocaleString()})
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </section>
       )}
 
       <h2>Address records ({(zone ?? []).filter((z) => z.status === "open").length} to look at)</h2>

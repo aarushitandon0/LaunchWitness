@@ -226,7 +226,7 @@ def test_b6_reconciler_fails_orphaned_plans_and_check_runs(client, engine):
         s.add(CheckRun(business_id=biz["id"], plan_id=p["id"], trigger="manual"))
         s.commit()
         orphan_id = orphan.id
-    assert reconcile(engine) == {"plans": 1, "check_runs": 1}
+    assert reconcile(engine) == {"plans": 1, "check_runs": 1, "outbox": 0}
     with Session(engine) as s:
         pl = s.get(Plan, orphan_id)
         step = json.loads(pl.steps_json)[0]
@@ -236,7 +236,7 @@ def test_b6_reconciler_fails_orphaned_plans_and_check_runs(client, engine):
         stuck = s.exec(select(CheckRun).order_by(CheckRun.id.desc())).first()
         assert stuck.status == "done" and stuck.passed is False
         assert s.exec(select(AuditEvent).where(AuditEvent.action == "reconcile")).all()
-    assert reconcile(engine) == {"plans": 0, "check_runs": 0}
+    assert reconcile(engine) == {"plans": 0, "check_runs": 0, "outbox": 0}
     assert client.post(f"/api/plans/{orphan_id}/resume").status_code == 200
 
 

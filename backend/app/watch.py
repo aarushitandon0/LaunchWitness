@@ -12,11 +12,12 @@ from datetime import timedelta
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, func, select
 
-from app import audit
+from app import audit, outbox
 from app.checks.dns_resolver import DnsResolver
 from app.checks.safe_fetch import SafeWeb
+from app.config import get_settings
 from app.mail.smtp import Mailer
-from app.models import AuditEvent, User, WatchedAddress, utcnow
+from app.models import AuditEvent, Outbox, User, WatchedAddress, utcnow
 
 WATCH_LIMIT = 3  # addresses per account
 ADDS_PER_DAY = 10  # adding (each add runs one check right away): rate limit per account
@@ -59,7 +60,8 @@ def alert_email(host: str, new: dict[str, str]) -> tuple[str, str]:
             "My shops in LaunchWitness and press Remove.\n\n— LaunchWitness")
 
 
-def run_daily(engine: Engine, mailer: Mailer, dns: DnsResolver, web: SafeWeb) -> int:
+def run_daily(engine: Engine, mailer: Mailer, dns: DnsResolver, web: SafeWeb, channel: str = "smtp",
+              settings=None) -> int:
     """The daily job: check every watched address once; email the owner once per new problem. Returns emails sent."""
     sent = 0
     with Session(engine) as s:
@@ -79,16 +81,27 @@ def run_daily(engine: Engine, mailer: Mailer, dns: DnsResolver, web: SafeWeb) ->
             if not new:
                 continue
             subject, body = alert_email(w.host, new)
-            try:
-                mailer.send(to=user.email, subject=subject, body=body)
+            # S13: through the outbox. A newer email about this address replaces an older one still waiting.
+            key = f"watch:{w.id}:{utcnow().date().isoformat()}:{','.join(sorted(new))}"[:250]
+            for old in s.exec(select(Outbox).where(Outbox.kind == "watch", Outbox.status.in_(outbox.OPEN),
+                                                    Outbox.key.startswith(f"watch:{w.id}:"), Outbox.key != key)).all():
+                old.status, old.last_error = "dead", "replaced by a newer email about this address"
+                s.add(old)
+            s.commit()
+            row = outbox.send(s, settings or get_settings(), mailer, kind="watch", key=key, to=user.email, subject=subject,
+                              body=body, user_id=user.id, channel=channel, retry_now=True,
+                              ref={"watch_id": w.id, "problems": sorted(new)})
+            if row.status == "sent":
                 result = "sent"
                 sent += 1
-            except Exception as e:
-                result = f"failed: {type(e).__name__}"
-                # not sent: forget that we "know" these problems, so tomorrow's run tries the email again
+            else:
+                result = "failed"
+                # not sent yet: forget that we "know" these problems, so tomorrow's run looks again (the outbox
+                # keeps trying meanwhile and marks them known when it gets through)
+                s.refresh(w)
                 w.problems_json = json.dumps(sorted(set(json.loads(w.problems_json or "[]")) - set(new)))
                 s.add(w)
                 s.commit()
-            audit.record(s, actor="monitor", action="watch_alert", target=f"watch:{w.id}", result=result.split(":")[0],
+            audit.record(s, actor="monitor", action="watch_alert", target=f"watch:{w.id}", result=result,
                          user_id=user.id, detail=", ".join(sorted(new)))
     return sent

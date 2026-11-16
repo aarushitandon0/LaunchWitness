@@ -22,7 +22,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, select
 
-from app import audit, renewals
+from app import audit, outbox, renewals
 from app.agents.claude_client import Claude
 from app.agents.launch_check import AlreadyChecking, NotLaunched, latest_launched_plan, run_checks
 from app.config import Settings
@@ -31,6 +31,7 @@ from app.models import Alert, Business, CheckRun, utcnow
 from app.safety.access import owner_emails
 
 QUICK_MINUTES = 15
+OUTBOX_SECONDS = 20  # S13: how often the outbox's sender job looks for due email
 RECHECK_SECONDS = 60
 SHOP_BUDGET = {"quick": 90, "daily": 300, "recheck": 300}  # seconds one shop may take in a round
 FLAP_WINDOW = timedelta(days=1)
@@ -53,14 +54,19 @@ def proof_aware(when):
 
 class Monitor:
     def __init__(self, engine: Engine, settings: Settings, integ_for: Callable[[Business], Integrations],
-                 claude: Claude, scheduler: BackgroundScheduler | None = None, team: Integrations | None = None):
+                 claude: Claude, scheduler: BackgroundScheduler | None = None, team: Integrations | None = None,
+                 mailer_for: Callable | None = None):
         self.engine, self.settings, self.integ_for, self.claude = engine, settings, integ_for, claude
         self.team = team  # the server's own integrations: the app domain, the team mailbox, the app zone
+        self.mailer_for = mailer_for  # S13: outbox channel -> mailer, for the sender job
         self.scheduler = scheduler or BackgroundScheduler(timezone="UTC")
 
     # ---------- scheduler wiring ----------
 
     def register(self) -> None:
+        if self.mailer_for is not None:  # S13: the outbox's sender job (the same one process, its own short beat)
+            self.scheduler.add_job(self.send_mail, "interval", seconds=OUTBOX_SECONDS, id="outbox_send",
+                                   replace_existing=True, max_instances=1, coalesce=True)
         self.scheduler.add_job(self.run_quick, "interval", minutes=QUICK_MINUTES, id="monitor_quick",
                                replace_existing=True, max_instances=1, coalesce=True)
         self.scheduler.add_job(self.run_daily, "interval", days=1, id="monitor_daily",
@@ -86,6 +92,9 @@ class Monitor:
                                args=[business_id, names], id=f"recheck-{business_id}", replace_existing=True)
 
     # ---------- jobs ----------
+
+    def send_mail(self) -> dict:
+        return outbox.run_once(self.engine, self.settings, self.mailer_for)
 
     def live_business_ids(self) -> list[int]:
         """Shops to watch: live, not paused. Guest practice shops are short-lived and aren't watched."""
@@ -224,16 +233,20 @@ class Monitor:
                 audit.record(s, actor="monitor", action=f"alert_{kind}", target=key, result="skipped",
                              business_id=business_id, detail="the shop has no signed-in owner")
                 return False
-            try:
-                self.integ_for(b).mailer.send(to=to, subject=subject, body=body)
-            except Exception as e:
-                audit.record(s, actor="monitor", action=f"alert_{kind}", target=key, result="failed",
-                             business_id=business_id, detail=type(e).__name__)
+            # S13: through the outbox. The key counts earlier alerts of this kind, so a problem that was
+            # resolved and came back is a new email, while the same open problem is never emailed twice.
+            # Not sent at once: the outbox keeps trying, and each monitoring round also tries it again.
+            integ = self.integ_for(b)
+            told = len(s.exec(select(Alert.id).where(Alert.business_id == business_id, Alert.kind == kind,
+                                                      Alert.key == key)).all())
+            row = outbox.send(s, self.settings, integ.mailer, kind="alert", retry_now=True,
+                              key=f"alert:{business_id}:{kind}:{key}:{told}", to=to, subject=subject, body=body,
+                              channel=outbox.channel_of(integ), business_id=business_id,
+                              ref={"audit": {"actor": "monitor", "action": f"alert_{kind}", "target": key}})
+            if row.status != "sent":
                 return False
             s.add(Alert(business_id=business_id, kind=kind, key=key, sent_to=to))
             s.commit()
-            audit.record(s, actor="monitor", action=f"alert_{kind}", target=key, result="sent",
-                         business_id=business_id, detail=subject)
             return True
 
     def expiry_alerts(self, business_id: int, run_id: int) -> None:
@@ -282,7 +295,8 @@ class Monitor:
         from app.checks.safe_fetch import SafeWeb
         from app.routers.proof import get_public_dns
 
-        return watch.run_daily(self.engine, self.team.mailer, get_public_dns(), SafeWeb(lambda _h: True, timeout=8.0))
+        return watch.run_daily(self.engine, self.team.mailer, get_public_dns(), SafeWeb(lambda _h: True, timeout=8.0),
+                               channel=outbox.channel_of(self.team), settings=self.settings)
 
     # ---------- the team's own renewals (S10): the app domain and the team mailbox ----------
 
@@ -325,12 +339,11 @@ class Monitor:
                         "Renewing costs money, so LaunchWitness won't do it: please renew it on godaddy.com.\n\n"
                         "- LaunchWitness monitoring")
                 result = "skipped"
-                if to and self.team is not None:
-                    try:
-                        self.team.mailer.send(to=to, subject=subject, body=body)
-                        result = "sent"
-                    except Exception as e:
-                        result = f"failed: {type(e).__name__}"
+                if to and self.team is not None:  # S13: via the outbox; once sent, the next run marks it
+                    row = outbox.send(s, self.settings, self.team.mailer, kind="team", retry_now=True,
+                                      key=f"team:{kind}:{key}:{len(open_)}", to=to, subject=subject, body=body,
+                                      channel=outbox.channel_of(self.team))
+                    result = "sent" if row.status == "sent" else f"failed: {row.last_error or row.status}"
                 if result == "sent":
                     for t in hit:  # bigger thresholds we're already past count as sent too
                         if not any(a.key == f"{t}d" for a in open_):
