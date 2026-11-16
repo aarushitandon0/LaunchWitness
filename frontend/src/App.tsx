@@ -8,6 +8,7 @@ import Review from "./Review";
 import { LaunchChoice, PlanView } from "./Launch";
 import { GotItPage, ReportPage } from "./Report";
 import { OrdersPage } from "./Orders";
+import { ProductMenu } from "./ProductMenu";
 import { AdminPage } from "./Admin";
 import { LegalLinks, PrivacyPage, TermsPage } from "./Legal";
 import {
@@ -136,6 +137,7 @@ function NavLinks({ page }: { page: Route["page"] }) {
         <a href="#/shops" {...current(SHOP_PAGES.includes(page))}>
           My shops
         </a>
+        <ProductMenu />
         <a href="#/new" {...current(page === "new" || page === "try")}>
           New shop
         </a>
@@ -154,6 +156,7 @@ function NavLinks({ page }: { page: Route["page"] }) {
       <a href="#/" {...current(page === "home")}>
         Home
       </a>
+      <ProductMenu />
       <a href="/demo/meera">See a demo shop</a>
       {me?.guest && (
         <a href="#/shops" {...current(SHOP_PAGES.includes(page))}>
