@@ -219,6 +219,14 @@ export function MyShopsPage() {
                 )}
               </span>
               <span className="shop-actions">
+                <a className="btn btn-ghost btn-sm" href={`#/b/${b.id}/orders`}>
+                  Orders
+                  {!!b.new_orders && (
+                    <span className="new-count" aria-label={`${b.new_orders} new`}>
+                      {b.new_orders} new
+                    </span>
+                  )}
+                </a>
                 <a className="btn btn-ghost btn-sm" href={resumeHash(b)}>
                   {resumeLabel(b)}
                 </a>

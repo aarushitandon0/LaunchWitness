@@ -16,6 +16,44 @@ from app.safety.access import owner_emails, run_by_team
 
 MAX_QTY = 50
 
+# The owner's order status. New → Confirmed → Paid → Done, or Cancelled before it's done. Paid can be
+# skipped (cash on pickup). Nothing goes back, and Done / Cancelled are final.
+STATUS_STEPS: dict[str, tuple[str, ...]] = {
+    "new": ("confirmed", "cancelled"),
+    "confirmed": ("paid", "done", "cancelled"),
+    "paid": ("done", "cancelled"),
+    "done": (),
+    "cancelled": (),
+}
+STATUS_LABELS = {"new": "New", "confirmed": "Confirmed", "paid": "Paid", "done": "Done", "cancelled": "Cancelled"}
+
+
+def can_move(current: str, to: str) -> bool:
+    return to in STATUS_STEPS.get(current, ())
+
+
+def customer_whatsapp_link(shop_name: str, order: Order) -> str | None:
+    """A wa.me link to the CUSTOMER's phone with a ready-typed message from the owner. Nothing is sent by us:
+    the owner's own WhatsApp opens with the text, and she presses send."""
+    from urllib.parse import quote
+
+    from app.sites.render import format_inr, whatsapp_digits
+
+    number = whatsapp_digits(order.customer_phone)
+    if not 11 <= len(number) <= 15:  # 10-digit Indian mobiles were given +91 above
+        return None
+    first = order.customer_name.split()[0] if order.customer_name.split() else ""
+    text = (f"Hi {first}, this is {shop_name}. Got your order {order.ref} for {format_inr(order.total_inr)}. "
+            "I'll confirm the details here.")
+    return f"https://wa.me/{number}?text={quote(text, safe='')}"
+
+
+def tel_link(phone: str) -> str:
+    from app.sites.render import whatsapp_digits
+
+    digits = whatsapp_digits(phone)
+    return f"tel:+{digits}" if digits else ""
+
 
 class OrderInvalid(ValueError):
     """Message is shown to the customer as-is."""
@@ -54,14 +92,19 @@ def parse_order_form(form: dict[str, str], profile: Profile) -> dict:
 
 
 def order_email(business: Business, profile: Profile, order: Order, items: list[dict],
-                confirm_url: str = "") -> tuple[str, str]:
+                confirm_url: str = "", orders_url: str = "") -> tuple[str, str]:
     from app.sites.render import format_inr
 
     test = "[TEST] " if order.is_test else ""
     code = f" [{order.nonce}]" if order.nonce else ""
     subject = f"{test}New order for {profile.name} from {order.customer_name} ({order.ref}){code}"
     lines = [f"New order {order.ref} for {profile.name}", "", f"Customer: {order.customer_name}",
-             f"Phone: {order.customer_phone}", ""]
+             f"Phone: {order.customer_phone}"]
+    if tel := tel_link(order.customer_phone):
+        lines.append(f"Call: {tel}")
+    if wa := customer_whatsapp_link(profile.name, order):
+        lines.append(f"WhatsApp the customer: {wa}")
+    lines.append("")
     if order.nonce:
         lines[1:1] = ["", "This is an automatic test order from LaunchWitness. No customer is waiting.",
                       f"Test code: {order.nonce}"]
@@ -72,6 +115,8 @@ def order_email(business: Business, profile: Profile, order: Order, items: list[
         lines += ["", "Note from customer:", order.note]
     if confirm_url:
         lines += ["", "Did this email reach you? Tap here to say so (it proves your orders reach you):", confirm_url]
+    if orders_url:
+        lines += ["", f"See and update all your orders: {orders_url}"]
     lines += ["", f"Placed: {order.created_at:%Y-%m-%d %H:%M} UTC", "Sent by LaunchWitness"]
     return subject, "\n".join(lines)
 
@@ -150,7 +195,8 @@ def place_order(session: Session, mailer: Mailer, settings: Settings, *, busines
                  business_id=business.id, detail=f"{len(data['items'])} item(s), total {data['total_inr']}")
 
     recipients = order_recipients(session, settings, business)
-    subject, body = order_email(business, profile, order, data["items"], confirm_url)
+    orders_url = f"{settings.app_base_url.rstrip('/')}/#/b/{business.id}/orders"
+    subject, body = order_email(business, profile, order, data["items"], confirm_url, orders_url)
     try:
         order.email_message_id = mailer.send(to=", ".join(recipients), subject=subject, body=body)
         order.email_status = "sent"

@@ -56,6 +56,7 @@ export type Renewal = {
 
 export type Business = {
   renewal?: Renewal | null; // My shops: the renewal that needs attention soonest
+  new_orders?: number; // My shops: customer orders still "New"
   latest_plan: { id: number; status: Plan["status"]; practice: boolean } | null; // resume the 5-step flow here
   id: number;
   name: string;
@@ -127,8 +128,15 @@ export type ShopReportRow = {
 
 export type Sample = { id: string; owner_name: string; city: string; description: string; price_list: string };
 
+export type OrderStatus = "new" | "confirmed" | "paid" | "done" | "cancelled";
+
 export type Order = {
   id: number;
+  ref: string;
+  status: OrderStatus;
+  next_statuses: OrderStatus[];
+  whatsapp_url: string | null; // wa.me link to the CUSTOMER, message ready-typed; nothing is sent by us
+  tel_url: string | null;
   customer_name: string;
   customer_phone: string;
   items: { name: string; qty: number; price_inr: number }[];
@@ -379,6 +387,8 @@ export const api = {
   list: () => request<BusinessSummary[]>("/api/businesses"),
   get: (id: number) => request<Business>(`/api/businesses/${id}`),
   orders: (id: number) => request<Order[]>(`/api/businesses/${id}/orders`),
+  setOrderStatus: (id: number, orderId: number, status: OrderStatus) =>
+    request<Order>(`/api/businesses/${id}/orders/${orderId}/status`, json({ status })),
   create: async (description: string, priceList: string, photo: File | null) => {
     const form = new FormData();
     form.set("description", description);

@@ -490,3 +490,21 @@ input[type="checkbox"] { accent-color: var(--ink); width: 18px; height: 18px; }
 .stepper-todo > span { opacity: 0.55; }
 .shop-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
 .new-count { display: inline-block; margin-left: 0.4rem; padding: 0 0.5rem; border-radius: var(--r-pill); background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 600; }
+
+/* S10.5: orders inbox (mobile first) */
+.order-list { list-style: none; padding: 0; margin: var(--s-4) 0; display: grid; gap: var(--s-3); }
+.order-card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--s-4); display: grid; gap: 0.4rem; }
+.order-card.order-new { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.order-card.order-cancelled, .order-card.order-done { opacity: 0.75; }
+.order-top { display: flex; justify-content: space-between; align-items: center; gap: var(--s-2); }
+.order-status { font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: var(--r-pill); background: var(--line); }
+.order-status.s-new { background: var(--accent); color: var(--accent-ink); }
+.order-status.s-confirmed { background: #dbeafe; color: #1e3a8a; }
+.order-status.s-paid { background: var(--success-soft); color: var(--success); }
+.order-items { list-style: none; padding: 0; margin: 0.3rem 0; display: grid; gap: 2px; }
+.order-items li { display: flex; justify-content: space-between; gap: var(--s-2); }
+.order-total { border-top: 1px solid var(--line); padding-top: 4px; font-weight: 600; }
+.order-note { margin: 0; font-style: italic; }
+.order-phone { margin: 0; }
+.order-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.3rem; }
+.btn-wa { background: #25d366; color: #073b1c; border: 1px solid #25d366; }

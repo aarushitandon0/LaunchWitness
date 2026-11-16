@@ -209,6 +209,9 @@ class Order(SQLModel, table=True):
     client_token: str = Field(default="", index=True)  # hidden form field: a double submit makes one order
     email_status: str = "pending"  # pending | sent | failed
     email_message_id: str = ""
+    # S10.5: the owner's own progress on the order (sites/orders.py STATUS_STEPS). Only the owner sets it.
+    status: str = Field(default="new", index=True)  # new | confirmed | paid | done | cancelled
+    status_changed_at: datetime | None = None
     created_at: datetime = Field(default_factory=utcnow)
 
 

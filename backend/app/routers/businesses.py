@@ -4,12 +4,12 @@ import json
 import re
 import secrets
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from app import accounts, audit
 from app.agents.claude_client import FALLBACK_NOTE, Claude, ClaudeBudgetExceeded, make_claude_client
@@ -17,7 +17,7 @@ from app.agents.reader import MAX_IMAGE_BYTES, Profile, ReaderError, read_busine
 from app.config import Settings, get_settings
 from app.db import get_engine, get_session
 from app.integrations import Integrations, for_business, get_integrations, get_practice_integrations
-from app.models import Business, Membership, Order, Plan
+from app.models import Business, Membership, Order, Plan, utcnow
 from app.safety.access import (
     ActorDep,
     csrf_for,
@@ -29,6 +29,7 @@ from app.safety.access import (
     visitor_id,
 )
 from app.sites.hosts import is_public, site_url, slug_problem
+from app.sites.orders import STATUS_LABELS, STATUS_STEPS, can_move, customer_whatsapp_link, tel_link
 from app.sites.render import render_site
 from app.tenancy import purge_business
 
@@ -187,8 +188,15 @@ def list_businesses(actor: ActorDep, settings: Annotated[Settings, Depends(get_s
         q = select(Business).where(Business.guest_hash == actor.guest)
     else:
         return []
-    return [{**business_out(b, settings, session), "renewal": shop_renewal(session, settings, b)}
+    return [{**business_out(b, settings, session), "renewal": shop_renewal(session, settings, b),
+             "new_orders": new_orders(session, b.id)}
             for b in session.exec(q.order_by(Business.id.desc())).all()]
+
+
+def new_orders(session: Session, business_id: int) -> int:
+    """Customer orders the owner hasn't confirmed or cancelled yet (test orders never count)."""
+    return session.exec(select(func.count()).select_from(Order).where(
+        Order.business_id == business_id, Order.is_test == False, Order.status == "new")).one()  # noqa: E712
 
 
 def shop_renewal(session: Session, settings: Settings, b: Business) -> dict | None:
@@ -252,6 +260,16 @@ def preview(b: Annotated[Business, Depends(require_business_access)], page: str 
                         headers={"X-Robots-Tag": "noindex", "Cache-Control": "no-store"})
 
 
+def order_out(o: Order, shop_name: str) -> dict:
+    """One order for its owner. The full phone number is shown here, to the owner only (audit logs never hold it)."""
+    return {"id": o.id, "ref": o.ref, "is_test": o.is_test, "customer_name": o.customer_name,
+            "customer_phone": o.customer_phone, "items": json.loads(o.items_json), "total_inr": o.total_inr,
+            "note": o.note, "email_status": o.email_status, "status": o.status,
+            "next_statuses": list(STATUS_STEPS.get(o.status, ())),
+            "whatsapp_url": customer_whatsapp_link(shop_name, o), "tel_url": tel_link(o.customer_phone) or None,
+            "created_at": o.created_at.replace(tzinfo=None).isoformat() + "Z"}
+
+
 @router.get("/businesses/{business_id}/orders")
 def list_orders(b: Annotated[Business, Depends(require_business_access)],
                 session: Annotated[Session, Depends(get_session)], tests: bool = False) -> list[dict]:
@@ -260,9 +278,33 @@ def list_orders(b: Annotated[Business, Depends(require_business_access)],
     if not tests:
         q = q.where(Order.is_test == False)  # noqa: E712
     rows = session.exec(q.order_by(Order.id.desc()).limit(500)).all()
-    return [{"id": o.id, "ref": o.ref, "is_test": o.is_test, "customer_name": o.customer_name, "customer_phone": o.customer_phone,
-             "items": json.loads(o.items_json), "total_inr": o.total_inr, "note": o.note,
-             "email_status": o.email_status, "created_at": o.created_at.replace(tzinfo=None).isoformat() + "Z"} for o in rows]
+    return [order_out(o, b.name) for o in rows]
+
+
+class StatusChange(BaseModel):
+    status: Literal["confirmed", "paid", "done", "cancelled"]
+
+
+@router.post("/businesses/{business_id}/orders/{order_id}/status")
+def set_order_status(order_id: int, body: StatusChange, actor: ActorDep,
+                     b: Annotated[Business, Depends(require_business_access)],
+                     session: Annotated[Session, Depends(get_session)]) -> dict:
+    """The owner moves one of her orders on (New → Confirmed → Paid → Done, or Cancelled). Audited.
+    Another shop's order, or a test order, answers 404 like an order that doesn't exist."""
+    o = session.exec(select(Order).where(Order.id == order_id, Order.business_id == b.id,
+                                         Order.is_test == False)).first()  # noqa: E712
+    if o is None:
+        raise HTTPException(status_code=404, detail="We couldn't find that order.")
+    if not can_move(o.status, body.status):
+        raise HTTPException(status_code=409, detail=f"An order that is {STATUS_LABELS[o.status].lower()} can't be "
+                            f"marked {STATUS_LABELS[body.status].lower()}.")
+    old, o.status, o.status_changed_at = o.status, body.status, utcnow()
+    session.add(o)
+    session.commit()
+    session.refresh(o)
+    audit.record(session, actor=actor.label, action="order_status", target=f"order:{o.id}", result="ok",
+                 business_id=b.id, user_id=actor.user_id, detail=f"{o.ref}: {old} -> {o.status}")
+    return order_out(o, b.name)
 
 
 @router.get("/businesses/{business_id}/export")
