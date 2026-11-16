@@ -122,7 +122,7 @@ def area_is_repeated(profile: Profile) -> bool:
 
 def render_site(profile: Profile, *, page: str = "home", order: dict | None = None, form_error: str = "",
                 form_values: dict | None = None, preview: bool = False, shop: str = "", demo: bool = False,
-                base: str = "") -> str:
+                base: str = "", photos: dict | None = None) -> str:
     """page: 'home' | 'privacy' | 'thanks'. preview=True: the owner's private look at a shop that
     isn't public (banner on top, the order button is off). demo=True: a sample shop served by the app at
     `base` (e.g. /demo/meera), labelled as a demo; its form places no order."""
@@ -147,4 +147,5 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
         shop=shop,  # printed as <meta name="lw-shop">: the HTTPS check looks for it
         demo=demo,
         base=base,  # prefix for the shop's own links ("" on a shop host)
+        photos=photos or {"shop": [], "items": {}},  # S12 (app/photos.py for_site); none = the placeholders stay
     )

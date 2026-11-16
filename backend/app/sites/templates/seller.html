@@ -114,6 +114,18 @@
     border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
   .item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; align-items: center; padding: 14px 16px; }
   .item + .item { border-top: 1px solid var(--line); }
+  .item.has-photo { grid-template-columns: 72px minmax(0, 1fr) auto; }
+  .item-photo { width: 72px; height: 72px; object-fit: cover; border-radius: 12px; background: var(--line); }
+  .gallery { list-style: none; margin: 0 0 28px; padding: 0 0 6px; display: grid; grid-auto-flow: column;
+    grid-auto-columns: min(80%, 340px); gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; }
+  .gallery li { scroll-snap-align: start; }
+  .gallery img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 16px;
+    background: var(--line); }
+  @media (min-width: 900px) {
+    .gallery { grid-auto-flow: row; grid-template-columns: repeat(3, 1fr); overflow: visible; }
+    .gallery.n1 { grid-template-columns: minmax(0, 560px); }
+    .gallery.n2, .gallery.n4 { grid-template-columns: repeat(2, 1fr); }
+  }
   .item .name { font-weight: 600; line-height: 1.35; }
   .item .desc { font-size: 14px; color: var(--muted); margin-top: 2px; }
   .item .price { font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
@@ -227,7 +239,9 @@
 {%- endmacro -%}
 {%- macro price(item) -%}{% if item.price_from %}<small>from </small>{% endif %}{{ item.price_inr | inr }}{%- endmacro -%}
 {%- macro item_row(i, item) -%}
-<li class="item" data-i="{{ i }}">
+{%- set ph = photos["items"].get(item.name) -%}
+<li class="item{% if ph %} has-photo{% endif %}" data-i="{{ i }}">
+  {% if ph %}<img class="item-photo" src="{{ ph.small }}" width="{{ ph.small_w }}" height="{{ ph.small_h }}" alt="{{ ph.alt }}" loading="lazy" decoding="async">{% endif %}
   <div>
     <div class="name" id="n{{ i }}">{{ item.name }}</div>
     {% if item.description %}<div class="desc">{{ item.description }}</div>{% endif %}
@@ -272,6 +286,14 @@
       {% if p.phone %}<a class="btn btn-line" href="tel:{{ p.phone | replace(' ', '') }}">{{ icon("phone") }}Call</a>{% endif %}
     </div>
   </div>
+
+  {% if photos["shop"] %}
+  <ul class="gallery n{{ photos['shop'] | length }}" aria-label="Photos">{% for ph in photos["shop"] %}
+    <li><img src="{{ ph.small }}" srcset="{{ ph.small }} {{ ph.small_w }}w, {{ ph.large }} {{ ph.large_w }}w"
+      sizes="(min-width: 900px) 33vw, 80vw" width="{{ ph.large_w }}" height="{{ ph.large_h }}" alt="{{ ph.alt }}"
+      loading="lazy" decoding="async"></li>{% endfor %}
+  </ul>
+  {% endif %}
 
   <form class="layout" method="post" action="{{ base }}/order" id="order-form">
     <div>

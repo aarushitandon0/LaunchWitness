@@ -745,3 +745,11 @@ input[type="checkbox"] { accent-color: var(--ink); width: 18px; height: 18px; }
 .hoptrack-hop { display: flex; align-items: flex-start; }
 @media (max-width: 719px) { .hoptrack-hop { align-items: center; } }
 [data-arrived="1"] .hoptrack-dot { opacity: 0; transition-delay: 300ms; }
+
+/* ---------- S12: photos on the Review step ---------- */
+.photos-card h3 { margin-top: 0; }
+.photo-grid { list-style: none; padding: 0; margin: var(--s-3) 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: var(--s-3); }
+.photo-grid li { display: grid; gap: var(--s-2); justify-items: start; }
+.photo-grid img { width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--r-sm); background: var(--line); }
+.item-photo-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); width: 100%; }
+.item-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: var(--r-sm); background: var(--line); }
