@@ -15,6 +15,7 @@ import { Cross, Dot, EASE, Spinner, Tick, useCalm } from "./motion";
 import { goTo } from "./App";
 import { ErrorBox } from "./Describe";
 import { useMe } from "./Account";
+import { StepHeader } from "./Steps";
 
 /** Step 3: choose where the site goes — free address now, or the seller's own name. */
 export function LaunchChoice({ businessId }: { businessId: number }) {
@@ -54,7 +55,8 @@ export function LaunchChoice({ businessId }: { businessId: number }) {
 
   return (
     <>
-      <p className="eyebrow">Step 3 of 5 · choose an address</p>
+      <StepHeader current="name" businessId={businessId} />
+      <p className="eyebrow">Step 3 of 5 · name</p>
       <h1>Put {biz.profile.name} online</h1>
       <p className="tagline">
         Pick where your website lives. You'll see every step and the total cost
@@ -260,6 +262,7 @@ export function PlanView({
   if (plan.status === "draft") {
     return (
       <>
+        <StepHeader current="approve" businessId={businessId} />
         <p className="eyebrow">Step 4 of 5 · approve</p>
         <h1>Check and approve</h1>
         <p className="tagline">
@@ -401,6 +404,7 @@ export function PlanView({
   const finished = plan.status === "done" && visible >= plan.steps.length;
   return (
     <>
+      <StepHeader current="approve" businessId={businessId} />
       <p className="eyebrow">{plan.site_host}</p>
       <h1>
         {finished ? (

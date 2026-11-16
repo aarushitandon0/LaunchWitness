@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { api } from "./api";
 import { EASE, useCalm } from "./motion";
 import Describe from "./Describe";
@@ -7,6 +7,7 @@ import Landing from "./Landing";
 import Review from "./Review";
 import { LaunchChoice, PlanView } from "./Launch";
 import { GotItPage, ReportPage } from "./Report";
+import { OrdersPage } from "./Orders";
 import { AdminPage } from "./Admin";
 import { LegalLinks, PrivacyPage, TermsPage } from "./Legal";
 import {
@@ -22,7 +23,8 @@ import {
 
 type Route =
   | { page: "home" }
-  | { page: "describe" }
+  | { page: "new" } // describe, signed in
+  | { page: "try" } // describe without an account: guest practice
   | { page: "admin" }
   | { page: "signin" }
   | { page: "confirm" }
@@ -32,44 +34,78 @@ type Route =
   | { page: "got-it" }
   | { page: "privacy" }
   | { page: "terms" }
+  | { page: "notfound" }
   | { page: "review"; businessId: number }
   | { page: "launch"; businessId: number }
+  | { page: "orders"; businessId: number }
   | { page: "report"; businessId: number }
   | { page: "plan"; businessId: number; planId: number };
 
-/** Tiny hash router: #/ (landing) · #/try (describe) · #/signin · #/signin/confirm?token= · #/shops · #/account ·
- * #/account/delete?token= · #/admin · #/b/<id> · #/b/<id>/launch · #/b/<id>/plan/<pid> · #/b/<id>/report */
-function useRoute(): Route {
-  const parse = (): Route => {
-    const h = window.location.hash;
-    if (h.startsWith("#/admin")) return { page: "admin" };
-    if (h.startsWith("#/got-it")) return { page: "got-it" };
-    if (h.startsWith("#/privacy")) return { page: "privacy" };
-    if (h.startsWith("#/terms")) return { page: "terms" };
-    if (h.startsWith("#/signin/confirm")) return { page: "confirm" };
-    if (h.startsWith("#/signin")) return { page: "signin" };
-    if (h.startsWith("#/shops")) return { page: "shops" };
-    if (h.startsWith("#/account/delete")) return { page: "delete-account" };
-    if (h.startsWith("#/account")) return { page: "account" };
-    if (h.startsWith("#/try")) return { page: "describe" };
-    let m = h.match(/^#\/b\/(\d+)\/plan\/(\d+)/);
-    if (m) return { page: "plan", businessId: Number(m[1]), planId: Number(m[2]) };
-    m = h.match(/^#\/b\/(\d+)\/(launch|report)/);
-    if (m) return { page: m[2] as "launch" | "report", businessId: Number(m[1]) };
-    m = h.match(/^#\/b\/(\d+)/);
-    if (m) return { page: "review", businessId: Number(m[1]) };
-    return { page: "home" };
+/** Hash router. Every page has its own URL, so Back/Forward, refresh and deep links work:
+ * #/ (landing; #check, #contact etc. are in-page anchors) · #/new (describe) · #/try (describe, no account) ·
+ * #/signin[?next=] · #/signin/confirm?token= · #/shops · #/account · #/account/delete?token= · #/admin ·
+ * #/b/<id> (review) · #/b/<id>/launch (name) · #/b/<id>/plan/<pid> (approve + launch) · #/b/<id>/report ·
+ * #/b/<id>/orders · #/got-it?token= · #/privacy · #/terms. Anything else under #/ is "Page not found". */
+export function parseRoute(hash: string): Route {
+  if (!hash.startsWith("#/")) return { page: "home" }; // "", "#", or an in-page anchor of the landing page
+  const path = hash.slice(1).split("?")[0].replace(/\/+$/, "") || "/";
+  const fixed: Record<string, Route["page"]> = {
+    "/": "home",
+    "/new": "new",
+    "/try": "try",
+    "/admin": "admin",
+    "/signin": "signin",
+    "/signin/confirm": "confirm",
+    "/shops": "shops",
+    "/account": "account",
+    "/account/delete": "delete-account",
+    "/got-it": "got-it",
+    "/privacy": "privacy",
+    "/terms": "terms",
   };
-  const [route, setRoute] = useState(parse);
+  if (path in fixed) return { page: fixed[path] } as Route;
+  let m = path.match(/^\/b\/(\d+)\/plan\/(\d+)$/);
+  if (m) return { page: "plan", businessId: Number(m[1]), planId: Number(m[2]) };
+  m = path.match(/^\/b\/(\d+)\/(launch|report|orders)$/);
+  if (m) return { page: m[2] as "launch" | "report" | "orders", businessId: Number(m[1]) };
+  m = path.match(/^\/b\/(\d+)$/);
+  if (m) return { page: "review", businessId: Number(m[1]) };
+  return { page: "notfound" };
+}
+
+function useRoute(): Route {
+  const [route, setRoute] = useState(() => parseRoute(window.location.hash));
   useEffect(() => {
-    const on = () => setRoute(parse());
+    const on = () => setRoute(parseRoute(window.location.hash));
     window.addEventListener("hashchange", on);
     return () => window.removeEventListener("hashchange", on);
   }, []);
   return route;
 }
 
-export const go = (businessId: number | null) => goTo(businessId === null ? "#/try" : `#/b/${businessId}`);
+/** Go somewhere without adding a history entry (used by the convenience guards, so Back still works). */
+export const replaceTo = (hash: string) => window.location.replace(hash);
+
+const TITLES: Partial<Record<Route["page"], string>> = {
+  home: "LaunchWitness",
+  new: "Describe your business",
+  try: "Try it without an account",
+  signin: "Sign in",
+  confirm: "Sign in",
+  shops: "My shops",
+  account: "Account",
+  admin: "Team",
+  review: "Check your details",
+  launch: "Choose an address",
+  plan: "Approve and launch",
+  report: "Launch report",
+  orders: "Orders",
+  privacy: "Privacy",
+  terms: "Terms",
+  notfound: "Page not found",
+};
+
+export const go = (businessId: number | null) => goTo(businessId === null ? "#/new" : `#/b/${businessId}`);
 
 export const goTo = (hash: string) => {
   window.location.hash = hash;
@@ -89,54 +125,107 @@ export function LogoMark() {
   );
 }
 
-function TopBar({ page }: { page: Route["page"] }) {
+const SHOP_PAGES: Route["page"][] = ["shops", "review", "launch", "plan", "report", "orders"];
+
+function NavLinks({ page }: { page: Route["page"] }) {
   const me = useMe();
   const current = (p: boolean) => (p ? ({ "aria-current": "page" } as const) : {});
-  return (
-    <header className="topbar">
-      <a className="logo" href="#/">
-        <LogoMark />
-        LaunchWitness
-      </a>
-      <nav className="notch" aria-label="Main">
-        <a href="#/" {...current(page === "home")}>
-          Home
+  if (me?.user)
+    return (
+      <>
+        <a href="#/shops" {...current(SHOP_PAGES.includes(page))}>
+          My shops
         </a>
-        <a href="#/try" {...current(page === "describe")}>
-          Describe
+        <a href="#/new" {...current(page === "new" || page === "try")}>
+          New shop
         </a>
-        {(me?.user || me?.guest) && (
-          <a href="#/shops" {...current(page === "shops")}>
-            My shops
-          </a>
-        )}
-        {me?.user?.role === "admin" && (
+        <a href="#/account" {...current(page === "account" || page === "delete-account")}>
+          Account
+        </a>
+        {me.user.role === "admin" && (
           <a href="#/admin" {...current(page === "admin")}>
             Team
           </a>
         )}
-        <a href="/demo/meera">See a demo shop</a>
-        {page === "home" && <a href="#contact">Contact</a>}
-      </nav>
-      <div className="topbar-end">
-        {me?.user ? (
-          <a className="topbar-link" href="#/account" {...current(page === "account")}>
-            Account
-          </a>
-        ) : (
-          page !== "signin" && (
-            <a className="topbar-link" href="#/signin">
-              Sign in
+      </>
+    );
+  return (
+    <>
+      <a href="#/" {...current(page === "home")}>
+        Home
+      </a>
+      <a href="/demo/meera">See a demo shop</a>
+      {me?.guest && (
+        <a href="#/shops" {...current(SHOP_PAGES.includes(page))}>
+          My practice shops
+        </a>
+      )}
+      <a href="#/signin" {...current(page === "signin" || page === "confirm")}>
+        Sign in
+      </a>
+    </>
+  );
+}
+
+function TopBar({ page }: { page: Route["page"] }) {
+  const me = useMe();
+  const signedIn = !!me?.user;
+  return (
+    <>
+      <header className="topbar">
+        <a className="logo" href={signedIn ? "#/shops" : "#/"}>
+          <LogoMark />
+          LaunchWitness
+        </a>
+        <nav className="notch" aria-label="Main">
+          <NavLinks page={page} />
+        </nav>
+        <div className="topbar-end">
+          {!signedIn && !["new", "try", "signin", "confirm"].includes(page) && (
+            <a className="pill-cta" href="#/new">
+              Start
             </a>
-          )
-        )}
-        {page !== "describe" && (
-          <a className="pill-cta" href="#/try">
-            Try it
-          </a>
-        )}
+          )}
+        </div>
+      </header>
+      <nav className="mobile-nav" aria-label="Main (small screens)">
+        <NavLinks page={page} />
+      </nav>
+    </>
+  );
+}
+
+/** Convenience only: the server still decides. Sends a signed-out visitor to sign in, and back here afterwards. */
+function NeedsSignIn({ next, children }: { next: string; children: ReactNode }) {
+  const me = useMe();
+  const out = me !== null && !me.user;
+  useEffect(() => {
+    if (out) replaceTo(`#/signin?next=${encodeURIComponent(next)}`);
+  }, [out, next]);
+  if (!me || out) return <p>Loading…</p>;
+  return <>{children}</>;
+}
+
+function GoTo({ hash }: { hash: string }) {
+  useEffect(() => replaceTo(hash), [hash]);
+  return <p>Loading…</p>;
+}
+
+export function NotFoundPage() {
+  return (
+    <>
+      <p className="eyebrow">404</p>
+      <h1>Page not found</h1>
+      <p className="tagline">There's no page at this address. It may have moved, or the link may be cut short.</p>
+      <div className="actions">
+        <a className="btn btn-primary" href="#/shops">
+          Back to My shops
+        </a>
+        <a className="btn btn-ghost" href="#/">
+          Home
+        </a>
       </div>
-    </header>
+    </>
   );
 }
 
@@ -147,6 +236,11 @@ export default function App() {
   const practice = !!me?.practice_server;
   const shopPage = "businessId" in route;
   const home = route.page === "home";
+  // The practice-server note matters only where something is launched or reported.
+  const showPractice = practice && ["new", "try", "launch", "plan", "report"].includes(route.page);
+  useEffect(() => {
+    document.title = route.page === "home" ? "LaunchWitness" : `${TITLES[route.page] ?? "LaunchWitness"} · LaunchWitness`;
+  }, [route.page]);
   const enter = calm ? { opacity: 0 } : { opacity: 0, y: 14 };
   const leave = calm ? { opacity: 0 } : { opacity: 0, y: -8 };
   return (
@@ -169,10 +263,9 @@ export default function App() {
           ) : (
             <div className="sheet">
               <main className="page">
-                {practice && (
-                  <p className="practice" role="note">
-                    Practice server: every launch here runs against a pretend GoDaddy. Nothing is bought and no real
-                    settings change.
+                {showPractice && (
+                  <p className="practice practice-mini" role="note">
+                    Practice server: launches here use a pretend GoDaddy. Nothing is bought and no real settings change.
                   </p>
                 )}
                 {shopPage && me && !me.user && <GuestNote />}
@@ -185,22 +278,33 @@ export default function App() {
                     exit={leave}
                     transition={{ duration: 0.35, ease: EASE }}
                   >
-                    {route.page === "describe" && <Describe />}
+                    {route.page === "new" && (
+                      <NeedsSignIn next="new">
+                        <Describe />
+                      </NeedsSignIn>
+                    )}
+                    {route.page === "try" && (me?.user ? <GoTo hash="#/new" /> : <Describe guest />)}
                     {route.page === "review" && <Review key={route.businessId} id={route.businessId} />}
                     {route.page === "launch" && <LaunchChoice key={route.businessId} businessId={route.businessId} />}
                     {route.page === "plan" && (
                       <PlanView key={route.planId} businessId={route.businessId} planId={route.planId} />
                     )}
                     {route.page === "report" && <ReportPage key={route.businessId} businessId={route.businessId} />}
+                    {route.page === "orders" && <OrdersPage key={route.businessId} businessId={route.businessId} />}
                     {route.page === "admin" && <AdminPage />}
                     {route.page === "signin" && <SignInPage />}
                     {route.page === "confirm" && <ConfirmSignInPage />}
                     {route.page === "shops" && <MyShopsPage />}
-                    {route.page === "account" && <AccountPage />}
+                    {route.page === "account" && (
+                      <NeedsSignIn next="account">
+                        <AccountPage />
+                      </NeedsSignIn>
+                    )}
                     {route.page === "delete-account" && <DeleteAccountPage />}
                     {route.page === "got-it" && <GotItPage />}
                     {route.page === "privacy" && <PrivacyPage />}
                     {route.page === "terms" && <TermsPage />}
+                    {route.page === "notfound" && <NotFoundPage />}
                   </motion.div>
                 </AnimatePresence>
               </main>

@@ -32,9 +32,9 @@ async function mailTo(page: Page, to: string, after: number): Promise<string> {
 }
 
 /** Sign in through the real pages: ask for a link, open it, press "Sign in". */
-export async function signIn(page: Page, email: string): Promise<void> {
+export async function signIn(page: Page, email: string, opts: { stay?: boolean } = {}): Promise<void> {
   const started = Date.now();
-  await page.goto("/#/signin");
+  if (!opts.stay) await page.goto("/#/signin"); // stay: already on the sign-in page (e.g. sent there by "Start")
   await page.getByPlaceholder("you@gmail.com").fill(email);
   await page.getByRole("button", { name: "Email me a link" }).click();
   await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
@@ -95,11 +95,12 @@ export async function statusOf(page: Page, url: string): Promise<number> {
   return r ? r.status() : 0;
 }
 
-/** Describe the business on the real page; returns the new shop id. */
-export async function describe(page: Page): Promise<number> {
-  await page.goto("/#/try");
-  await page.getByPlaceholder(/Hi, I'm Meera/).fill(SELLER.description);
-  await page.getByPlaceholder(/Chocolate cake 1\/2 kg/).fill(SELLER.price_list);
+/** Describe the business on the real page; returns the new shop id. Signed in: #/new. Guest: #/try (no account). */
+export async function describe(page: Page, opts: { guest?: boolean; here?: boolean } = {}): Promise<number> {
+  if (!opts.here) await page.goto(opts.guest ? "/#/try" : "/#/new");
+  await expect(page.getByRole("heading", { name: "Describe your business" })).toBeVisible();
+  await page.getByLabel("About your business").fill(SELLER.description);
+  await page.getByLabel("Price list", { exact: true }).fill(SELLER.price_list);
   await page.getByRole("button", { name: "Make my website" }).click();
   await page.waitForURL(/#\/b\/\d+$/);
   return Number(page.url().match(/#\/b\/(\d+)/)![1]);
