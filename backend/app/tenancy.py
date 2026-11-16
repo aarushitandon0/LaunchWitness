@@ -33,7 +33,7 @@ def unpublish(session: Session, settings: Settings, integ: Integrations, b: Busi
     if not is_public(b):
         return
     try:
-        if b.subdomain:
+        if b.subdomain and settings.dns_mode != "wildcard":  # wildcard: the shop has no record of its own
             integ.godaddy.delete_records(settings.app_domain, "A", b.subdomain)
         result, detail = "ok", "address record removed"
     except Exception as e:  # the page is gone anyway (status), the stray record points at a 404

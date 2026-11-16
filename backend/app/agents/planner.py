@@ -90,13 +90,15 @@ def _sandbox(session: Session, settings: Settings, integ: Integrations, business
         raise PlanError("Please choose your website address first.")
     zone, sub = settings.app_domain, business.subdomain
     host = fqdn(zone, sub)
-    current = integ.godaddy.get_records(zone)
-    changes = [change(zone, "A", sub, current, [{"data": settings.server_ip}],
-                      f"Point {host} to your website")]
+    wildcard = settings.dns_mode == "wildcard"  # the address already exists: GoDaddy is neither read nor written
+    changes = [] if wildcard else [change(zone, "A", sub, integ.godaddy.get_records(zone), [{"data": settings.server_ip}],
+                                          f"Point {host} to your website")]
     steps = [
         step("backup", "backup_dns", "Save a copy of the current settings",
+             "Nothing to save: this launch changes no DNS settings." if wildcard else
              f"Read every DNS record on {zone} and store it as JSON so any change can be undone."),
         step("point", "point_site", f"Point {host} to your website",
+             f"Already done: every name under {zone} leads to {settings.server_ip} (set by our team)." if wildcard else
              f"Set A {sub}.{zone} → {settings.server_ip} (TTL {TTL})."),
         step("mailbox", "use_app_mailbox", "Send your orders to the LaunchWitness inbox",
              f"Order emails are sent from {settings.smtp_user} to you."),

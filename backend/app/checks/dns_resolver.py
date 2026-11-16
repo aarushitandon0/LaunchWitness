@@ -134,6 +134,8 @@ class ZoneBackedResolver:
                 label = fqdn[: -len(zone) - 1]
             else:
                 continue
+            if not any(r["name"] == label for r in records):
+                label = "*"  # like real DNS: a name with no records of its own gets the zone's wildcard, if any
             return [record_text(r) for r in records if r["type"] == rtype and r["name"] == label]
         return []
 
@@ -182,3 +184,29 @@ class AuthoritativeResolver:
 
     def resolve(self, name: str, rtype: str) -> list[str]:
         return list(self.lookup(name, rtype).values)
+
+    def resolve_all(self, name: str, rtype: str) -> list[tuple[str, list[str] | None]]:
+        """One answer per nameserver of the zone: [(server, values)], values None when that server didn't answer.
+        A certificate authority may ask ANY of them, so "the address is set" means all of them say so."""
+        _zone, ns = self.nameservers(name)
+        out: list[tuple[str, list[str] | None]] = []
+        for host in ns:
+            ips = self._finder.resolve(host, "A")
+            if not ips:
+                out.append((host, None))
+            for ip in ips:
+                try:
+                    out.append((f"{host} ({ip})", list(self._query(name, rtype, ip))))
+                except Exception:
+                    out.append((f"{host} ({ip})", None))
+        return out
+
+
+def points_here(dns_: DnsResolver, host: str, ip: str) -> bool:
+    """True only when EVERY nameserver of the zone answers `ip` for `host` (and at least one answered).
+    Resolvers without `resolve_all` (the pretend world) are asked once."""
+    ask_all = getattr(dns_, "resolve_all", None)
+    if ask_all is None:
+        return ip in dns_.resolve(host, "A")
+    answers = ask_all(host, "A")
+    return bool(answers) and all(values is not None and ip in values for _server, values in answers)

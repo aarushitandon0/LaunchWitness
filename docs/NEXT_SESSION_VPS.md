@@ -106,6 +106,7 @@ The owner types the values; nobody else sees them. Production values:
 | `IMAP_USER` / `IMAP_PASSWORD` | `hello@launchwitness.com` / the same password |
 | `MONITOR_ENABLED` | `true` (forced by the prod compose anyway) |
 | `PRACTICE_STEP_SECONDS` | `0` |
+| `DNS_MODE` | `per_shop` (the default). Only `wildcard` if GoDaddy refuses our API: see "If GoDaddy's API refuses us" below |
 | everything else | the `.env.example` defaults |
 
 **✔ Check:** `ls -l .env` shows `-rw-------`; `git status --short` doesn't list `.env`.
@@ -142,6 +143,11 @@ curl -sk https://launchwitness.com/api/health                     # {"ok":true,.
 ```
 
 ## 7. Switch to the real CA
+
+Only after **both** nameservers answer with the VPS (Let's Encrypt may ask either one; a failed try counts against
+5 per name per hour): `for ns in $(dig +short NS launchwitness.com); do dig +short launchwitness.com @$ns; done`
+must print `<VPS_IP>` twice. The app does the same for every shop: a shop is turned on only when every nameserver
+answers, and `/internal/tls-ask` asks them again before it lets Caddy request a certificate.
 
 ```bash
 lwc up -d --wait          # without ACME_CA: back to Let's Encrypt production
@@ -255,6 +261,14 @@ email. The hop becomes "Owner confirmed", the only delivery proof for an inbox w
    delete `A <shop>`. Any leftover shows up on the team page under "Address records" the next day (or press "Check now").
 4. **Everything:** set `A @` back to the value from step 0; `lwc down`.
 
+## If GoDaddy's API refuses us (401/403 on DNS: some accounts may not use the API)
+
+1. godaddy.com → launchwitness.com → DNS → add **A `*`** → `<VPS_IP>`, TTL 600 (this replaces "Don't add `*`" in step 6).
+2. In `.env` set `DNS_MODE=wildcard`, then `lwc up -d --wait`. The app now reads and writes nothing at GoDaddy for shops.
+3. Each shop is still proven: every nameserver must answer `<VPS_IP>` for its name, then the padlock and the shop's own marker over HTTPS.
+4. Certificates stay safe: `/internal/tls-ask` says yes only for live, unpaused shops, so `anything.launchwitness.com` gets none.
+5. Weaker than per-shop records: a deleted shop's name still reaches our server (it shows "not found"), and "Address records" on the team page only checks that `*` is right; fixes there are by hand.
+
 ## If Let's Encrypt refuses
 
 - `too many certificates` / `rateLimited` in `lwc logs caddy`: stop retrying. Switch to staging
@@ -264,3 +278,4 @@ email. The hop becomes "Owner confirmed", the only delivery proof for an inbox w
   the VPS provider's own firewall).
 - A shop gets no certificate: `/internal/tls-ask` says no unless the shop is live, real and unpaused. Check with
   `lwc exec -T caddy wget -qO- "http://app:8000/internal/tls-ask?domain=<shop>.launchwitness.com"`.
+  It also says no while any nameserver doesn't answer `<VPS_IP>` for the shop (so no failed attempt is spent).
