@@ -25,6 +25,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/check-address"): PUBLIC,  # read-only checks of any address; SSRF-guarded, rate-limited
     ("POST", "/api/proof/confirm"): PUBLIC,  # "Yes, I got it": the single-use token is the permission
     ("GET", "/r/{token}"): PUBLIC,  # shared read-only report: the unguessable, revocable token is the permission
+    ("GET", "/r/{token}/verify"): PUBLIC,  # recomputes the proof chain: intact/rows/head only; same token, rate-limited
     # --- public shop pages (served on shop hosts only) ---
     ("POST", "/order"): PUBLIC,
     ("POST", "/report-shop"): PUBLIC,

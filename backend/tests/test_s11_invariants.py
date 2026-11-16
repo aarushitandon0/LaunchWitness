@@ -150,6 +150,10 @@ def one_run(seed: int, make_settings) -> dict:
     with Session(engine) as s:
         shop = s.get(Business, biz["id"])
         ev = s.exec(select(Evidence).where(Evidence.business_id == shop.id)).all()
+        # 0. (S11d) the proof log is one unbroken hash chain, whatever failed along the way
+        from app import chain
+
+        assert chain.verify(s, shop.id) == {"intact": True, "rows": len(ev), "head": max(ev, key=lambda e: e.id).hash if ev else ""}, (why, "invariant 0: proof chain")
         # 1. nothing is "proven" without its stored evidence; "accepted" is never "delivered"
         for c in (rep.get("run") or {}).get("checks", []):
             mine = [e for e in ev if e.run_id == rep["run"]["id"] and e.check == c["check"]]

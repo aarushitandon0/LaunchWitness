@@ -204,6 +204,15 @@ Say plainly to judges: hosting is the Docker VPS, not GoDaddy's Hosting API.
 
 Every step goes to the audit log shown in the report.
 
+**Tamper-evident proof log (S11d).** Every evidence row is a link in a per-shop hash chain:
+`hash = sha256(prev_hash + canonical JSON of the row)`, the first row chaining from a fixed per-shop start value. Evidence
+is append-only in code (no updates, no deletes; only deleting a shop or account removes its whole chain, with one anonymous
+audit event). The shared report shows "Receipt <first 12 hex of the newest hash> · verify"; the public
+`GET /r/<token>/verify` recomputes the chain and answers only `{"intact": true, "rows": N, "head": "..."}` or
+`{"intact": false, "altered_at": N}`, never any evidence or customer data. It catches an edited, reordered, removed or
+inserted row. Honest limit: someone who can rewrite the whole database can rebuild a chain or cut rows off its end; only a
+receipt that somebody saved earlier would not match.
+
 ---
 
 ## 9a. Accounts and tenancy (session 9F)

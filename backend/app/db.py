@@ -83,6 +83,9 @@ def init_db(engine: Engine | None = None) -> None:
     engine = engine or get_engine()
     SQLModel.metadata.create_all(engine)
     add_missing_columns(engine)
+    from app import chain
+
+    chain.backfill(engine)  # S11d: evidence rows from before the hash chain get their links, once
 
 
 def get_session() -> Iterator[Session]:

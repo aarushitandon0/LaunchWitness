@@ -176,3 +176,16 @@ One entry per Claude Code session, newest last. This is what judges read to unde
 - I changed / rejected: Part 3 not started (budget). The new Namer reply did not replace the pinned fixture.
 - Result: 919 passed, 2 skipped; strict live-fixture gate passes; live spend $0.056; write test 200/200/204/200, zone identical.
 - Next: the VPS (Wed Nov 18), `DNS_MODE=per_shop`.
+
+### Session 11d — 2026-11-16 (IST) — Tamper-evident proof log (Fable)
+- Goal: the evidence behind every report claim must itself be checkable.
+- Asked Claude to: chain every Evidence row by hash per shop, make evidence append-only, backfill old rows once, show a
+  receipt on the shared report with a public verify, and say first if any of it was a bad idea.
+- Claude built: `app/chain.py` (canonical JSON, `append`, `verify`, `backfill`, `purge`, ORM guards), `GET /r/<token>/verify`,
+  the receipt line, `tests/test_s11d_chain.py` (32 tests), chain check added to the Session 11 invariant test.
+- What checking caught: a time given in another time zone would have been stored as local digits and failed verification
+  (now made UTC before hashing); two test set-up slips.
+- I changed / rejected: said up front what the chain cannot show (a full rewrite, rows cut off the end, an old receipt can't
+  be checked against a newer chain); none of that was added, as it is outside the brief.
+- Result: 951 passed, 2 skipped; ruff clean; no live Claude, no DNS, no email.
+- Next: the VPS (Wed Nov 18).
