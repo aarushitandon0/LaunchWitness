@@ -4,6 +4,13 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
+**Session 11c (Nov 16, Fable): VPS pre-flight merged.** Every live Claude path ran through the app (Reader ×5, Namer, the
+go-live policy check ×5 for the first time, the investigating Doctor): all correct, $0.056. One real GoDaddy write was made
+and undone (200 / 200 / 204 / 200, zone identical): **Wednesday uses `DNS_MODE=per_shop`**. `wait_dns` and `/internal/tls-ask`
+now need every nameserver to agree; `DNS_MODE=wildcard` exists as a fallback. 919 passed, 2 skipped. Part 3 (tamper-evident
+proof log) not started. Details: `docs/STATE_FOR_NEXT_SESSION.md`.
+
+
 **Session 10.5b (Nov 16, Opus): landing follow-ups merged.** "We keep watching after launch" + "How the proof works" +
 Security & privacy sections (copy pinned to the code by a test; two over-claims removed), Check any address → a clear next
 step + **Watch this address** (built: up to 3 per account, read-only daily, one email per new problem), a **Product menu**,
@@ -192,6 +199,14 @@ Everything below is behind an interface with a working fake; tests cover the fak
 | Availability check method | Undecided | gddy / Domains API / OTE / RDAP — interface + fake ready (`GoDaddyAvailabilityChecker` stub) |
 
 ## Decisions
+
+- **S11c (2026-11-16 IST):** A shop is turned on only when **every** nameserver of the zone answers our server, and tls-ask
+  re-checks that on a real server (fail closed: no answer = no certificate attempt). Reason: the real write test showed the two
+  GoDaddy nameservers disagreeing for about 10 s, and Let's Encrypt allows 5 failed validations per name per hour.
+- **S11c:** `DNS_MODE=wildcard` reads and writes nothing at GoDaddy for shops (not only "no writes"), because an account that is
+  refused may be refused reads too. Zone hygiene findings there are hand fixes (`fix: "manual"`).
+- **S11c:** the booking-business test no longer requires the word "orders" in Claude's sentence (the live reply is one plain
+  sentence about booking). The fresh Namer reply is saved under its own name; older namer fixtures stay (tests pin their names).
 
 - **S10.5c (2026-11-16 IST):** The owner didn't like the three.js hero; it was removed (kept in history at `820e824`). If
   it ever returns: real GPU only, since software WebGL starved the page (e2e went from 1 to 10+ minutes).
