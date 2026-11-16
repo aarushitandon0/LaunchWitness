@@ -300,7 +300,7 @@ def run_checks(engine: Engine, settings: Settings, integ: Integrations, claude: 
                         KEEPS_BREAKING.format(n=done))})
                 elif not fixable:  # no automatic fix exists: the owner still gets exact plain steps
                     repairs.append({"check": out.check, "fixed": False, "attempts": [], "doctor": needs_you(
-                        ctx, out.check, out.plain, next_step(out.check, plan.mode))})
+                        ctx, out.check, out.plain, next_step(out.check, plan.mode, out.plain))})
                 elif fix:
                     r = repair(claude, ctx, out, symptom)
                     repairs.append({"check": r.check, "fixed": r.fixed, "attempts": r.attempts,

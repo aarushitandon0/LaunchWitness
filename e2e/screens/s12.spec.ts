@@ -57,3 +57,26 @@ test("S12 report screens", async ({ browser }) => {
   }
   fs.rmSync(state, { force: true });
 });
+
+test("S12 landing screens", async ({ browser }) => {
+  test.skip(ONLY === "report");
+  test.setTimeout(240_000);
+  fs.mkdirSync(OUT, { recursive: true });
+  for (const [w, h] of SIZES) {
+    const p = await page(browser, w, h);
+    await p.goto("/#proof");
+    await p.waitForTimeout(1200);
+    await p.locator("#proof").screenshot({ path: path.join(OUT, `01-proof-before-${w}.png`) });
+    await p.getByRole("button", { name: "Send a test order" }).click();
+    await expect(p.getByRole("button", { name: "Send it again" })).toBeVisible({ timeout: 10_000 });
+    await p.getByRole("button", { name: /Order form/ }).click();
+    await p.waitForTimeout(700);
+    await p.locator("#proof").screenshot({ path: path.join(OUT, `02-proof-sent-${w}.png`) });
+    await p.locator("#watch").scrollIntoViewIfNeeded();
+    await p.getByRole("button", { name: "Something breaks", exact: true }).click();
+    await expect(p.getByRole("button", { name: "Play it again" })).toBeVisible({ timeout: 15_000 });
+    await p.waitForTimeout(500);
+    await p.locator("#watch").screenshot({ path: path.join(OUT, `03-watch-broke-${w}.png`) });
+    await p.context().close();
+  }
+});
