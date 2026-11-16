@@ -54,3 +54,44 @@ test("the symptom box answers", async ({ page }) => {
   await expect(page.locator(".doctor-found").first()).toContainText("You said your shop doesn't open", { timeout: 30_000 });
   await expect(page.getByText(/4 left today/)).toBeVisible();
 });
+
+test("the hop track plays and a hop opens its panel (keyboard too)", async ({ page }) => {
+  await page.goto("/#proof");
+  const track = page.locator("#proof");
+  await track.getByRole("button", { name: "Send a test order" }).click();
+  await expect(track.getByRole("button", { name: "Send it again" })).toBeVisible({ timeout: 10_000 });
+  await expect(track.locator(".hoptrack-hop.done")).toHaveCount(6);
+  await expect(track.getByText("Example").first()).toBeVisible();
+  await expect(track.getByText("proven when you tap")).toBeVisible();
+  await track.getByRole("button", { name: /Mail server/ }).focus();
+  await expect(track.locator(".hoppanel-card")).toContainText("our mail service refused our own sign-in");
+  await page.keyboard.press("Tab");
+  await expect(track.locator(".hoppanel-card")).toContainText("Your inbox");
+  await track.getByRole("button", { name: /^Address/ }).click();
+  await expect(track.locator(".hoppanel-card")).toContainText("We pointed your address at your shop again");
+});
+
+test("“Something breaks” plays the monitor's real sequence", async ({ page }) => {
+  await page.goto("/#watch");
+  const sec = page.locator("#watch");
+  await sec.getByRole("button", { name: "Something breaks", exact: true }).click();
+  const seq = sec.getByRole("list", { name: "What happens when something breaks" });
+  await expect(seq).toContainText("We check again a minute later", { timeout: 10_000 });
+  await expect(seq).toContainText("Checked again: working", { timeout: 10_000 });
+  await expect(seq).toContainText("No email this time", { timeout: 10_000 });
+  const strip = sec.getByRole("slider", { name: "Checks in an example day" });
+  await strip.focus();
+  await page.keyboard.press("Home");
+  await expect(strip).toHaveAttribute("aria-valuetext", /^00:00: Quick check/);
+});
+
+test.describe("reduced motion", () => {
+  test.use({ reducedMotion: "reduce" });
+  test("both sections jump straight to the end state", async ({ page }) => {
+    await page.goto("/#proof");
+    await page.locator("#proof").getByRole("button", { name: "Send a test order" }).click();
+    await expect(page.locator("#proof .hoptrack-hop.done")).toHaveCount(6);
+    await page.locator("#watch").getByRole("button", { name: "Something breaks", exact: true }).click();
+    await expect(page.locator("#watch .bs")).toHaveCount(6);
+  });
+});
