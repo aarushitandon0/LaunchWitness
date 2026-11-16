@@ -8,7 +8,9 @@ Claude Code reads this at the start of every session and updates it at the end. 
 Security & privacy sections (copy pinned to the code by a test; two over-claims removed), Check any address → a clear next
 step + **Watch this address** (built: up to 3 per account, read-only daily, one email per new problem), a **Product menu**,
 and the hero rebuilt as a lazy **three.js** scene (126 kB gz, landing only; still image for reduced motion / no GPU / while
-loading). Screenshots + a loop recording: `docs/screenshots/s10-5b/`.
+loading). Also fixed: Check any address called a "null MX" (`0 .`, e.g. example.com) "emails have somewhere to go".
+Unit 622 passed, 2 skipped · e2e 11/11 (Docker, 56 s; dev server) · `check_m1.sh --local` all PASS · scene 60 fps on
+Intel Iris Xe · screenshots + a loop recording: `docs/screenshots/s10-5b/`.
 
 **Session 10.5 (Nov 16, Opus): owner experience fixed before Fable. §1–§5 merged.** Landing for small sellers in general +
 demo shops (`/demo/meera|imran|sunita`); sign in first with guest practice as a quiet secondary path; real-app routing

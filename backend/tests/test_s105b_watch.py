@@ -113,3 +113,14 @@ def test_watches_go_with_the_account(me, engine):
     assert me.post("/api/account/delete", json={"token": token}).status_code == 200
     with Session(engine) as s:
         assert s.exec(select(WatchedAddress)).all() == []
+
+
+def test_null_mx_means_no_email():
+    """RFC 7505: `0 .` says the domain accepts no email (found on example.com in the S10.5b screenshots)."""
+    from app.routers.proof import address_results
+
+    dns = FakeDns({("x.example.com", "MX"): ["0 ."]})
+    res = {r["check"]: r for r in address_results("x.example.com", dns, FakeWeb())}
+    assert res["email_mx"]["ok"] is False and "doesn't accept email" in res["email_mx"]["plain"]
+    dns = FakeDns({("x.example.com", "MX"): ["10 mx.example.com."]})
+    assert {r["check"]: r for r in address_results("x.example.com", dns, FakeWeb())}["email_mx"]["ok"] is True

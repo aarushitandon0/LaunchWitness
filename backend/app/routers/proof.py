@@ -232,8 +232,10 @@ def address_results(host: str, dns: DnsResolver, web: SafeWeb) -> list[dict]:
     for name in dict.fromkeys((zone, f"www.{zone}")):  # only the names typed: the address itself and its www
         dangling_cname(name, dns, add)
     mx = dns.resolve(zone, "MX")
-    add("email_mx", bool(mx), "Emails to this address have somewhere to go." if mx else
-        "This address can't receive email.", ", ".join(mx))
+    # RFC 7505 "null MX" (`0 .`): the domain says it accepts no email at all
+    real_mx = [m for m in mx if m.split()[-1].rstrip(".") != ""]
+    add("email_mx", bool(real_mx), "Emails to this address have somewhere to go." if real_mx else
+        "This address says it doesn't accept email." if mx else "This address can't receive email.", ", ".join(mx))
     txt = [t.strip('"') for t in dns.resolve(zone, "TXT")]
     spf = [t for t in txt if t.lower().startswith("v=spf1")]
     add("email_spf", bool(spf), "It says which servers may send its email." if spf else
