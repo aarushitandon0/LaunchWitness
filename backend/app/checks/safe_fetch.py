@@ -12,6 +12,7 @@ Rules, for every hop (redirects included):
 import ipaddress
 import socket
 import ssl
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -23,6 +24,28 @@ from app.sites.hosts import HOSTNAME
 
 MAX_REDIRECTS = 3
 MAX_BODY = 300_000
+
+
+MAX_SECONDS = 20  # for one whole page, however slowly it arrives
+now = time.monotonic
+
+
+class TooSlow(Exception):
+    """The page kept us waiting longer than MAX_SECONDS."""
+
+
+def read_capped(r: httpx.Response) -> bytes:
+    """At most MAX_BODY bytes and MAX_SECONDS of the body, read as it arrives: a page that never
+    ends (or drips a byte at a time) can't fill our memory or hold a check open."""
+    deadline, got, size = now() + MAX_SECONDS, [], 0
+    for chunk in r.iter_bytes():
+        got.append(chunk)
+        size += len(chunk)
+        if size >= MAX_BODY:
+            break
+        if now() > deadline:
+            raise TooSlow
+    return b"".join(got)[:MAX_BODY]
 
 
 class Refused(Exception):
@@ -94,19 +117,29 @@ class SafeWeb:
             ip = check_host(host, self.allow, self.resolve, self.allow_private)
             target = f"https://{'[' + ip + ']' if ':' in ip else ip}{u.path or '/'}{'?' + u.query if u.query else ''}"
             try:
-                r = self._http.request(method, target, data=data, headers={"Host": host},
-                                       extensions={"sni_hostname": host})
+                with self._http.stream(method, target, data=data, headers={"Host": host, "Accept-Encoding": "identity"},
+                                       extensions={"sni_hostname": host}) as r:
+                    status, location = r.status_code, r.headers.get("location")
+                    redirect = status in (301, 302, 303, 307, 308) and bool(location)
+                    body = b"" if redirect else read_capped(r)
+                    encoding = r.encoding or "utf-8"
+            except TooSlow:
+                return Page(None, "", url, error="TooSlow", server=ip)
             except httpx.ConnectError as e:
                 bad_cert = isinstance(e.__cause__, ssl.SSLError) or "CERTIFICATE" in str(e).upper()
                 return Page(None, "", url, error=type(e).__name__, server=ip, cert_valid=not bad_cert)
             except httpx.HTTPError as e:
                 return Page(None, "", url, error=type(e).__name__, server=ip)
-            if r.status_code in (301, 302, 303, 307, 308) and r.headers.get("location"):
-                url = urljoin(url, r.headers["location"])
-                if r.status_code in (301, 302, 303):
+            if redirect:
+                url = urljoin(url, location)
+                if status in (301, 302, 303):
                     method, data = "GET", None
                 continue
-            return Page(r.status_code, r.text[:MAX_BODY], url, server=ip)
+            try:
+                html = body.decode(encoding, errors="replace")
+            except LookupError:  # a charset name we don't know
+                html = body.decode("utf-8", errors="replace")
+            return Page(status, html[:MAX_BODY], url, server=ip)
         raise Refused("That address sends us round in circles (too many redirects).")
 
     def cert_not_after(self, host: str) -> datetime | None:
