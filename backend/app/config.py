@@ -104,7 +104,7 @@ class Settings(BaseSettings):
     smtp_security: Literal["ssl", "starttls", "plain"] = "ssl"
     smtp_user: str = "hello@example.com"
     monitor_workers: int = 4  # S13 B: shops checked at the same time by one process (each in its own thread)
-    smtp_daily_limit: int = 250  # S13 placeholder: the owner sets GoDaddy's real per-day send limit
+    smtp_daily_limit: int = 450  # S13b: GoDaddy Professional Email allows 500/day per mailbox over SMTP; 50 kept for hand-sent mail
     smtp_password: SecretStr = SecretStr("")
     imap_host: str = "imap.secureserver.net"
     imap_port: int = 993

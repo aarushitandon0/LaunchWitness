@@ -178,9 +178,12 @@ Light monitoring is core; full only if time permits. It re-runs launch checks on
   534 s one after another before S13, 163 s with 4 workers (daily: 670 s → about 300 s). With the shops spread
   over 15 minutes, each one-minute beat handles 1/15 of them; at about 2 s per shop for the quick checks, 4 workers
   manage about 120 shops a minute, so the checks themselves would keep up with well over 1,000 shops. **The real
-  limit is email:** each live shop sends one test order a day, so one mailbox at `SMTP_DAILY_LIMIT` watches about
-  0.8 × that limit shops with a full daily proof (about 200 at the 250/day placeholder); beyond that the test orders
-  wait (shown as "couldn't finish", never failed). Not measured: the VPS's own CPU and memory, real network delays.
+  limit is email:** each live shop sends one test order a day, and test orders wait once 80% of `SMTP_DAILY_LIMIT`
+  is used. GoDaddy Professional Email allows 500 messages a day per mailbox over SMTP; we set `SMTP_DAILY_LIMIT=450`
+  (50 kept for mail sent by hand), so one mailbox gives a full daily proof to **at most 360 shops** (80% of 450), and
+  fewer on a day with many sign-ins, orders and alerts, which share the same 450 (they come first). Beyond that the
+  test orders wait (shown as "couldn't finish", never failed). Today `MAX_LIVE_SHOPS=40` keeps us far below it.
+  Not measured: the VPS's own CPU and memory, real network delays.
 
 **Honest framing:** in the demo everything sits in the app's GoDaddy account, so little can break after launch. Monitoring matters most once it runs on her own account. Pitch it as insurance, not the hero.
 
