@@ -25,7 +25,8 @@
       "description": "",
       "category": "Stitching",
       "addon": false,
-      "price_from": true
+      "price_from": true,
+      "food_mark": ""
     },
     {
       "name": "Princess cut blouse",
@@ -33,7 +34,8 @@
       "description": "",
       "category": "Stitching",
       "addon": false,
-      "price_from": true
+      "price_from": true,
+      "food_mark": ""
     },
     {
       "name": "Kurti stitching",
@@ -41,7 +43,8 @@
       "description": "",
       "category": "Stitching",
       "addon": false,
-      "price_from": true
+      "price_from": true,
+      "food_mark": ""
     },
     {
       "name": "Lehenga",
@@ -49,7 +52,8 @@
       "description": "",
       "category": "Stitching",
       "addon": false,
-      "price_from": true
+      "price_from": true,
+      "food_mark": ""
     },
     {
       "name": "Saree fall and pico",
@@ -57,7 +61,8 @@
       "description": "",
       "category": "Saree services",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": ""
     },
     {
       "name": "Alteration",
@@ -65,7 +70,8 @@
       "description": "",
       "category": "Alterations",
       "addon": false,
-      "price_from": true
+      "price_from": true,
+      "food_mark": ""
     },
     {
       "name": "Urgent charge",
@@ -73,16 +79,16 @@
       "description": "Extra charge for delivery in 2 days",
       "category": "Extras",
       "addon": true,
-      "price_from": false
+      "price_from": false,
+      "food_mark": ""
     }
   ],
-  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only).",
-  "_theme_placeholder": true,
   "theme": "tailor",
-  "accent": "thread",
+  "accent": "navy",
   "section_copy": {
-    "hero_line": "Blouses, kurtis and lehengas, stitched to fit",
-    "about": "We do ladies tailoring for blouses, kurtis, lehengas and more, with 12 years of experience.",
-    "how_ordering": "Choose your stitching, send your order, and we'll confirm the details with you. Please order 7 days ahead."
-  }
+    "hero_line": "Ladies tailoring for blouses, kurtis and lehengas, stitched at home",
+    "about": "We are a home-based ladies tailoring boutique in Jayanagar, Bangalore, with 12 years of experience. We stitch blouses, kurtis and lehengas, and do saree fall and alterations too.",
+    "how_ordering": "Choose your items and send your order. Regular orders are ready in 7 days, and urgent orders in 2 days."
+  },
+  "allergens": ""
 }

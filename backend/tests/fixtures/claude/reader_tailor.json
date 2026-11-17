@@ -13,70 +13,79 @@
       "name": "Simple blouse stitching",
       "price_inr": 450,
       "description": "",
-      "category": "Ladies stitching"
+      "category": "Ladies stitching",
+      "food_mark": ""
     },
     {
       "name": "Designer / padded blouse",
       "price_inr": 850,
       "description": "Price starts from ₹850",
-      "category": "Ladies stitching"
+      "category": "Ladies stitching",
+      "food_mark": ""
     },
     {
       "name": "Salwar suit stitching",
       "price_inr": 600,
       "description": "",
-      "category": "Ladies stitching"
+      "category": "Ladies stitching",
+      "food_mark": ""
     },
     {
       "name": "Anarkali suit",
       "price_inr": 1100,
       "description": "",
-      "category": "Ladies stitching"
+      "category": "Ladies stitching",
+      "food_mark": ""
     },
     {
       "name": "Gents kurta pajama",
       "price_inr": 700,
       "description": "",
-      "category": "Gents stitching"
+      "category": "Gents stitching",
+      "food_mark": ""
     },
     {
       "name": "Sherwani stitching",
       "price_inr": 3500,
       "description": "Price starts from ₹3500",
-      "category": "Gents stitching"
+      "category": "Gents stitching",
+      "food_mark": ""
     },
     {
       "name": "Pant alteration / length",
       "price_inr": 120,
       "description": "",
-      "category": "Alterations"
+      "category": "Alterations",
+      "food_mark": ""
     },
     {
       "name": "Fall pico for saree",
       "price_inr": 100,
       "description": "",
-      "category": "Alterations"
+      "category": "Alterations",
+      "food_mark": ""
     },
     {
       "name": "Urgent (2 days)",
       "price_inr": 300,
       "description": "Extra charge for 2-day delivery",
-      "category": "Extra services"
+      "category": "Extra services",
+      "food_mark": ""
     },
     {
       "name": "Home measurement visit",
       "price_inr": 150,
       "description": "For ladies within Lucknow, on appointment",
-      "category": "Extra services"
+      "category": "Extra services",
+      "food_mark": ""
     }
   ],
-  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only).",
-  "_theme_placeholder": true,
   "theme": "tailor",
   "accent": "navy",
   "section_copy": {
-    "hero_line": "Ladies and gents tailoring for every occasion",
-    "about": "We stitch for ladies and gents in Aminabad, Lucknow, for every occasion.",
-    "how_ordering": "Choose your stitching, send your order, and we'll confirm it with you."
-  }
+    "hero_line": "Ladies and gents stitching, done with 22 years of experience",
+    "about": "My father started this shop and we have been tailoring for 22 years. We stitch blouses, salwar suits, kurtas, lehenga and sherwani, plus all alterations. Chikankari kurtas are available on order.",
+    "how_ordering": "Normal orders are ready in 5-7 days, urgent orders in 2 days with an extra charge. Wedding orders get a fitting trial before final stitching, and home measurement visits are possible for ladies within Lucknow on appointment."
+  },
+  "allergens": ""
 }

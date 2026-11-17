@@ -59,15 +59,12 @@
       "food_mark": "veg"
     }
   ],
-  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only). S15: `allergens` and each item's `food_mark` are hand-written too (a food mark only where the seller's own words say veg / eggless); the same --theme-only re-capture refreshes them.",
-  "_theme_placeholder": true,
   "theme": "kitchen",
   "accent": "turmeric",
   "section_copy": {
-    "hero_line": "Fresh home-style veg tiffin in HSR Layout and Koramangala",
-    "about": "We cook fresh home-style vegetarian tiffin for HSR Layout and Koramangala.",
-    "how_ordering": "Choose a thali or a monthly plan, send your order, and we'll confirm it with you."
+    "hero_line": "Fresh home-style veg tiffin, cooked every morning and delivered to you",
+    "about": "We are two sisters cooking Maharashtrian and North Indian vegetarian food fresh every morning. Our food has less oil and less spice, and we can make it without onion and garlic on request.",
+    "how_ordering": "Choose a thali or monthly plan, send your order, and we deliver free in HSR Layout and Koramangala. You can pause your plan for travel with 1 day notice."
   },
-  "allergens": "",
-  "_food_placeholder": true
+  "allergens": ""
 }

@@ -638,6 +638,7 @@ def test_the_order_email_lists_how_when_and_what_is_due(client, mailer):
 def test_the_fixture_marks_are_labelled_placeholders():
     for name in ("meera_cakes", "tiffin_service", "tiffin_hinglish"):
         raw = json.loads((Path(__file__).parent / "fixtures" / "claude" / f"reader_{name}.json").read_text(encoding="utf-8"))
-        assert raw.get("_food_placeholder") and "_note" in raw and "allergens" in raw
+        # S16: re-captured live files drop the label; any file still hand-written must keep it.
+        assert "allergens" in raw and (not raw.get("_food_placeholder") or "_note" in raw)
         assert any(x["food_mark"] == "veg" for x in raw["products"])
     assert GO_LIVE["selling_mode"] == "pickup_local"
