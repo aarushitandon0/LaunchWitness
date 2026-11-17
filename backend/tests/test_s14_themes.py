@@ -448,7 +448,7 @@ def test_owner_picks_a_look_saved_audited_and_the_preview_follows(client, engine
     assert 'class="theme-gifts"' in client.get(f"/api/businesses/{biz['id']}/preview").text
     with Session(engine) as s:
         ev = s.exec(select(AuditEvent).where(AuditEvent.action == "theme_changed")).all()
-    assert len(ev) == 1 and ev[0].detail == "bakery/raspberry -> gifts/emerald" and ev[0].actor == "owner"
+    assert len(ev) == 1 and ev[0].detail == "bakery/caramel -> gifts/emerald" and ev[0].actor == "owner"
 
 
 def test_owner_cannot_pick_a_made_up_look_or_colour(client):
@@ -485,7 +485,7 @@ def test_saving_the_review_form_with_a_new_look_is_audited_and_unrelated_saves_a
     assert out["profile"]["testimonials"] == [{"name": "Dev", "text": "Great fit."}]
     with Session(engine) as s:
         ev = s.exec(select(AuditEvent).where(AuditEvent.action == "theme_changed")).all()
-    assert [e.detail for e in ev] == ["bakery/raspberry -> tailor/olive"]
+    assert [e.detail for e in ev] == ["bakery/caramel -> tailor/olive"]
 
 
 def test_another_owner_cannot_change_the_look(client, new_client):

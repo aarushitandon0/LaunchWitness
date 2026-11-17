@@ -25,7 +25,8 @@
       "description": "",
       "category": "Jar candles",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": ""
     },
     {
       "name": "Vanilla jar candle",
@@ -33,7 +34,8 @@
       "description": "",
       "category": "Jar candles",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": ""
     },
     {
       "name": "Tealights set of 4",
@@ -41,7 +43,8 @@
       "description": "Set of 4 tealights",
       "category": "Tealights",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": ""
     },
     {
       "name": "Gift box of 3 jars",
@@ -49,16 +52,16 @@
       "description": "Gift box with 3 jar candles",
       "category": "Gift boxes",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": ""
     }
   ],
-  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only).",
-  "_theme_placeholder": true,
   "theme": "handmade",
   "accent": "clay",
   "section_copy": {
-    "hero_line": "Slow light, poured by hand in small batches",
-    "about": "We make soy wax candles at home in Bandra, Mumbai, pouring each one by hand in small batches.",
-    "how_ordering": "Choose your candles, send your order, and we'll confirm pickup or delivery with you."
-  }
+    "hero_line": "Hand-poured soy wax candles, made in small batches in Bandra",
+    "about": "We make soy wax candles at home in Bandra, Mumbai. Every candle is hand poured in small batches. Pick one up or have it couriered to you.",
+    "how_ordering": "Choose your items, send your order, and pick up in Bandra or get it couriered for Rs 80 extra."
+  },
+  "allergens": ""
 }

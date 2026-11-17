@@ -39,19 +39,20 @@ test("outside the delivery area -> told politely -> chooses pickup -> orders -> 
   await expect(customer.locator("#area-msg")).toContainText("You could choose pickup instead.");
   await customer.locator("#order-form").evaluate((f: HTMLFormElement) => f.requestSubmit());
   await expect(customer.locator("#area-msg")).toBeVisible(); // still on the form: nothing was sent
-  // The server refuses it too (the shop page's own security policy stops fetch(), so post the same form from the test).
-  const fields = await customer.evaluate(() => {
-    const out: Record<string, string> = {};
-    new FormData(document.getElementById("order-form") as HTMLFormElement).forEach((v, k) => { out[k] = String(v); });
-    return out;
-  });
-  const post = await page.request.post(`${new URL(BASE).origin}/order`, {
-    form: fields, headers: { host: new URL(shopUrl(slug)).host }, failOnStatusCode: false,
-  });
-  const server: [number, string] = [post.status(), await post.text()];
-  expect(server[0]).toBe(422);
-  expect(server[1]).toContain("delivers only in Baner and 411045. You could choose pickup instead.");
+  // The server refuses it too. The browser sends the same form with form.submit(), which skips the page's own check
+  // (Node can't resolve *.localhost on Windows, and the shop's security policy stops fetch()).
+  const [post] = await Promise.all([
+    customer.waitForResponse((r) => r.url().endsWith("/order") && r.request().method() === "POST"),
+    customer.locator("#order-form").evaluate((f: HTMLFormElement) => HTMLFormElement.prototype.submit.call(f)),
+  ]);
+  expect(post.status()).toBe(422);
+  expect(await post.text()).toContain("delivers only in Baner and 411045. You could choose pickup instead.");
   expect((await (await api(page, "GET", `/api/businesses/${id}/orders`)).json()).length).toBe(0);
+  await customer.goto(shopUrl(slug));
+  await customer.locator(".item .add").first().click();
+  await customer.locator("#customer_name").fill("Riya Outside");
+  await customer.locator("#customer_phone").fill("98765 43210");
+  await pickDate(customer);
 
   // She chooses pickup instead and orders.
   await customer.locator('input[name="fulfilment"][value="pickup"]').check();

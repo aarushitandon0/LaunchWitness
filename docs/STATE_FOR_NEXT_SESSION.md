@@ -1,4 +1,22 @@
-# State for the next session (written 2026-11-17 IST, end of Session 15)
+# State for the next session (written 2026-11-18 IST, end of Session 16)
+
+## Session 16 (Opus, 2026-11-18, laptop): S14 + S15 verified together, merged to `main`
+
+Both PRs were already in `main` (`8c9eaf7` S14, `2844520` S15); verified on branch `s16-verify`, merged `--no-ff`. Tag `vps-safe` = `5622ca5` (S13c), pushed.
+- Ran: backend suite 1331 passed; ruff, `tsc`, `npm run build`; Docker prod-like stack; `check_m1.sh --local` all pass (also on main's build);
+  full e2e 29/29 incl. new `e2e/tests/l-s16-themes.spec.ts` (each of the six looks launched for real in practice, https via Caddy: no CSP
+  violation / console error / failed request, lw-shop marker, fonts, one order); screenshots `docs/screenshots/s16/` (6 looks x 375/1440);
+  `secret_scan.sh` clean; `LOCAL=1` backup + restore, same row counts, app healthy.
+- Live: `--theme-only reader:themes` with `CLAUDE_DAILY_SPEND_CAP_USD=0.10`: 5 of 6 captured ($0.0851); `tiffin_hinglish` stopped by the cap
+  (real input is ~3,700 tokens vs the dry-run's ~2,000 estimate). Still hand-written placeholders: `tiffin_hinglish, hinglish, whatsapp_messy,
+  salon, no_categories, prompt_injection, handwritten_photo` → `REQUIRE_LIVE_FIXTURES=1` fails only on those (14 tests). Next: capture them with
+  `reader:<name>` under a ~$0.15 cap.
+- Fixed (tests only, no app change): 3 backend tests that hard-coded the old placeholder accent/headline/label; k-s15's direct POST (Node can't
+  resolve `*.localhost` on Windows → the browser now sends the form with `form.submit()`).
+- Cosmetic, not fixed: kitchen look at 1440, the "Your order" card's top touches the hero box's shadow.
+- **Safe to deploy: `main` after the S16 merge.**
+
+# (Session 15, earlier)
 
 ## Session 15 (Opus, cloud, unattended): where she sells, how customers pay, what the order form asks (PR into `main`, merge AFTER S14)
 
