@@ -4,6 +4,21 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
+**Session 13b (Nov 17, Opus, cloud): S13 verified on the real stack, VPS guide current, public resolvers.**
+Docker prod-like stack rebuilt, `check_m1.sh --local` all PASS (now also: one `monitor_tick`, one `outbox_send`), e2e
+**16/16** (2 new S13 flows: order while practice mail is down -> "retrying" -> "sent"; sign-in while the mail server is
+unreachable -> "We're having trouble sending email" -> the link still arrives). After `docker compose restart app`: one
+monitor job, one outbox sender, a planted `sending` row reset by the reconciler and sent. No product bug found in S13; one
+stale e2e assertion fixed. `SMTP_DAILY_LIMIT=450`. `docs/NEXT_SESSION_VPS.md` updated S10.5 -> S13 with a full `.env`
+checklist and a smoke test. Part 3: the daily run asks 8.8.8.8 / 1.1.1.1 / 9.9.9.9 (evidence, never an alert). Weekly
+digest dropped from this week's scope (owner). Unit 1045 passed, 2 skipped.
+
+Decisions (S13b): `SMTP_DAILY_LIMIT` default also 450 in `config.py` (not only `.env.example`), so a missing line in
+the server `.env` can't fall back to the old 250 placeholder; public resolvers are information only (no alert, no re-check,
+no fix even when all three disagree: the shop's own nameservers decide); they're asked on the daily run only, for
+practice shops against the pretend world (labelled); the report shows the latest look in the monitoring card ("Seen from
+the wider internet") because a quick run replaces the daily run as "latest" within 15 minutes.
+
 **Session 13 (Nov 17, Opus, laptop): stopped after Part B by the owner.** Part 0: the 11 S12 Doctor fixtures captured live
 ($0.0025). Part A: durable email outbox (every email saved first, retried with backoff, dead letters shown to the team,
 daily budget with priorities, honest sign-in "trouble sending", orders never lost, "Email to you" on the Orders page).
@@ -75,6 +90,9 @@ dangling-CNAME finding, the XSS test, `docs/SECURITY.md`, the e2e suite (4 flows
 **M1 + M5: everything that doesn't need real infra is done** (session 4): landing page + contact form, `/build`, prod compose, backup/restore, `docs/RUNBOOK_M1.md`, `scripts/check_m1.sh`, demo seeder, README, project brief draft, public replay built and secret-scanned. Session 5 (design + motion pass) done: new look and motion for the landing page and the whole demo flow. **Session 6 (real Claude agents) done**, and **session 7 captured all 17 live Claude fixtures** on the owner's laptop ($0.0726, every quality gate passes, measured ≈ 1 cent per launch). **Session 8 rebuilt the seller shop template** (one generic template for every seller, basket, new profile fields, booking scope guard). **M1 on the VPS must happen by Nov 17** (`docs/RUNBOOK_M1.md`); session 9 (orders, UPI, tracking, trust & safety) is ready in `docs/NEXT_SESSION_S9.md`. M4 done against fakes (AC5 needs real infra). M3 done except the real-infra AC. M0 · M2 done.
 
 ## Next up
+
+- **Owner:** merge the S13b PR, pull on the laptop. **Wed Nov 18: follow `docs/NEXT_SESSION_VPS.md`** (its `.env`
+  checklist at the end; `SMTP_DAILY_LIMIT=450`; staging CA first; the smoke test at the end).
 
 - **Owner (laptop):** capture the S12 Doctor fixtures live: `cd backend && CLAUDE_MODE=live ../.venv/Scripts/python
   ../scripts/capture_doctor_investigation.py --s12` (5 conversations, worst case $0.007). Then
