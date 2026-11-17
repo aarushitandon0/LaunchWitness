@@ -22,7 +22,7 @@ from app.agents.launch_check import (
 )
 from app.config import Settings, get_settings
 from app.db import get_session
-from app.models import AuditEvent, Business, CheckResult, CheckRun, Plan, utcnow
+from app.models import AuditEvent, Business, CheckResult, CheckRun, Evidence, Plan, utcnow
 from app.monitor.scheduler import QUICK_MINUTES
 from app.routers.businesses import get_claude
 from app.routers.launch import IntegFor, integrations_for
@@ -121,6 +121,18 @@ def headline(plan: Plan | None, latest_plan: Plan | None, run: dict | None,
     return False, "Almost there: a few things still need attention", left or ["We couldn't finish the checks."]
 
 
+def public_resolvers_out(session: Session, business_id: int) -> dict | None:
+    """S13b: the latest daily look through the public resolvers (stored evidence only)."""
+    e = session.exec(select(Evidence).where(Evidence.business_id == business_id, Evidence.step == "public_resolvers")
+                     .order_by(Evidence.id.desc())).first()
+    if e is None:
+        return None
+    head, _sep, answers = e.answer.partition(" | ")
+    m = re.match(r"Reachable from (\d+) of (\d+)", head)
+    return {"at": iso(e.at), "title": head, "agree": bool(m and m.group(1) == m.group(2)), "answer": answers[:300],
+            "practice": e.practice}
+
+
 @router.get("/businesses/{business_id}/report")
 def report(b: Annotated[Business, Depends(require_business_access)], actor: ActorDep,
            settings: Annotated[Settings, Depends(get_settings)],
@@ -161,6 +173,7 @@ def report(b: Annotated[Business, Depends(require_business_access)], actor: Acto
         "launch": launch_out(plan or latest_plan),
         "monitoring": {"enabled": settings.monitor_enabled, "every_minutes": QUICK_MINUTES,
                        "last_quick": last("monitor_quick"), "last_daily": last("monitor_daily"),
+                       "public_resolvers": public_resolvers_out(session, b.id),
                        "cert_days_left": info.get("cert_days_left"), "domain_days_left": info.get("domain_days_left")},
         # Renewals (S10): only for a launched shop; dates from the pretend world are labelled by `practice`.
         "renewals": renewals.card(settings, plan.mode, plan.zone, info) if plan and b.status == "live" else None,

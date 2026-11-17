@@ -7,6 +7,9 @@ from typing import Protocol
 import dns.exception
 import dns.resolver
 
+# S13b: asked on the daily run, as information (what customers' phones probably see), never as the proof itself.
+PUBLIC_RESOLVERS = (("Google", "8.8.8.8"), ("Cloudflare", "1.1.1.1"), ("Quad9", "9.9.9.9"))
+
 
 class DnsResolver(Protocol):
     def resolve(self, name: str, rtype: str) -> list[str]: ...

@@ -241,7 +241,31 @@ class Monitor:
         self.resolve(business_id, [n for n in names if n not in {f.check for f in summary.failed}])
         if kind == "daily":
             self.expiry_alerts(business_id, summary.run_id)
+            self.public_resolvers(business_id, summary.run_id, plan.site_host)
         return failing
+
+    def public_resolvers(self, business_id: int, run_id: int | None, host: str) -> dict | None:
+        """S13b: the daily run also asks three public resolvers; saved as evidence, never alerted on."""
+        from app.agents.checker import public_resolvers
+
+        if not run_id:
+            return None
+        try:
+            with Session(self.engine) as s:
+                biz = s.get(Business, business_id)
+                if biz is None:
+                    return None
+                got = public_resolvers(s, biz, run_id, host, self.settings.server_ip, self.integ_for(biz))
+                if got is not None:
+                    audit.record(s, actor="monitor", action="public_resolvers", target=host,
+                                 result="ok" if got["agree"] == got["asked"] else "differs", business_id=business_id,
+                                 detail=f"{got['agree']} of {got['asked']} agree")
+                return got
+        except Exception as e:  # information only: it never breaks the round
+            with Session(self.engine) as s:
+                audit.record(s, actor="monitor", action="public_resolvers", target=host, result="failed",
+                             business_id=business_id, detail=type(e).__name__)
+            return None
 
     def recheck(self, business_id: int, names: list[str]) -> list[str]:
         """A minute later: re-check; the Doctor fixes what it safely can; alert on what's left."""

@@ -213,7 +213,7 @@ def find_order_form(html: str) -> OrderForm | None:
 
 STEP_TITLES = {"dns_answer": "Address answered", "http_response": "Page opened", "form_post": "Form accepted",
                "smtp_accepted": "Mail server accepted", "imap_seen": "In the inbox",
-               "owner_confirmed": "Owner confirmed"}
+               "owner_confirmed": "Owner confirmed", "public_resolvers": "Public resolvers"}
 
 
 def iso(v: datetime | None) -> str | None:
@@ -221,7 +221,10 @@ def iso(v: datetime | None) -> str | None:
 
 
 def evidence_out(e: Evidence) -> dict:
-    return {"check": e.check, "step": e.step, "title": STEP_TITLES.get(e.step, e.step), "at": iso(e.at),
+    title = STEP_TITLES.get(e.step, e.step)
+    if e.step == "public_resolvers":  # S13b: the plain summary IS the title ("Reachable from 3 of 3 public resolvers")
+        title = e.answer.split(" | ", 1)[0] or title
+    return {"check": e.check, "step": e.step, "title": title, "at": iso(e.at),
             "source": e.source, "server": e.server, "message_id": e.message_id, "status_code": e.status_code,
             "cert_not_after": iso(e.cert_not_after), "answer": e.answer[:200], "practice": e.practice}
 

@@ -173,6 +173,10 @@ Light monitoring is core; full only if time permits. It re-runs launch checks on
 - The daily test order records "accepted" at once and looks for "seen" in up to three later one-minute passes; still
   missing after the last one, it fails and the usual re-check / Doctor / alert path takes over.
 - All GoDaddy API calls in the process share one limit (50 a minute; GoDaddy allows 60 per endpoint).
+- **Public resolvers (S13b):** the daily run also asks Google 8.8.8.8, Cloudflare 1.1.1.1 and Quad9 9.9.9.9 for each
+  live shop's address and saves the answers as evidence ("Reachable from 3 of 3 public resolvers"). It is information
+  (what customers' phones probably see), not the proof: the shop's own nameservers decide pass/fail. One that
+  disagrees is said plainly and **never** alerted on, re-checked or fixed.
 - **How many shops one VPS can watch at this schedule.** Measured on the pretend world with realistic delays
   (`tests/test_s13_scale.py`, 40 shops, some slow, one hanging, one failing): a quick round of all 40 at once took
   534 s one after another before S13, 163 s with 4 workers (daily: 670 s → about 300 s). With the shops spread
