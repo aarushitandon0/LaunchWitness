@@ -225,6 +225,14 @@ PY
 [ "$(echo "$procs" | tail -n1 | tr -d '\r')" = "1" ] && pass "exactly one uvicorn process" || fail "uvicorn processes: $procs (must be 1)"
 nlog="$("${COMPOSE[@]}" logs app 2>&1 | grep -c 'monitor started' || true)"
 info "scheduler starts logged since the container was created: $nlog (one per start)"
+# S13: one monitor beat a minute + one outbox sender, never two of either (the last start's job list).
+jobs="$("${COMPOSE[@]}" logs app 2>&1 | grep 'monitor started' | tail -n1 | sed -n 's/.*jobs=//p')"
+nt="$(printf '%s' "$jobs" | grep -o "'monitor_tick'" | wc -l | tr -d ' ')"
+no="$(printf '%s' "$jobs" | grep -o "'outbox_send'" | wc -l | tr -d ' ')"
+if [ "$nt" = "1" ] && [ "$no" = "1" ]; then pass "scheduler: one monitor_tick, one outbox_send"
+else fail "scheduler jobs at the last start: monitor_tick x$nt, outbox_send x$no (each must be 1): $jobs"; fi
+rec="$("${COMPOSE[@]}" logs app 2>&1 | grep 'startup reconcile' | tail -n1 | sed -n 's/.*startup reconcile: //p')"
+[ -n "$rec" ] && info "startup reconcile (rows put back after a stop): $rec"
 
 # ---------- 6. Mailbox + contact form ----------
 echo "6. Mailbox and contact form"

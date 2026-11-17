@@ -20,6 +20,11 @@ LW_BASE=http://localhost:8000 LW_MAIL= npx playwright test   # against the dev s
   in; (d) Privacy and Terms are one click from sign-in; (e) "Start" asks to sign in first and returns to Describe, routing
   (refresh, Back/Forward, step header, Page not found) and the demo shop; (f) every link and button in the owner's preview
   stays inside the shop. Flow (a) also checks the go-live gate and the Orders page (status + WhatsApp link).
+  (g) landing menu; (h) S12: staged fault + Doctor trace, symptom box, hop track, "Something breaks", photos;
+  (i) S13: an order placed while the team's practice "mail down" switch is on shows "Email to you: retrying" and becomes
+  "sent" after it's off; sign-in while the mail server is unreachable says "We're having trouble sending email" and the
+  link still arrives. The sign-in flow runs `docker stop/start launchwitness-local-mailpit-1` (`LW_MAILPIT_CONTAINER`
+  to rename), so it only runs on the local Docker stack and is skipped elsewhere.
 - Screenshots (not a test): `npx playwright test -c screens.config.ts` → `docs/screenshots/s10-5/` (`LW_SHOTS=<dir>`).
 - Not covered here: the owner tapping "Yes, I got it". On a practice server the test-order email goes to the
   pretend inbox (in server memory), so there's no link to tap; pytest covers that path
