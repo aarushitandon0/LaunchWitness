@@ -44,7 +44,8 @@ test("a staged fault shows the Doctor's trace and becomes one incident", async (
   await expect(timeline).toContainText("Pointed your address at your shop again");
   await expect(timeline).toContainText("Checked again: working");
   const incident = page.locator(".incident").first();
-  await expect(incident).toContainText("Your address leads to your website");
+  // The incident card shows once the reloaded report has replayed the run; 5 s could lose that race.
+  await expect(incident).toContainText("Your address leads to your website", { timeout: 30_000 });
   await expect(incident).toContainText("Fixed");
 });
 
@@ -62,7 +63,8 @@ test("the symptom box answers", async ({ page }) => {
   await waitForRun(page, id, before);
   await page.reload();
   await expect(page.locator(".doctor-found").first()).toContainText(symptomFinding(), { timeout: 30_000 });
-  await expect(page.getByText(new RegExp(`${left - 1} left today|None left today`))).toBeVisible();
+  // The box is hidden while the reloaded report replays the run check by check; 5 s could lose that race.
+  await expect(page.getByText(new RegExp(`${left - 1} left today|None left today`))).toBeVisible({ timeout: 30_000 });
 });
 
 test("the hop track plays and a hop opens its panel (keyboard too)", async ({ page }) => {

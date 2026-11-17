@@ -71,7 +71,7 @@ Not run / open (one line each):
 - `test_s13_scale.py::test_godaddy_calls_stay_under_the_rate_limit` failed once in a full run under load, then passed
   every time (alone x3, full x2): timing-sensitive.
 - Real Gmail delivery (inbox vs spam) for sign-in mail is unknown until the VPS smoke test.
-- The sign-in page has no "check your spam folder" hint.
+- The sign-in page has no "check your spam folder" hint. (Fixed in S13c: "Can't find it? Look in your spam or promotions folder.")
 
 ## Session 13 (Opus, 2026-11-17, laptop): live S12 fixtures, the email outbox, monitoring at 40 shops (STOPPED EARLY)
 

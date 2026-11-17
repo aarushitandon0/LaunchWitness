@@ -260,3 +260,14 @@ One entry per Claude Code session, newest last. This is what judges read to unde
   and after Part 3). Live Claude: $0. Not seen running: the daily public-resolvers look inside the app process (a shop's
   daily slot can be up to 24 h away; covered by unit tests).
 - Next: the VPS (Wed Nov 18), `docs/NEXT_SESSION_VPS.md`.
+
+### Session 13c — 2026-11-17 (IST) — pre-VPS test run on the laptop (Opus, laptop)
+- Goal: run every check once on the laptop before the VPS; fix only what fails.
+- Result: backend 1044/1045 in a full run under Docker+e2e load (`test_s13_scale.py` 40-shop timing), 10/10 alone;
+  strict fixtures 1035 passed (scale file excluded, verified alone); ruff, tsc, build clean; Docker up; `check_m1.sh
+  --local` all PASS; e2e 15/16 then h-s12 6/6 after the fix; secret scan clean; backup + restore OK, app healthy.
+- Fixed: two S12 e2e asserts used the 5 s default while the reloaded report replays the run (box/incident hidden): 30 s.
+  Added the sign-in "Can't find it? Look in your spam or promotions folder." line + e2e check.
+- Open: Compose warns `"ztE" variable is not set` when reading the repo's `.env` — a `$` inside a value gets
+  interpolated by Compose. On the VPS (`--env-file .env`) that value would be mangled: quote it with single quotes or
+  write `$$`. Live Claude: $0.

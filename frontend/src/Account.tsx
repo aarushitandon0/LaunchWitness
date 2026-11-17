@@ -61,6 +61,7 @@ export function SignInPage() {
           <p className="tagline">{sent.message}</p>
         )}
         <p className="muted">Open the email on this phone or computer and tap “Sign in”. No password needed.</p>
+        <p className="muted">Can't find it? Look in your spam or promotions folder.</p>
         {sent.dev_link && (
           <section className="card" role="note">
             <p className="practice">Local development: the email isn't sent, here is the link.</p>
