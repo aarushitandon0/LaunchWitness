@@ -12,6 +12,7 @@ from sqlmodel import Session
 from app.agents.reader import Profile, indian_mobile
 from app.models import Business
 from app.safety.access import owner_emails
+from app.sites import fulfilment as ful
 
 
 @dataclass
@@ -37,9 +38,7 @@ def upi_confirmed(b: Business, profile: Profile) -> bool:
 def checklist(session: Session, b: Business) -> list[Item]:
     p = Profile.model_validate_json(b.profile_json)
     priced = [x for x in p.products if not x.addon and x.price_inr > 0]
-    has_way = p.pickup_available or p.delivery_available
-    way_ok = has_way and (not p.delivery_available or bool(p.delivery_areas.strip())) \
-        and (not p.pickup_available or bool(p.area.strip()))
+    problem = ful.selling_problem(p)  # S15: a valid selling mode with the fields it needs
     return [
         Item("email", "A verified sign-in email for orders and alerts", bool(owner_emails(session, b.id)) and not b.guest_hash,
              "Sign in with your email."),
@@ -51,10 +50,8 @@ def checklist(session: Session, b: Business) -> list[Item]:
         Item("upi", "Your UPI ID and the name your UPI app shows, checked by you", upi_confirmed(b, p),
              "Do the ₹1 UPI test and confirm the name matches." if p.upi_id and p.upi_display_name.strip()
              else "Add your UPI ID and the name your UPI app shows."),
-        Item("fulfilment", "How customers get their order: pickup (your area) and/or delivery (areas and fee)", way_ok,
-             "Choose pickup or delivery." if not has_way
-             else "Add the areas you deliver to." if p.delivery_available and not p.delivery_areas.strip()
-             else "Add your area or locality for pickup."),
+        Item("fulfilment", "Where you sell: pickup, local delivery or shipping across India, with your city and area (never your full address)",
+             not problem, problem),
         Item("rules", "Your working days and hours (and how many days' notice you need)", bool(p.hours.strip()),
              "Add your working days and hours."),
         Item("agreements", "You confirmed you make or sell these yourself, and accepted the Terms",

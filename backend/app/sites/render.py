@@ -3,6 +3,7 @@
 import re
 import secrets
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 from urllib.parse import quote, urlencode
 
@@ -11,6 +12,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markupsafe import Markup
 
 from app.agents.reader import Product, Profile
+from app.sites import fulfilment as ful
 from app.sites import themes
 
 TEMPLATES = Path(__file__).parent / "templates"
@@ -115,12 +117,17 @@ def badges(profile: Profile) -> list[str]:
         out.append("Order 1 day ahead")
     elif profile.min_notice_days > 1:
         out.append(f"Order {profile.min_notice_days} days ahead")
-    if profile.pickup_available and profile.delivery_available:
-        out.append("Pickup or delivery")
-    elif profile.pickup_available:
+    o = ful.offers(profile)
+    if o["pickup"] and (o["local"] or o["india"]):
+        out.append("Pickup or " + ("shipping across India" if o["india"] else "delivery"))
+    elif o["pickup"]:
         out.append("Pickup available")
-    elif profile.delivery_available:
+    elif o["india"]:
+        out.append("Ships across India")
+    elif o["local"]:
         out.append("Delivery available")
+    if ful.on_break(profile):
+        out.append(ful.break_line(profile))
     return out
 
 
@@ -131,14 +138,17 @@ def how_steps(profile: Profile) -> list[tuple[str, str]]:
         first += f" Please order at least {profile.min_notice_days} day{'s' if profile.min_notice_days != 1 else ''} ahead."
     steps = [("Choose", first), ("Send your order", "Add your name and phone number. Nothing is charged on this page."),
              ("We confirm", "The shop contacts you to confirm the details, timing and the final amount.")]
-    if profile.pickup_available and profile.delivery_available:
-        steps.append(("Pickup or delivery", "Collect it yourself or have it delivered, as you agree with the shop."))
-    elif profile.pickup_available:
+    o = ful.offers(profile)
+    if o["pickup"] and (o["local"] or o["india"]):
+        steps.append(("Pickup or delivery", "Collect it yourself or have it " + ("shipped" if o["india"] else "delivered") + ", as you choose on the order form."))
+    elif o["pickup"]:
         steps.append(("Pickup", "You collect it. The shop shares the exact address on WhatsApp once your order is confirmed."))
-    elif profile.delivery_available:
-        steps.append(("Delivery", "The shop delivers it" + (f" to {profile.delivery_areas}" if profile.delivery_areas else "") + "."))
-    if profile.upi_id:
-        steps.append(("Pay", "Pay by UPI once the shop has confirmed the amount."))
+    elif o["local"]:
+        steps.append(("Delivery", "The shop delivers it" + (f" in {ful.area_phrase(profile)}" if ful.area_phrase(profile) else "") + "."))
+    elif o["india"]:
+        steps.append(("Shipping", "It is sent by courier" + (f" within {profile.dispatch_days} day{'s' if profile.dispatch_days != 1 else ''}" if profile.dispatch_days else "") + "."))
+    if profile.upi_id or profile.accepts_cash:
+        steps.append(("Pay", ful.terms_words(profile)))
     return steps
 
 
@@ -152,13 +162,39 @@ def monogram(name: str) -> str:
     return "".join(w[0] for w in words[:2]).upper() or "•"
 
 
+def pay_view(profile: Profile, order: dict) -> dict | None:
+    """The thank-you page's money lines: what is paid now (with a UPI link and QR for exactly that amount and the order
+    reference in the note) and what is left. None for an order saved before payment terms existed."""
+    if not order.get("payment_terms"):
+        return None
+    now, later = order.get("pay_now_inr", 0), order.get("pay_later_inr", 0)
+    uri = ful.upi_order_uri(profile, now, order.get("ref", "")) if now and order.get("ref") else None
+    return {"now": now, "later": later, "uri": uri, "qr": upi_qr_svg(uri) if uri else None,
+            "when": "delivery" if order.get("fulfilment") == "delivery" else "pickup"}
+
+
+def public_place(profile: Profile) -> str:
+    """'Baner, Pune': the locality and the city, never a street address. The city is left out when the locality already has it."""
+    area, city = profile.area.strip(), profile.city.strip()
+    if city and city.lower() not in area.lower():
+        return f"{area}, {city}" if area else city
+    return area
+
+
 def area_is_repeated(profile: Profile) -> bool:
     return bool(profile.area.strip()) and profile.area.strip().lower() in profile.tagline.lower()
 
 
+def delivery_refusal(profile: Profile) -> str:
+    from app.sites.orders import delivery_refusal as _refusal
+
+    return _refusal(profile)
+
+
 def render_site(profile: Profile, *, page: str = "home", order: dict | None = None, form_error: str = "",
                 form_values: dict | None = None, preview: bool = False, shop: str = "", demo: bool = False,
-                base: str = "", photos: dict | None = None) -> str:
+                base: str = "", photos: dict | None = None, full_dates: list[str] | None = None,
+                today: "date | None" = None) -> str:
     """page: 'home' | 'privacy' | 'thanks'. preview=True: the owner's private look at a shop that
     isn't public (banner on top, the order button is off). demo=True: a sample shop served by the app at
     `base` (e.g. /demo/meera), labelled as a demo; its form places no order."""
@@ -170,6 +206,10 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
     headline = sc.hero_line or profile.name
     lede = tagline if tagline and tagline.lower() != headline.lower() else ""
     ph = photos or {"shop": [], "items": {}}
+    day = today or ful.today_ist()
+    o = ful.offers(profile)
+    shipped = bool(o["india"])
+    marks = {x.food_mark for x in profile.products if x.food_mark}
     take = 3 if theme.hero == "centered" else 1  # photos shown in the hero; the rest go to the strip below it
     return _env.get_template("seller.html").render(
         theme=theme,
@@ -204,4 +244,27 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
         demo=demo,
         base=base,  # prefix for the shop's own links ("" on a shop host)
         photos=ph,  # S12 (app/photos.py for_site); none = the placeholders stay
+        # S15: where she sells, when, how she is paid. All the rules live in app/sites/fulfilment.py.
+        offers=o,
+        choices=[c for c, on in (("pickup", o["pickup"]), ("delivery", o["local"] or o["india"])) if on],
+        delivery_word="Shipping" if shipped else "Delivery",
+        fee_text=ful.fee_words(profile) if (o["local"] or o["india"]) else "",
+        area_text=ful.area_phrase(profile),
+        area_pins=",".join(ful.parse_areas(profile.delivery_areas).pins),
+        area_places="|".join(x.lower() for x in ful.parse_areas(profile.delivery_areas).localities),
+        refusal_text=delivery_refusal(profile) if o["local"] else "",
+        place=public_place(profile),
+        terms_text=ful.terms_words(profile),
+        cancel_text=ful.cancellation_line(profile),
+        is_break=ful.on_break(profile, day),
+        break_text=ful.break_line(profile),
+        date_min=ful.earliest(profile, day).isoformat(),
+        date_max=ful.latest(day).isoformat(),
+        days_off=",".join(str(d) for d in profile.days_off),
+        days_off_text=ful.days_off_words(profile),
+        full_dates=",".join(full_dates or []),
+        mark_words=ful.FOOD_MARK_WORDS,
+        marks_used=sorted(marks),
+        pay=pay_view(profile, order) if page == "thanks" and order else None,
+        pickup_text="You collect it. The shop shares the exact address on WhatsApp once your order is confirmed.",
     )

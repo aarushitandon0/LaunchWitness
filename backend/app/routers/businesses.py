@@ -285,6 +285,10 @@ def update_business(body: ProfileUpdate, actor: ActorDep, b: Annotated[Business,
     taken = session.exec(select(Business.id).where(Business.subdomain == sub, Business.id != b.id)).first()
     if taken:
         raise HTTPException(status_code=409, detail="That site address is already taken. Please pick another.")
+    from app.sites import fulfilment as ful
+
+    if problem := ful.areas_error(body.profile.delivery_areas) if body.profile.selling_mode.endswith("local") else None:
+        raise HTTPException(status_code=422, detail=problem)
     old_sub = b.subdomain
     reset = reset_confirmations(b, body.profile)
     from app import photos
@@ -410,15 +414,24 @@ def preview(b: Annotated[Business, Depends(require_business_access)], actor: Act
                      business_id=b.id, user_id=actor.user_id, detail="first look (go-live checklist)")
     profile = Profile.model_validate_json(b.profile_json)
     from app import photos
+    from app.sites.orders import full_days
 
     return HTMLResponse(render_site(profile, page="privacy" if page == "privacy" else "home", preview=True,
-                                    photos=photos.for_site(session, b.id)),
+                                    photos=photos.for_site(session, b.id), full_dates=full_days(session, b, profile)),
                         headers={"X-Robots-Tag": "noindex", "Cache-Control": "no-store"})
 
 
 def order_out(o: Order, shop_name: str) -> dict:
-    """One order for its owner. The full phone number is shown here, to the owner only (audit logs never hold it)."""
-    return {"id": o.id, "ref": o.ref, "is_test": o.is_test, "customer_name": o.customer_name,
+    """One order for its owner. The full phone number and the delivery address are shown here, to the owner only (audit logs
+    never hold them, and neither does the shared report)."""
+    from app.sites import fulfilment as ful
+
+    return {"fulfilment": o.fulfilment, "delivery_address": o.delivery_address, "delivery_pin": o.delivery_pin,
+            "wanted_date": o.wanted_date, "time_slot": o.time_slot, "fee_inr": o.fee_inr, "pay_now_inr": o.pay_now_inr,
+            "pay_later_inr": o.pay_later_inr, "payment_terms": o.payment_terms,
+            "payment_label": ful.payment_label(o.payment_terms, o.status, o.pay_now_inr, o.pay_later_inr, o.total_inr),
+            "paid_action": ful.paid_action_label(o.payment_terms),
+            "id": o.id, "ref": o.ref, "is_test": o.is_test, "customer_name": o.customer_name,
             "customer_phone": o.customer_phone, "items": json.loads(o.items_json), "total_inr": o.total_inr,
             "note": o.note, "email_status": o.email_status, "status": o.status,
             "next_statuses": list(STATUS_STEPS.get(o.status, ())),

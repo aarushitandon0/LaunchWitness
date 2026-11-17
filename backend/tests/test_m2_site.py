@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 
 from app.models import AuditEvent, Business, Order
 from app.sites.render import format_inr, group_products, upi_uri, whatsapp_link
-from tests.conftest import publish_client
+from tests.conftest import pickup, publish_client
 
 SELLERS = Path(__file__).parent / "fixtures" / "sellers"
 MEERA = "meera.localhost"
@@ -182,7 +182,7 @@ def test_template_escapes_seller_text(client):
 
 def order_form(**extra):
     return {"qty_0": "1", "qty_5": "2", "customer_name": "Asha Rao", "customer_phone": "+91 99887 76655",
-            "note": "Happy birthday Riya on top", **extra}
+            "note": "Happy birthday Riya on top", **pickup(), **extra}
 
 
 def test_order_is_stored_and_emailed(client, engine, mailer, meera, settings):
@@ -209,7 +209,7 @@ def test_order_is_stored_and_emailed(client, engine, mailer, meera, settings):
 
 
 def test_note_only_order_is_ok(client, mailer, meera):
-    form = {"customer_name": "Ravi", "customer_phone": "9876543210", "note": "2 kg custom cake for Sunday"}
+    form = {"customer_name": "Ravi", "customer_phone": "9876543210", "note": "2 kg custom cake for Sunday", **pickup()}
     assert client.post("/order", data=form, headers={"host": MEERA}).status_code == 200
     assert "(no items chosen; see note)" in mailer.sent[0]["body"]
 

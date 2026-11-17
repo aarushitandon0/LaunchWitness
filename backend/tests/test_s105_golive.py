@@ -54,9 +54,10 @@ def undo(client, biz_id, **profile):
     ({"upi_id": "other@okicici"}, "upi"),
     ({"upi_display_name": "Someone Else"}, "upi"),
     ({"upi_display_name": ""}, "upi"),
-    ({"pickup_available": False, "delivery_available": False}, "fulfilment"),
+    ({"selling_mode": "", "pickup_available": False, "delivery_available": False}, "fulfilment"),
+    ({"city": ""}, "fulfilment"),
     ({"delivery_areas": ""}, "fulfilment"),  # Meera delivers: areas are needed
-    ({"pickup_available": True, "delivery_available": False, "area": ""}, "fulfilment"),
+    ({"selling_mode": "pickup", "area": ""}, "fulfilment"),
     ({"hours": ""}, "rules"),
 ])
 def test_each_missing_profile_item_refuses_a_real_launch(owner, change, key):

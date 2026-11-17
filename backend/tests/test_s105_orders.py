@@ -7,12 +7,12 @@ from sqlmodel import Session, select
 
 from app.models import AuditEvent, Order
 from app.sites.orders import STATUS_STEPS, can_move, customer_whatsapp_link
-from tests.conftest import publish, sign_in
+from tests.conftest import pickup, publish, sign_in
 from tests.test_m3_launch import meera
 
 
 def place(shopper, name="Priya", phone="9876543210", token="a" * 20):
-    form = {"customer_name": name, "customer_phone": phone, "qty_0": "1", "order_token": token}
+    form = {"customer_name": name, "customer_phone": phone, "qty_0": "1", "order_token": token, **pickup()}
     r = shopper.post("/order", data=form, headers={"host": "meera.localhost"})
     assert r.status_code == 200, r.text
 

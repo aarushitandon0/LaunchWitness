@@ -25,7 +25,8 @@
       "description": "2 roti, sabzi, dal",
       "category": "Thalis",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": "veg"
     },
     {
       "name": "Full thali",
@@ -33,7 +34,8 @@
       "description": "4 roti, 2 sabzi, dal, chawal, salad",
       "category": "Thalis",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": "veg"
     },
     {
       "name": "Special thali",
@@ -41,7 +43,8 @@
       "description": "Paneer sabzi and meetha",
       "category": "Thalis",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": "veg"
     },
     {
       "name": "Monthly lunch",
@@ -49,7 +52,8 @@
       "description": "26 days",
       "category": "Monthly plans",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": "veg"
     },
     {
       "name": "Monthly lunch + dinner",
@@ -57,7 +61,8 @@
       "description": "26 days",
       "category": "Monthly plans",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": "veg"
     },
     {
       "name": "Extra roti",
@@ -65,7 +70,8 @@
       "description": "",
       "category": "Extras",
       "addon": true,
-      "price_from": false
+      "price_from": false,
+      "food_mark": "veg"
     },
     {
       "name": "Dahi katori",
@@ -73,10 +79,11 @@
       "description": "",
       "category": "Extras",
       "addon": true,
-      "price_from": false
+      "price_from": false,
+      "food_mark": "veg"
     }
   ],
-  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only).",
+  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only). S15: `allergens` and each item's `food_mark` are hand-written too (a food mark only where the seller's own words say veg / eggless); the same --theme-only re-capture refreshes them.",
   "_theme_placeholder": true,
   "theme": "kitchen",
   "accent": "leaf",
@@ -84,5 +91,7 @@
     "hero_line": "Pure vegetarian home-style tiffin, light on oil and masala",
     "about": "We make home-style pure vegetarian tiffin with less oil and masala.",
     "how_ordering": "Choose a thali or monthly plan, order a day ahead, and we'll confirm delivery."
-  }
+  },
+  "allergens": "",
+  "_food_placeholder": true
 }

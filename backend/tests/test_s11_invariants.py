@@ -22,14 +22,14 @@ from app.models import Alert, AuditEvent, Business, CheckResult, CheckRun, DnsBa
 from app.monitor.scheduler import Monitor
 from app.sites.orders import STATUS_STEPS, can_move
 from app.startup import reconcile
-from tests.conftest import AppClient, set_user, sign_in
+from tests.conftest import AppClient, pickup, set_user, sign_in
 from tests.test_m3_launch import meera
 from tests.test_m4_report import real_plan, report, two_worlds_client
 from tests.test_s9_phase2_access import call, owner_urls
 
 HOST, SHOP = "meera.localhost", {"host": "meera.localhost"}
 OWNER, OTHER = "a@example.org", "b@example.org"
-ORDER = {"qty_0": "1", "customer_name": "Asha Rao", "customer_phone": "98765 43210"}
+ORDER = {"qty_0": "1", "customer_name": "Asha Rao", "customer_phone": "98765 43210", **pickup()}
 FAULTS = ("dns_missing", "dns_wrong", "cert_not_ready", "smtp_down", "smtp_login", "mail_lost", "write_fails",
           "restart", "claude_down", "double_submit", "two_runs", "cert_later")
 MACHINE_STEPS = {"dns_answer", "http_response", "form_post", "smtp_accepted", "imap_seen",

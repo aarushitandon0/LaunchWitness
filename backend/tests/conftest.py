@@ -23,6 +23,21 @@ from app.routers.businesses import get_claude
 from app.safety.access import csrf_for
 
 ADMIN_TOKEN = "test-admin-token-0123456789"
+
+
+def later(days: int = 14) -> str:
+    """A wanted-by date (IST) that is far enough ahead for any shop's notice rule. Not a Monday-sensitive helper:
+    shops in these tests have no days off unless a test sets them."""
+    from datetime import timedelta
+
+    from app.sites.fulfilment import today_ist
+
+    return (today_ist() + timedelta(days=days)).isoformat()
+
+
+def pickup(**extra) -> dict:
+    """The S15 fields a customer's order needs on a shop that offers pickup (Meera's does)."""
+    return {"fulfilment": "pickup", "wanted_date": later(), **extra}
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "testserver"}
 
 
@@ -245,7 +260,7 @@ def set_user(engine: Engine, email: str, **fields) -> int:
 
 
 GO_LIVE = {"whatsapp": "98765 43210", "upi_id": "meera.cakes@okaxis", "upi_display_name": "Meera Joshi",
-           "pickup_available": True, "area": "Baner, Pune", "delivery_areas": "Baner, Aundh",
+           "selling_mode": "pickup_local", "area": "Baner", "city": "Pune", "delivery_areas": "Baner, Aundh",
            "hours": "Tue-Sun, 10am-7pm"}
 
 

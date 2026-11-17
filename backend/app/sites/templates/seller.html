@@ -44,6 +44,7 @@
 {%- endif -%}
 {%- endmacro -%}
 {%- macro price(item) -%}{% if item.price_from %}<small>from </small>{% endif %}{{ item.price_inr | inr }}{%- endmacro -%}
+{%- macro food_mark(k) -%}{% if k %}<span class="fm fm-{{ k }}"><span class="fm-box" role="img" aria-label="{{ mark_words[k] }}"><i></i></span><span class="fm-t">{{ mark_words[k] }}</span></span>{% endif %}{%- endmacro -%}
 {%- macro art_svg() -%}<svg class="art" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><use href="#lw-art"/></svg>{%- endmacro -%}
 {%- macro art_panel(mono=true) -%}<div class="art-panel">{{ art_svg() }}{% if mono %}<span class="mono" aria-hidden="true">{{ monogram }}</span>{% endif %}</div>{%- endmacro -%}
 {%- macro photo_panel(ph, first=false) -%}<div class="photo-panel"><img src="{{ ph.large }}" width="{{ ph.large_w }}" height="{{ ph.large_h }}" alt="{{ ph.alt }}" {% if first %}fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async"></div>{%- endmacro -%}
@@ -54,6 +55,7 @@
   {% elif ph %}<img class="item-photo" src="{{ ph.small }}" width="{{ ph.small_w }}" height="{{ ph.small_h }}" alt="{{ ph.alt }}" loading="lazy" decoding="async">{% endif %}
   <div class="item-main">
     <div class="nameline"><div class="name" id="n{{ i }}">{{ item.name }}</div><span class="leader" aria-hidden="true"></span></div>
+    {% if item.food_mark %}<div class="fm-row">{{ food_mark(item.food_mark) }}</div>{% endif %}
     {% if item.description %}<div class="desc">{{ item.description }}</div>{% endif %}
   </div>
   <div class="price">{{ price(item) }}</div>
@@ -93,18 +95,36 @@
 </section>
 {%- elif name == "info" -%}
 <section class="section" id="info" aria-labelledby="info-h">
-  <h2 class="section-h" id="info-h">Visit, contact &amp; pay</h2>
+  <h2 class="section-h" id="info-h">Where, when &amp; how to pay</h2>
   <div class="info">
-    {% if p.hours or p.area %}<div class="tile">
+    {% if p.hours or place %}<div class="tile">
       <h3>{% if p.hours %}Open{% else %}Where{% endif %}</h3>
       {% if p.hours %}<p>{{ p.hours }}</p>{% endif %}
-      {% if p.area %}<p{% if p.hours %} class="hint" style="margin-top:6px"{% endif %}>{{ p.area }}</p>{% endif %}
+      {% if p.days_off %}<p class="hint" style="margin-top:6px">Closed on {{ days_off_text }}.</p>{% endif %}
+      {% if place %}<p{% if p.hours %} class="hint" style="margin-top:6px"{% endif %}>{{ place }}</p>{% endif %}
     </div>{% endif %}
-    {% if p.pickup_available or p.delivery_available %}<div class="tile">
-      <h3>Getting your order</h3>
-      {% if p.pickup_available %}<p>Pickup{% if p.area %} in {{ p.area }}{% endif %}</p>
+    {% if choices %}<div class="tile" id="where">
+      <h3>Where we sell</h3>
+      {% if offers.pickup %}<p><b>Pickup{% if place %} in {{ place }}{% endif %}</b></p>
       <p class="hint">The exact pickup address is shared on WhatsApp once your order is confirmed.</p>{% endif %}
-      {% if p.delivery_available %}<p>Delivery{% if p.delivery_areas %} to {{ p.delivery_areas }}{% endif %}{% if p.delivery_fee_inr %}: {{ p.delivery_fee_inr | inr }}{% else %}: free{% endif %}</p>{% endif %}
+      {% if offers.local %}<p{% if offers.pickup %} style="margin-top:10px"{% endif %}><b>Local delivery{% if area_text %} in {{ area_text }}{% endif %}</b></p>
+      <p class="hint">{{ fee_text }}.{% if p.min_notice_days %} Please order {{ p.min_notice_days }} day{% if p.min_notice_days != 1 %}s{% endif %} ahead.{% endif %}</p>{% endif %}
+      {% if offers.india %}<p{% if offers.pickup %} style="margin-top:10px"{% endif %}><b>Ships across India</b></p>
+      <p class="hint">{{ fee_text }}{% if p.dispatch_days %}. Sent within {{ p.dispatch_days }} day{% if p.dispatch_days != 1 %}s{% endif %}{% endif %}.{% if p.shipping_note %} {{ p.shipping_note }}{% endif %}</p>{% endif %}
+    </div>{% endif %}
+    {% if p.upi_id or p.accepts_cash %}<div class="tile" id="paying">
+      <h3>How to pay</h3>
+      <p>{{ terms_text }}</p>
+      {% if p.payment_terms != "on_delivery" and p.upi_id %}<p class="hint" style="margin-top:6px">After you order, you'll get a pay link and QR code for the exact amount.</p>{% endif %}
+    </div>{% endif %}
+    {% if cancel_text %}<div class="tile" id="cancel">
+      <h3>Cancellations</h3>
+      <p>{{ cancel_text }}</p>
+    </div>{% endif %}
+    {% if p.allergens or marks_used %}<div class="tile" id="food">
+      <h3>Good to know</h3>
+      {% if marks_used %}<p class="fm-legend">{% for k in marks_used %}{{ food_mark(k) }}{% endfor %}</p>{% endif %}
+      {% if p.allergens %}<p{% if marks_used %} style="margin-top:8px"{% endif %}><b>Allergens:</b> {{ p.allergens }}</p>{% endif %}
     </div>{% endif %}
     {% if p.phone or whatsapp_url or p.instagram %}<div class="tile">
       <h3>Contact</h3>
@@ -123,7 +143,7 @@
           <p>Scan with any UPI app, or <a href="{{ upi }}">open your UPI app</a>.</p>
           <p class="upi-name">UPI ID: <span class="upi-id">{{ p.upi_id }}</span></p>
           {% if p.upi_display_name %}<p class="upi-name">Your UPI app should show: <strong>{{ p.upi_display_name }}</strong></p>{% endif %}
-          <p class="hint" style="margin-top:6px">Please confirm the amount with us before paying.</p>
+          <p class="hint" style="margin-top:6px">{% if p.payment_terms == "on_delivery" %}You can also pay by UPI when you collect or receive your order. Your order total is on the confirmation.{% else %}For an order, use the pay link you get after ordering: it has the right amount.{% endif %}</p>
         </div>
       </div>
     </div>{% endif %}
@@ -152,7 +172,7 @@
       <h1>{{ headline }}</h1>
       {% if lede %}<p class="lede">{{ lede }}</p>{% endif %}
       {% if show_area or p.hours %}<ul class="meta">
-        {% if show_area %}<li>{{ icon("pin") }}{{ p.area }}</li>{% endif %}
+        {% if show_area %}<li>{{ icon("pin") }}{{ place }}</li>{% endif %}
         {% if p.hours %}<li>{{ icon("clock") }}{{ p.hours }}</li>{% endif %}
       </ul>{% endif %}
       {% if badges %}<ul class="badges" aria-label="About ordering">{% for b in badges %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
@@ -180,9 +200,14 @@
   </ul>
   {% endif %}
 
+  {% if is_break %}<div class="break-note" role="status" id="break"><b>{{ break_text }}.</b> You can look around, but this shop isn't taking orders right now.</div>{% endif %}
+
   {% for name in theme.before %}{{ section(name) }}{% endfor %}
 
-  <form class="layout" method="post" action="{{ base }}/order" id="order-form">
+  <form class="layout" method="post" action="{{ base }}/order" id="order-form"
+    data-fee="{{ p.shipping_fee_inr if offers.india else p.delivery_fee_inr }}" data-free-above="{{ p.free_delivery_above_inr if offers.local else 0 }}"
+    data-local="{{ 1 if offers.local else 0 }}" data-terms="{{ p.payment_terms }}" data-advance="{{ p.advance_percent }}"
+    data-pins="{{ area_pins }}" data-places="{{ area_places }}" data-refusal="{{ refusal_text }}">
     <div>
       <section class="section" id="menu" aria-labelledby="menu-h" style="padding-top:{{ '44px' if not theme.before else '40px' }}">
         <h2 class="section-h" id="menu-h">{{ 'Price list' if theme.menu == 'pricelist' else 'Menu' }}</h2>
@@ -214,16 +239,61 @@
 
     <aside class="panel" id="order" aria-labelledby="order-h">
       <h2 id="order-h">Your order</h2>
-      <p class="hint" style="margin:0">Nothing is charged here. We'll contact you to confirm the order and payment.</p>
+      <p class="hint" style="margin:0">Nothing is charged on this page. {{ terms_text }}</p>
+      {% if is_break %}<p class="break-note" role="status"><b>{{ break_text }}.</b> This shop isn't taking orders right now.</p>{% endif %}
       {% if form_error %}<p class="error" role="alert">{{ form_error }}</p>{% endif %}
       <ul class="basket" id="basket" aria-live="polite"><li class="empty">Add items from the menu{% if not categories %} below{% endif %}.</li></ul>
-      <div class="total" id="total-row" hidden><span>Estimated total</span><span id="total"></span></div>
-      {% if p.min_notice_days or p.pickup_available or p.delivery_available %}
+      <div class="sums" id="sums" hidden>
+        <div class="sub" id="items-row"><span>Items</span><span id="items-sum"></span></div>
+        <div class="sub" id="fee-row" hidden><span id="fee-label">{{ delivery_word }}</span><span id="fee"></span></div>
+      </div>
+      <div class="total" id="total-row" hidden><span>Total</span><span id="total"></span></div>
+      <p class="hint pay-now" id="pay-now" hidden></p>
+      {% if p.min_notice_days or choices %}
       <ul class="facts-sm">
         {% if p.min_notice_days %}<li>{{ icon("cal") }}<span>Please order at least {{ p.min_notice_days }} day{% if p.min_notice_days != 1 %}s{% endif %} ahead.</span></li>{% endif %}
-        {% if p.pickup_available %}<li>{{ icon("bag") }}<span>Pickup{% if p.area %} from {{ p.area }}{% endif %}.</span></li>{% endif %}
-        {% if p.delivery_available %}<li>{{ icon("truck") }}<span>Delivery {% if p.delivery_fee_inr %}{{ p.delivery_fee_inr | inr }}, added by the shop{% else %}is free{% endif %}.</span></li>{% endif %}
+        {% if offers.pickup %}<li>{{ icon("bag") }}<span>Pickup{% if place %} from {{ place }}{% endif %}.</span></li>{% endif %}
+        {% if offers.local %}<li>{{ icon("truck") }}<span>{{ fee_text }}{% if area_text %}, in {{ area_text }}{% endif %}.</span></li>{% endif %}
+        {% if offers.india %}<li>{{ icon("truck") }}<span>{{ fee_text }} across India{% if p.dispatch_days %}, sent within {{ p.dispatch_days }} day{% if p.dispatch_days != 1 %}s{% endif %}{% endif %}.</span></li>{% endif %}
       </ul>
+      {% endif %}
+      {% if choices %}
+      {% if choices | length > 1 %}
+      <fieldset class="field choose" id="fulfil">
+        <legend>How would you like it?</legend>
+        <label class="radio"><input type="radio" name="fulfilment" value="pickup" {% if form.get('fulfilment', 'pickup') == 'pickup' %}checked{% endif %}><span>Pickup</span></label>
+        <label class="radio"><input type="radio" name="fulfilment" value="delivery" {% if form.get('fulfilment') == 'delivery' %}checked{% endif %}><span>{{ delivery_word }}{% if offers.local and area_text %} in {{ area_text }}{% endif %}</span></label>
+      </fieldset>
+      {% else %}<input type="hidden" name="fulfilment" value="{{ choices[0] }}">{% endif %}
+      {% if "delivery" in choices %}
+      <div id="delivery-fields" class="dfields"{% if choices | length == 1 %} data-only="1"{% endif %}>
+        <div class="field">
+          <label for="delivery_address">{{ "Shipping" if offers.india else "Delivery" }} address</label>
+          <textarea id="delivery_address" name="delivery_address" rows="3" maxlength="300" autocomplete="street-address" placeholder="House / flat, street, area">{{ form.get('delivery_address', '') }}</textarea>
+          <small>Only {{ p.name }} sees this. It is never shown on the website.</small>
+        </div>
+        <div class="field">
+          <label for="delivery_pin">PIN code</label>
+          <input id="delivery_pin" name="delivery_pin" inputmode="numeric" maxlength="6" pattern="[1-9][0-9]{5}" autocomplete="postal-code" placeholder="411045" value="{{ form.get('delivery_pin', '') }}">
+        </div>
+        <p class="notice" id="area-msg" role="status" hidden></p>
+      </div>
+      {% endif %}
+      {% endif %}
+      {% if p.min_notice_days or p.days_off or p.max_orders_per_day or choices %}
+      <div class="field">
+        <label for="wanted_date">Date you want it by{% if not (p.min_notice_days or p.days_off or p.max_orders_per_day) %} <span class="hint">(optional)</span>{% endif %}</label>
+        <input id="wanted_date" name="wanted_date" type="date" min="{{ date_min }}" max="{{ date_max }}" value="{{ form.get('wanted_date', '') }}"
+          {% if p.min_notice_days or p.days_off or p.max_orders_per_day %}required{% endif %} data-off="{{ days_off }}" data-full="{{ full_dates }}" data-shop="{{ p.name }}">
+        <small>{% if p.min_notice_days %}Earliest: {{ date_min }}. {% endif %}{% if p.days_off %}Not on {{ days_off_text }}. {% endif %}{% if p.max_orders_per_day %}Fully booked days can't be picked.{% endif %}</small>
+        <p class="notice" id="date-msg" role="status" hidden></p>
+      </div>
+      {% endif %}
+      {% if p.time_slots %}
+      <div class="field">
+        <label for="time_slot">Time slot <span class="hint">(optional)</span></label>
+        <select id="time_slot" name="time_slot"><option value="">Any time</option>{% for sl in p.time_slots %}<option value="{{ sl }}" {% if form.get('time_slot') == sl %}selected{% endif %}>{{ sl }}</option>{% endfor %}</select>
+      </div>
       {% endif %}
       {% if p.allow_item_message %}
       <div class="field">
@@ -249,7 +319,7 @@
       {% if preview %}<p class="hint" role="note">This is a preview. Customers can order once your shop is live.</p>
       <p class="error" id="preview-off" role="status" hidden>Preview: orders are turned off until your shop is live.</p>{% endif %}
       {% if demo %}<p class="hint" role="note">This is a demo shop: sending this form places no order.</p>{% endif %}
-      <button class="btn btn-primary btn-block" type="submit">Send order</button>
+      <button class="btn btn-primary btn-block" type="submit"{% if is_break %} disabled{% endif %}>{% if is_break %}Not taking orders right now{% else %}Send order{% endif %}</button>
     </aside>
   </form>
 </main>
@@ -273,9 +343,29 @@
     <ul class="basket">
       {% for it in order["items"] %}<li><span>{{ it.qty }} × {{ it.name }}</span><span>{{ (it.qty * it.price_inr) | inr }}</span></li>{% endfor %}
     </ul>
-    {% if order["items"] %}<div class="total"><span>Estimated total</span><span>{{ order.total_inr | inr }}</span></div>{% endif %}
+    {% if order.fee_inr %}<div class="sub"><span>{{ delivery_word }}</span><span>{{ order.fee_inr | inr }}</span></div>{% endif %}
+    {% if order["items"] %}<div class="total"><span>{{ "Total" if pay else "Estimated total" }}</span><span>{{ order.total_inr | inr }}</span></div>{% endif %}
     {% if order.note %}<p class="hint">Your note: {{ order.note }}</p>{% endif %}
-    <p class="hint">The final amount{% if p.delivery_available %} (for example delivery){% endif %} is confirmed by the shop.</p>
+    {% if order.fulfilment == "pickup" %}<p class="hint">Pickup{% if order.wanted_date %} on {{ order.wanted_date }}{% endif %}{% if order.time_slot %}, {{ order.time_slot }}{% endif %}. The shop will share the exact address on WhatsApp once your order is confirmed.</p>
+    {% elif order.fulfilment == "delivery" %}<p class="hint">{{ delivery_word }} to PIN code {{ order.delivery_pin }}{% if order.wanted_date %}, wanted by {{ order.wanted_date }}{% endif %}{% if order.time_slot %}, {{ order.time_slot }}{% endif %}.</p>
+    {% elif order.wanted_date %}<p class="hint">Wanted by {{ order.wanted_date }}{% if order.time_slot %}, {{ order.time_slot }}{% endif %}.</p>{% endif %}
+    {% if pay %}
+    <div class="paybox" id="paybox">
+      {% if pay.now %}
+      <p><b>Pay now: {{ pay.now | inr }}</b>{% if pay.later %} <span class="hint">(advance of {{ order.total_inr | inr }})</span>{% endif %}</p>
+      {% if pay.uri %}<div class="pay">
+        {{ pay.qr }}
+        <div>
+          <p>Scan with any UPI app, or <a href="{{ pay.uri }}">open your UPI app</a>.</p>
+          <p class="upi-name">The payment note is already filled in: <strong>Order {{ order.ref }}</strong></p>
+          {% if p.upi_display_name %}<p class="upi-name">Your UPI app should show: <strong>{{ p.upi_display_name }}</strong></p>{% endif %}
+        </div>
+      </div>{% endif %}
+      {% endif %}
+      {% if pay.later %}<p>{% if pay.now %}Still to pay{% else %}Nothing to pay now. To pay{% endif %}: <b>{{ pay.later | inr }}</b> when you {{ "receive" if pay.when == "delivery" else "collect" }} your order.{% if p.accepts_cash %} Cash is fine.{% endif %}</p>{% endif %}
+    </div>
+    {% else %}<p class="hint">The final amount{% if p.delivery_available %} (for example delivery){% endif %} is confirmed by the shop.</p>{% endif %}
+    {% if cancel_text %}<p class="hint"><b>Cancelling:</b> {{ cancel_text }}</p>{% endif %}
     <div class="cta">{% if order_whatsapp_url %}<a class="btn btn-wa" href="{{ order_whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}Send this order to the shop</a>{% elif whatsapp_url %}<a class="btn btn-wa" href="{{ whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}Message on WhatsApp</a>{% endif %}<a class="btn btn-line" href="{{ base }}/">Back to the shop</a></div>
   </section>
   {% endif %}
@@ -286,11 +376,11 @@
 <main class="wrap narrow" id="main">
   <div class="plain-hero"><h1>Privacy</h1><p class="lede">How {{ p.name }} uses your details.</p></div>
   <section class="prose" style="padding-bottom:40px">
-    <p><strong>What we collect.</strong> When you place an order on this site we collect your name, your phone number, what you ordered and any note you add. We don't use cookies for tracking and we don't run ads.</p>
+    <p><strong>What we collect.</strong> When you place an order on this site we collect your name, your phone number, what you ordered, the date you want it and any note you add. If you choose delivery or shipping, we also collect your delivery address and PIN code. We don't use cookies for tracking and we don't run ads. We never ask for Aadhaar, PAN or bank details.</p>
     <p><strong>Why.</strong> Only to prepare your order and contact you about it (to confirm timing, delivery and payment).</p>
-    <p><strong>Who sees it.</strong> Your order is sent by email to {{ p.name }}. It is stored securely by the service that runs this website, LaunchWitness, so the order isn't lost. We never sell or share your details for marketing.</p>
+    <p><strong>Who sees it.</strong> Your order, including your delivery address, is sent by email to {{ p.name }} and shown to {{ p.name }} on their orders page. Nobody else can see your address: it is never shown on this website, and it is not in the reports or logs that LaunchWitness keeps about the shop. It is stored securely by the service that runs this website, LaunchWitness, so the order isn't lost. We never sell or share your details for marketing.</p>
     <p><strong>Payments.</strong> This site does not take payments. If you pay by UPI, the payment happens in your own UPI app.</p>
-    <p><strong>How long.</strong> Only as long as needed to handle your order and keep the shop's records.</p>
+    <p><strong>How long.</strong> Only as long as needed to handle your order and keep the shop's records. If the shop is deleted, its orders, including addresses, are deleted with it.</p>
     <p><strong>Your choice.</strong> To see, correct or delete your details, contact us{% if p.phone %} on {{ p.phone }}{% endif %}{% if whatsapp_url %} or <a href="{{ whatsapp_url }}" target="_blank" rel="noopener">on WhatsApp</a>{% endif %}.</p>
   </section>
 </main>
@@ -298,7 +388,7 @@
 
 <footer>
   <div class="wrap">
-    <span>© {{ p.name }}{% if p.area %} · {{ p.area }}{% endif %}{% if p.fssai_number %} · FSSAI licence no. {{ p.fssai_number }}{% endif %}</span>
+    <span>© {{ p.name }}{% if place %} · {{ place }}{% endif %}{% if p.fssai_number %} · FSSAI licence no. {{ p.fssai_number }}{% endif %}</span>
     <span><a href="{{ base }}/privacy">Privacy</a>{% if not preview and not demo %} · <a href="/report-shop" rel="nofollow">Report this shop</a>{% endif %} · Site by LaunchWitness</span>
   </div>
 </footer>
@@ -316,6 +406,19 @@
   };
   var rows = Array.prototype.slice.call(form.querySelectorAll(".item"));
   var basket = document.getElementById("basket"), totalRow = document.getElementById("total-row");
+  var sums = document.getElementById("sums"), feeRow = document.getElementById("fee-row"), payNow = document.getElementById("pay-now");
+  var deliveryBox = document.getElementById("delivery-fields");
+  var d = form.dataset, baseFee = parseInt(d.fee, 10) || 0, freeAbove = parseInt(d.freeAbove, 10) || 0, advance = parseInt(d.advance, 10) || 0;
+  function wantsDelivery() {
+    var r = form.querySelector('input[name="fulfilment"]:checked');
+    if (r) return r.value === "delivery";
+    var h = form.querySelector('input[type="hidden"][name="fulfilment"]');
+    return !!h && h.value === "delivery";
+  }
+  function feeFor(items) {
+    if (!wantsDelivery() || items <= 0) return 0;
+    return freeAbove && items >= freeAbove ? 0 : baseFee;
+  }
   var bar = document.getElementById("bar-order");
   function val(input) { var n = parseInt(input.value, 10); return isNaN(n) || n < 0 ? 0 : Math.min(n, 50); }
   function refresh() {
@@ -334,8 +437,16 @@
     basket.innerHTML = "";
     if (lines.length) { lines.forEach(function (li) { basket.appendChild(li); }); }
     else { var e = document.createElement("li"); e.className = "empty"; e.textContent = "Add items from the menu."; basket.appendChild(e); }
+    var fee = feeFor(total), grand = total + fee;
     totalRow.hidden = !count;
-    document.getElementById("total").textContent = inr(total);
+    sums.hidden = !count || !wantsDelivery() || !(fee || baseFee);
+    feeRow.hidden = sums.hidden;
+    document.getElementById("items-sum").textContent = inr(total);
+    document.getElementById("fee").textContent = fee ? inr(fee) : "Free";
+    document.getElementById("total").textContent = inr(grand);
+    var now = d.terms === "upfront" ? grand : d.terms === "advance" ? Math.min(grand, Math.max(1, Math.ceil(grand * advance / 100))) : 0;
+    payNow.hidden = !count || !now;
+    payNow.textContent = now ? "You'll pay " + inr(now) + " after you send the order" + (now < grand ? ", and " + inr(grand - now) + " later." : ".") : "";
     document.getElementById("bar-count").textContent = count + (count === 1 ? " item" : " items");
     document.getElementById("bar-total").textContent = inr(total);
     bar.classList.toggle("show", count > 0);
@@ -350,7 +461,50 @@
       set(val(input) - 1); if (!val(input)) row.querySelector(".add").focus();
     });
   });
-  refresh();
+  /* Delivery: show the address box only for delivery, and say politely (before sending) when the PIN/address is outside the
+     delivery area. The server checks this again: this is only a courtesy. */
+  var pinBox = document.getElementById("delivery_pin"), addr = document.getElementById("delivery_address"), areaMsg = document.getElementById("area-msg");
+  function outside() {
+    if (d.local !== "1" || !wantsDelivery() || !pinBox) return false;
+    var pin = pinBox.value.replace(/\s/g, ""), text = (addr.value || "").toLowerCase();
+    if (!/^[1-9][0-9]{5}$/.test(pin)) return false;
+    if ((d.pins || "").split(",").indexOf(pin) !== -1) return false;
+    var places = (d.places || "").split("|").filter(Boolean);
+    return !places.some(function (pl) { return new RegExp("(^|[^\\w])" + pl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "($|[^\\w])").test(text); });
+  }
+  function checkArea() {
+    if (!areaMsg) return;
+    var bad = outside();
+    areaMsg.hidden = !bad;
+    areaMsg.textContent = bad ? d.refusal : "";
+    pinBox.setCustomValidity(bad ? d.refusal : "");
+  }
+  function showDelivery() {
+    if (deliveryBox && !deliveryBox.dataset.only) deliveryBox.hidden = !wantsDelivery();
+    if (deliveryBox) {
+      var on = wantsDelivery();
+      pinBox.required = on; addr.required = on;
+    }
+    checkArea(); refresh();
+  }
+  Array.prototype.forEach.call(form.querySelectorAll('input[name="fulfilment"]'), function (r) { r.addEventListener("change", showDelivery); });
+  if (pinBox) { pinBox.addEventListener("input", checkArea); addr.addEventListener("input", checkArea); }
+  var dateBox = document.getElementById("wanted_date"), dateMsg = document.getElementById("date-msg");
+  var DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  function checkDate() {
+    if (!dateBox) return;
+    var v = dateBox.value, msg = "";
+    if (v) {
+      var p = v.split("-"), py = (new Date(+p[0], +p[1] - 1, +p[2]).getDay() + 6) % 7;
+      var off = (dateBox.dataset.off || "").split(",").filter(Boolean).map(Number);
+      if (v < dateBox.min) msg = "That date is too soon. The earliest you can pick is " + dateBox.min + ".";
+      else if (off.indexOf(py) !== -1) msg = dateBox.dataset.shop + " doesn't deliver or hand over orders on " + DAYS[py] + "s. Please pick another day.";
+      else if ((dateBox.dataset.full || "").split(",").indexOf(v) !== -1) msg = dateBox.dataset.shop + " is fully booked on that day. Please pick another date.";
+    }
+    dateMsg.hidden = !msg; dateMsg.textContent = msg; dateBox.setCustomValidity(msg);
+  }
+  if (dateBox) dateBox.addEventListener("change", checkDate);
+  if (deliveryBox) showDelivery(); else refresh();
   var find = document.getElementById("find");
   if (find) {
     find.hidden = false;

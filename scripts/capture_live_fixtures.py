@@ -25,6 +25,9 @@ WITHOUT touching the rest of the saved replies (prices, categories and everythin
     (reader:themes = six sellers, reader:themes-all = all 12; or name some: --theme-only reader:meera_cakes reader:tailor)
     ... --theme-only --dry-run reader:themes     worst-case cost first, no key needed
 
+S15 (food marks): the same --theme-only re-capture ALSO replaces the hand-written `allergens` and per-item `food_mark` values
+(the Reader now suggests them; the seller confirms on Review). Nothing extra to run, same cost (cap <= $0.10 for the six).
+
 One live Reader call per seller (strong model), stops at the first failure, daily cap applies (set it to <= $0.10).
 Only `theme`, `accent` and `section_copy` are copied into the saved file; `_note` / `_theme_placeholder` are removed.
 """
@@ -184,8 +187,14 @@ def main(args: list[str]) -> int:
             if theme_only:  # keep the saved live reply; take over only the S14 fields (and drop the placeholder marks)
                 saved = json.loads(path.read_text(encoding="utf-8"))
                 saved.update({k: data[k] for k in THEME_KEYS_ONLY})
+                # S15: the same call also gives `allergens` and each item's `food_mark` (matched by item name)
+                saved["allergens"] = data.get("allergens", "")
+                marks = {x["name"]: x.get("food_mark", "") for x in data.get("products", [])}
+                for x in saved.get("products", []):
+                    x["food_mark"] = marks.get(x["name"], x.get("food_mark", ""))
                 saved.pop("_note", None)
                 saved.pop("_theme_placeholder", None)
+                saved.pop("_food_placeholder", None)
                 data = saved
             path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             print(f"{target}: saved {fixture}.json" + (" (theme fields only)" if theme_only else ""))

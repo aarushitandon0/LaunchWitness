@@ -4,7 +4,7 @@
 // "sent"), and the link still arrives once mail is back (local Docker stack only: the test stops/starts Mailpit).
 import { execFileSync } from "child_process";
 import { expect, test, type Page } from "@playwright/test";
-import { ADMIN_EMAIL, api, BASE, describe, launch, MAIL, readyForReal, setAddress, shopUrl, signIn, unique } from "./helpers";
+import { ADMIN_EMAIL, api, BASE, describe, launch, MAIL, pickDate, readyForReal, setAddress, shopUrl, signIn, unique } from "./helpers";
 
 const MAILPIT = process.env.LW_MAILPIT_CONTAINER || "launchwitness-local-mailpit-1";
 
@@ -39,6 +39,7 @@ test("an order placed while email is down is kept, retried, then sent", async ({
     await customer.locator(".item .add").first().click();
     await customer.locator("#customer_name").fill("Kavya Outbox");
     await customer.locator("#customer_phone").fill("98765 43210");
+    await pickDate(customer);
     await customer.locator("#order-form").evaluate((f: HTMLFormElement) => f.requestSubmit());
     await customer.waitForLoadState("load");
     // The customer is told the order is in, whatever the mail server does.

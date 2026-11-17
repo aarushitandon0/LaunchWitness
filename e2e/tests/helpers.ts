@@ -160,7 +160,7 @@ export async function readyForReal(page: Page, id: number) {
   const biz = await (await api(page, "GET", `/api/businesses/${id}`)).json();
   const profile = {
     ...biz.profile, whatsapp: "98765 43210", upi_id: "meera.cakes@okaxis", upi_display_name: "Meera Joshi",
-    pickup_available: true, area: "Baner, Pune", delivery_areas: "Baner, Aundh", hours: "Tue-Sun, 10am-7pm",
+    selling_mode: "pickup_local", area: "Baner", city: "Pune", delivery_areas: "Baner, Aundh", hours: "Tue-Sun, 10am-7pm",
   };
   expect((await api(page, "PUT", `/api/businesses/${id}`, { profile, subdomain: biz.subdomain })).status()).toBe(200);
   expect((await api(page, "GET", `/api/businesses/${id}/preview`)).status()).toBe(200);
@@ -169,4 +169,14 @@ export async function readyForReal(page: Page, id: number) {
     expect(r.status(), await r.text()).toBe(200);
   }
   expect((await (await api(page, "GET", `/api/businesses/${id}/golive`)).json()).ready).toBe(true);
+}
+
+/** Pick a "wanted by" date on a shop's order form that is allowed: the earliest one the page offers, plus `extra` days. */
+export async function pickDate(page: Page, extra = 2) {
+  const box = page.locator("#wanted_date");
+  if ((await box.count()) === 0) return;
+  const min = (await box.getAttribute("min"))!;
+  const d = new Date(`${min}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + extra);
+  await box.fill(d.toISOString().slice(0, 10));
 }
