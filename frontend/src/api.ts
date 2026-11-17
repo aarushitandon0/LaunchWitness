@@ -324,6 +324,8 @@ export type Report = {
     every_minutes: number;
     last_quick: { at: string; passed: boolean } | null;
     last_daily: { at: string; passed: boolean } | null;
+    // S13b: the daily look through 8.8.8.8 / 1.1.1.1 / 9.9.9.9 (information only, never an alert)
+    public_resolvers?: { at: string | null; title: string; agree: boolean; answer: string; practice: boolean } | null;
     cert_days_left: number | null;
     domain_days_left: number | null;
   };

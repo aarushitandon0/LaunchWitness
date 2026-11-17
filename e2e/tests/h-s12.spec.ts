@@ -1,5 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
+import * as fs from "fs";
+import * as path from "path";
 import { ADMIN_EMAIL, api, describe, launch, setAddress, signIn, unique } from "./helpers";
+
+// The symptom conversation's last saved answer (captured live in S13; it used to be a placeholder that echoed "You said").
+const FIXTURES = path.join(__dirname, "..", "..", "backend", "tests", "fixtures", "claude");
+const symptomFinding = (): string => {
+  const last = fs.readdirSync(FIXTURES).filter((f) => /^investigate_site_points_symptom_t\d+\.json$/.test(f)).sort().pop()!;
+  return JSON.parse(fs.readFileSync(path.join(FIXTURES, last), "utf-8")).finding;
+};
 
 // S12 flows: a staged fault shows the Doctor's trace + the incident; the symptom box answers;
 // the landing hop track and "Something breaks" play.
@@ -52,7 +61,7 @@ test("the symptom box answers", async ({ page }) => {
   await expect(page.getByText("Checking now.")).toBeVisible();
   await waitForRun(page, id, before);
   await page.reload();
-  await expect(page.locator(".doctor-found").first()).toContainText("You said your shop doesn't open", { timeout: 30_000 });
+  await expect(page.locator(".doctor-found").first()).toContainText(symptomFinding(), { timeout: 30_000 });
   await expect(page.getByText(new RegExp(`${left - 1} left today|None left today`))).toBeVisible();
 });
 

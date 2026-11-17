@@ -93,6 +93,44 @@ def check_site_points(ctx: Ctx) -> Outcome:
                    "Your address doesn't lead to your website yet.", f"A {host} = {got or 'nothing'}; want {want}")
 
 
+def public_resolvers_text(want: str, seen: list[tuple[str, object]]) -> str:
+    """`seen` = [(label, Answer)]. "Reachable from 3 of 3 public resolvers" (+ who differs, plainly) | the answers."""
+    agree = [label for label, a in seen if a.status == "ok" and want in a.values]
+    head = f"Reachable from {len(agree)} of {len(seen)} public resolvers"
+    odd = []
+    for label, a in seen:
+        if label in agree:
+            continue
+        name = label.split(" ")[-2]  # "Quad9 9.9.9.9" or "pretend Quad9 9.9.9.9" -> "Quad9"
+        odd.append(f"{name} didn't answer us" if a.status == "error" else
+                   f"{name} has no address for it yet" if not a.values else f"{name} still shows an old address")
+    if odd:
+        head += f" ({'; '.join(odd)}: this usually clears by itself within hours; no alert for this)"
+    answers = "; ".join(f"{label}: {', '.join(a.values) or ('no answer' if a.status == 'error' else 'nothing')}"
+                        for label, a in seen)
+    return f"{head} | {answers}"
+
+
+def public_resolvers(session: Session, business, run_id: int, host: str, want: str, integ) -> dict | None:
+    """S13b, the daily run only: ask 8.8.8.8, 1.1.1.1 and 9.9.9.9 for the shop's address and save what they say
+    through `proof.add`. Information only: the shop's own nameservers (check_site_points) stay the proof and the only
+    thing that can fail or alert; a public resolver that disagrees is shown plainly, never alerted on."""
+    factory = getattr(integ, "public_dns", None)
+    if factory is None:
+        return None
+    seen = [(label, lookup(resolver, host, "A")) for label, resolver in factory()]
+    if not seen:
+        return None
+    text = public_resolvers_text(want, seen)
+    proof.add(session, business=business, run_id=run_id, check="site_points", step="public_resolvers",
+              practice=bool(integ.fake or business.practice), answer=text[:500],
+              server=", ".join(label for label, _a in seen),
+              source="pretend public resolvers" if integ.fake else "public resolvers")
+    session.commit()
+    agree = sum(1 for _label, a in seen if a.status == "ok" and want in a.values)
+    return {"agree": agree, "asked": len(seen), "text": text}
+
+
 HTTPS_BACKOFF = (5, 10, 20, 40, 45)  # seconds: up to 2 minutes while a new certificate is being issued
 
 

@@ -237,3 +237,26 @@ One entry per Claude Code session, newest last. This is what judges read to unde
 - I changed / rejected: stopped the session after Part B (Part C and the Docker/e2e verification move to the next session). Claude flagged up front the risk of changing every email path the day before the VPS, and that a Python "watchdog" can stop waiting for a check but can't kill it.
 - Result: unit suite 1037 passed, 2 skipped, 19 deselected; long S11 invariant profile (240 seeds) passed; ruff/tsc/build clean; Docker, check_m1 and e2e not run this session.
 - Next: Docker + e2e (with the new "order while mail is down" flow), then Part C.
+
+### Session 13b — 2026-11-17 (IST) — S13 verified on Docker + e2e, the VPS guide, public resolvers (Opus, cloud, unattended)
+- Goal: prove S13's outbox and monitoring on the real stack the day before the VPS, and make the VPS guide followable cold.
+- Asked Claude to: rebuild the prod-like stack, pass `check_m1.sh --local`, run e2e plus two new S13 flows, check restart
+  behaviour in the logs, turn every failure into a test; set `SMTP_DAILY_LIMIT=450`; update the VPS guide; then the
+  public-resolvers check.
+- Claude built: `e2e/tests/i-s13.spec.ts` (order while practice mail is down -> retrying -> sent; sign-in while Mailpit is
+  stopped -> "trouble sending" -> the link arrives), a scheduler-jobs line in `check_m1.sh`, the guide's "what changed"
+  table, expected start-up logs, go-live checklist steps, email troubleshooting, the full production `.env` checklist and
+  a 10-line smoke test; `SMTP_DAILY_LIMIT=450` + SPEC capacity (at most 360 shops per mailbox); Part 3: public resolvers
+  as evidence on the daily run (8 tests, CHECKS_MATRIX rows, report card line).
+- What checking caught: the S12 symptom e2e still expected the hand-written placeholder's "You said" (the live fixture
+  doesn't echo); the new Orders e2e first failed because `page.goto` to the same hash URL doesn't reload the app (the
+  outbox had sent the order 35 s after mail came back); the S11 invariant test listed the machine evidence steps and had
+  to learn `public_resolvers`; one run of `test_godaddy_calls_stay_under_the_rate_limit` failed in a full run and
+  passed every time after (timing under load: open doubt); a guide line claimed a "check your spam folder" hint that the
+  sign-in page doesn't have (corrected).
+- I changed / rejected: (unattended) Docker Hub worked; pip/npm inside the build needed the sandbox CA, so the image was
+  built from a scratch Dockerfile copy (never committed) and the stack started with `up -d --wait` on that image.
+- Result: unit 1045 passed, 2 skipped; ruff, tsc, build clean; `check_m1.sh --local` all PASS; e2e 16/16 (twice, before
+  and after Part 3). Live Claude: $0. Not seen running: the daily public-resolvers look inside the app process (a shop's
+  daily slot can be up to 24 h away; covered by unit tests).
+- Next: the VPS (Wed Nov 18), `docs/NEXT_SESSION_VPS.md`.

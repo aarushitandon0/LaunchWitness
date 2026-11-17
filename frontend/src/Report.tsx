@@ -468,6 +468,15 @@ export function ReportPage({ businessId }: { businessId: number }) {
                   </dd>
                 </div>
               )}
+              {mon.public_resolvers && (
+                <div>
+                  <dt>Seen from the wider internet</dt>
+                  <dd title={mon.public_resolvers.answer}>
+                    {mon.public_resolvers.agree ? "✅" : "ℹ️"} {mon.public_resolvers.title}
+                    {mon.public_resolvers.practice ? " (practice)" : ""} · {time(mon.public_resolvers.at)}
+                  </dd>
+                </div>
+              )}
             </dl>
             {rep.renewals && <RenewalsCard items={rep.renewals} practice={rep.practice} />}
             {!rep.business.has_owner_email && (

@@ -1,4 +1,4 @@
-# State for the next session (written 2026-11-17 IST, end of Session 13)
+# State for the next session (written 2026-11-17 IST, end of Session 13b)
 
 Read `CLAUDE.md` first (rules + commands), then this. **If today is the VPS day, follow `docs/NEXT_SESSION_VPS.md`
 step by step**: it's self-contained. You shouldn't need to read the whole codebase.
@@ -29,6 +29,49 @@ the owner's "Yes, I got it"), repairs what breaks, and keeps checking. GoDaddy h
 Tests on main: **607 passed, 2 skipped** (`cd backend && ../.venv/Scripts/python -m pytest -q`). E2E: **7/7** on the
 Docker stack and on the dev server (`e2e/README.md`). Ruff, `npx tsc --noEmit`, `npm run build` clean. Keep the stash
 `fable-p2-wip-backup` (never drop it).
+
+## Session 13b (Opus, 2026-11-17, cloud, unattended): S13 verified on Docker + e2e, VPS guide, public resolvers
+
+Branch `claude/s13-e2e-vps-guide-5jv1ml` -> PR into `main`. **Tomorrow is the VPS day: follow `docs/NEXT_SESSION_VPS.md`.**
+
+Verified on the production-like Docker stack (Caddy local CA, `DEV_MODE=false`, fakes, Mailpit):
+- `check_m1.sh --local`: all PASS. New in it: the last start lists exactly one `monitor_tick` and one `outbox_send`, and
+  the `startup reconcile` counts are printed.
+- e2e **16/16** (`e2e/tests/i-s13.spec.ts` is new): an order placed with the team's practice "mail down" switch on shows
+  "Email to you: retrying…" on the Orders page and "sent" ~35 s after the switch is off; a sign-in asked for while Mailpit
+  is stopped shows "Your email is on its way, slowly" / "We're having trouble sending email" (no "Check your email", no
+  "sent"), and the link arrives once Mailpit is back. The sign-in flow stops/starts the container: Docker stack only.
+- `docker compose restart app`: one scheduler start per boot, jobs `guest_cleanup, monitor_tick, outbox_send,
+  team_renewals, watch_addresses, zone_hygiene` (each once); a planted `sending` row -> `startup reconcile: {… 'outbox': 1}`
+  -> sent by the sender job. `monitor_quick` runs appear on each shop's own minute. Admin `GET /api/admin/outbox` counts
+  only real-SMTP mail toward the day (practice excluded), as designed.
+- Bugs: none in S13's product code. Fixed: the S12 symptom e2e (pinned to the placeholder's "You said"; now compares with
+  the saved live fixture); the S11 invariant's list of machine evidence steps (+`public_resolvers`).
+
+Settings / docs: `SMTP_DAILY_LIMIT=450` in `.env.example` **and** the `config.py` default (GoDaddy: 500/day per mailbox
+over SMTP); SPEC capacity: at most 360 shops per mailbox with a full daily proof. `docs/NEXT_SESSION_VPS.md`: what changed
+S10.5 -> S13, expected start-up log lines, the go-live checklist in step 10, "If email misbehaves", the full production
+`.env` checklist (every variable, no values) and a 10-line smoke test.
+
+Part 3 (public resolvers): `checker.public_resolvers` (called by `Monitor.check_business` on **daily** rounds only)
+asks `PUBLIC_RESOLVERS` (`app/checks/dns_resolver.py`: Google 8.8.8.8, Cloudflare 1.1.1.1, Quad9 9.9.9.9; real
+integrations: `RealDnsResolver(nameservers=[ip], timeout=3)`; pretend world: the fake zone, labelled "pretend") and saves
+one `site_points` / `public_resolvers` evidence row through `proof.add`: "Reachable from N of 3 public resolvers" + who
+differs in plain words | the raw answers. Audit `public_resolvers` ok | differs | failed. Never an alert, re-check or fix.
+The report's `monitoring.public_resolvers` (latest look) -> "Seen from the wider internet" in the monitoring card.
+Tests: `tests/test_s13b_public_resolvers.py` (8). Weekly digest: dropped from this week's scope.
+
+Sandbox notes (not for the laptop/VPS): pip/npm inside `docker build` needed the sandbox CA, so the image was built with
+a scratch copy of the Dockerfile (`--build-context` with the CA, never committed) and the stack started with
+`up -d --wait` on that image; the repo's Dockerfile / compose / Caddyfiles are unchanged.
+
+Not run / open (one line each):
+- The daily public-resolvers look wasn't observed inside the running app (a shop's daily slot can be up to 24 h away);
+  unit-tested only. On the VPS it's real DNS to 8.8.8.8/1.1.1.1/9.9.9.9 over UDP 53: outbound is allowed by the ufw rules.
+- `test_s13_scale.py::test_godaddy_calls_stay_under_the_rate_limit` failed once in a full run under load, then passed
+  every time (alone x3, full x2): timing-sensitive.
+- Real Gmail delivery (inbox vs spam) for sign-in mail is unknown until the VPS smoke test.
+- The sign-in page has no "check your spam folder" hint.
 
 ## Session 13 (Opus, 2026-11-17, laptop): live S12 fixtures, the email outbox, monitoring at 40 shops (STOPPED EARLY)
 

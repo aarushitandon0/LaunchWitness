@@ -11,7 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import lru_cache
 
-from app.checks.dns_resolver import DnsResolver, ZoneBackedResolver
+from app.checks.dns_resolver import PUBLIC_RESOLVERS, DnsResolver, ZoneBackedResolver
 from app.checks.http_probe import FakeHttpProbe, HttpProbe, RealHttpProbe
 from app.config import Settings, get_settings
 from app.godaddy.availability import AvailabilityChecker, FakeAvailabilityChecker, GoDaddyAvailabilityChecker
@@ -49,6 +49,9 @@ class Integrations:
     sleep: Callable[[float], None] = field(default=time.sleep)
     fake: bool = False
     shop_web: Callable | None = None  # tests: how the checker reaches the shop (default: see checker.shop_web)
+    # S13b: the public resolvers the daily run also asks (8.8.8.8, 1.1.1.1, 9.9.9.9): [(label, resolver)].
+    # Information only: what customers' phones are likely to see. None = skip the look.
+    public_dns: Callable[[], list[tuple[str, DnsResolver]]] | None = None
 
 
 def fake_integrations(settings: Settings, sleep: Callable[[float], None] | None = None) -> Integrations:
@@ -74,6 +77,7 @@ def fake_integrations(settings: Settings, sleep: Callable[[float], None] | None 
         sleep=sleep or (lambda _s: None),
         fake=True,
         shop_web=_in_process,
+        public_dns=lambda: [(f"pretend {label}", ZoneBackedResolver(gd)) for label in public_labels()],
     )
 
 
@@ -94,7 +98,18 @@ def real_integrations(settings: Settings) -> Integrations:
         http=RealHttpProbe(),
         mailer=SmtpMailer(settings),
         inbox=ImapInboxReader(settings),
+        public_dns=_public_resolvers,
     )
+
+
+def public_labels() -> list[str]:
+    return [f"{name} {ip}" for name, ip in PUBLIC_RESOLVERS]
+
+
+def _public_resolvers() -> list[tuple[str, DnsResolver]]:
+    from app.checks.dns_resolver import RealDnsResolver
+
+    return [(f"{name} {ip}", RealDnsResolver(nameservers=[ip], timeout=3.0)) for name, ip in PUBLIC_RESOLVERS]
 
 
 @lru_cache

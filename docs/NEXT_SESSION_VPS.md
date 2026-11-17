@@ -2,18 +2,34 @@
 
 Written so a model (or a person) can do it **cold**. You need nothing else open except `CLAUDE.md`. Steps are in
 order; each ends with **✔ Check**, and you don't go on until it passes. `(laptop)` = the owner's computer, `(vps)` = the
-server. Replace `<VPS_IP>` everywhere. The app domain is `launchwitness.com`.
+server. Replace `<VPS_IP>` everywhere. The app domain is `launchwitness.com`. Last brought up to date: **S13b** (Nov 17).
 
 **Ground rules (from CLAUDE.md):** never print, paste or commit a secret, and the owner types every secret into the
 server's `.env` herself. No purchases (`ALLOW_PURCHASE=false`, always). The only DNS records made by hand are `A @`
-(and optionally `www`); the app writes each shop's own A record. **No wildcard.** Don't touch MX / TXT / CNAME: they carry
-the mailbox `hello@launchwitness.com`.
+(and optionally `www`); the app writes each shop's own A record (`DNS_MODE=per_shop`). **No wildcard** unless GoDaddy's
+API refuses us (see the section at the end). Don't touch MX / TXT / CNAME: they carry the mailbox `hello@launchwitness.com`.
 
-What's already proven on the laptop (S10, `deploy/README.md`): the image builds from a clean clone, runs as non-root
-with one process, HTTPS through Caddy, `__Host-` cookies, `/internal` blocked, the shop-host guard, rate limits on the
-real client IP, a restart and a kill mid-launch, backup + restore, and the 4 browser flows. **Not proven until today:**
-real Let's Encrypt certificates, a real GoDaddy DNS write, the authoritative DNS answer, an outside-in test order over the
-internet, and an IMAP delivery proof.
+What's already proven on the laptop / in Docker (S10, S12, S13b, `deploy/README.md`): the image builds from a clean
+clone, runs as non-root with one process, HTTPS through Caddy, `__Host-` cookies, `/internal` blocked, the shop-host
+guard, rate limits on the real client IP, a restart and a kill mid-launch, backup + restore, 16 browser flows (incl.
+an order kept while email is down and the honest "trouble sending" sign-in), and after a restart: one monitor job,
+one outbox sender, stuck `sending` emails put back in the queue. S11c also made one real GoDaddy DNS write and undid it
+(it worked, hence `per_shop`). **Not proven until today:** real Let's Encrypt certificates, a shop record written by the
+running app, an outside-in test order over the internet, an IMAP delivery proof, real Gmail delivery (inbox vs spam).
+
+### What changed since this guide was first written (S10.5 → S13)
+
+| Since | What | What it means today |
+|---|---|---|
+| S10.5 | **Go-live checklist** (`app/golive.py`) | "Launch for real" stays disabled until the shop has: a signed-in email, name + address + one priced item, WhatsApp **checked by the owner** ("Test this number" → "Yes, that's me"), UPI ID + display name **checked by the owner** (the ₹1 test → confirm the name), pickup/delivery, hours, **the two ticks** (makes/sells these herself; accepts the Terms) and one look at the preview. Step 10. |
+| S11c | **`DNS_MODE=per_shop`** (default) | One A record per shop, written by the app through the guarded client. `wildcard` is the fallback (last section). `wait_dns` and `/internal/tls-ask` need **every** nameserver to agree. |
+| S11c | **`CLAUDE_MODE=live`** + spend cap | Reader / Namer / go-live policy check / Doctor call Claude for real. `CLAUDE_DAILY_SPEND_CAP_USD` stops calls for the day; at the cap the policy check holds real launches for the team (safe, manual). |
+| S11d | **Hash-chained proof** | Evidence rows are a per-shop hash chain. On the first start, rows from before the chain are chained once (`evidence_chain_backfilled` in the audit log; a fresh database has none, so nothing to do). The shared report's **Verify** recomputes it. |
+| S13 A | **Email outbox** | Every email (sign-in, orders, test orders, alerts, team mail, contact) is saved first, tried at once, then retried by the `outbox_send` job (every 20 s; backoff 30 s → 30 min, ~2 h, then "dead" on the team page, "Email outbox" card). `SMTP_DAILY_LIMIT=450` (GoDaddy allows 500/day per mailbox): from 80% test orders wait, at 100% alerts wait; sign-in links and orders never wait. |
+| S13 B | **One-minute monitor beat** | One `monitor_tick` job a minute replaces the old two jobs: each shop has a stable minute in the 15 minutes and in the day, 4 workers (`MONITOR_WORKERS`), a 150 s watchdog per check, the daily test order's inbox look happens in up to 3 later one-minute passes. |
+| S12 | Demo switch, photos, incidents | Practice only; nothing to set up. |
+
+---
 
 ---
 
@@ -79,35 +95,10 @@ git clone https://github.com/aarushitandon0/LaunchWitness.git ~/LaunchWitness &&
 cd ~/LaunchWitness && cp .env.example .env && chmod 600 .env && nano .env
 ```
 
-The owner types the values; nobody else sees them. Production values:
-
-| Variable | Value |
-|---|---|
-| `APP_DOMAIN` | `launchwitness.com` |
-| `APP_BASE_URL` | `https://launchwitness.com` |
-| `APP_ORIGIN` | empty (taken from `APP_BASE_URL`) |
-| `DEV_MODE` | `false` (the app refuses to start with `true` on https) |
-| `USE_FAKES` | `false`: real GoDaddy, DNS, mailbox, web checks |
-| `SERVER_IP` | `<VPS_IP>` |
-| `ADMIN_EMAIL` | the owner's address for the team page (she signs in with it by email link) |
-| `ADMIN_TOKEN` | a fresh one: `openssl rand -base64 32` (command line only; never reuse a local one) |
-| `CLAUDE_MODE` | `live` (with `fixture` every real launch is held for team review: safe but manual) |
-| `ANTHROPIC_API_KEY` | the owner's key |
-| `CLAUDE_DAILY_SPEND_CAP_USD` | `2` (the whole budget is $100; the cap stops calls for the day, and the policy check then holds launches) |
-| `CLAUDE_MODEL_STRONG` / `CLAUDE_MODEL_CHEAP` | defaults |
-| `GODADDY_ENV` | `prod` (launchwitness.com is in the production account) |
-| `GODADDY_API_KEY` / `GODADDY_API_SECRET` | production key + secret (developer.godaddy.com) |
-| `ALLOW_PURCHASE` | `false`. **Never change.** |
-| `MAX_SPEND_USD` | `15` (unchanged) |
-| `MAILBOX_EXPIRES_ON` | the hello@ plan's end date from GoDaddy (about `2026-12-15`); health warns 14 days ahead, the team gets 30/7/1-day emails |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURITY` | `smtpout.secureserver.net` / `465` / `ssl` |
-| `SMTP_USER` / `SMTP_PASSWORD` | `hello@launchwitness.com` / its password |
-| `IMAP_HOST` / `IMAP_PORT` | `imap.secureserver.net` / `993` |
-| `IMAP_USER` / `IMAP_PASSWORD` | `hello@launchwitness.com` / the same password |
-| `MONITOR_ENABLED` | `true` (forced by the prod compose anyway) |
-| `PRACTICE_STEP_SECONDS` | `0` |
-| `DNS_MODE` | `per_shop` (the default). Only `wildcard` if GoDaddy refuses our API: see "If GoDaddy's API refuses us" below |
-| everything else | the `.env.example` defaults |
+The owner types the values; nobody else sees them. Use **"The production `.env` checklist"** at the end of this
+file: every variable, what to put, no values. The ones that matter most today: `USE_FAKES=false`, `SERVER_IP`,
+`GODADDY_ENV=prod` + its key/secret, `CLAUDE_MODE=live` + `ANTHROPIC_API_KEY` + `CLAUDE_DAILY_SPEND_CAP_USD=2`,
+the SMTP/IMAP password, `SMTP_DAILY_LIMIT=450`, `DNS_MODE=per_shop`, a fresh `ADMIN_TOKEN`, and `MAILBOX_EXPIRES_ON`.
 
 **✔ Check:** `ls -l .env` shows `-rw-------`; `git status --short` doesn't list `.env`.
 
@@ -126,7 +117,15 @@ lwc ps && lwc logs app | grep -E 'self-check|reconcile|monitor started'
 ```
 
 The app logs its self-check. Expect **no** `self-check [...]` lines. Each one names a wrong setting; fix it in `.env`
-and run `lwc up -d`.
+and run `lwc up -d`. Also expect exactly these two lines per start (S13):
+
+```
+startup reconcile: {'plans': 0, 'check_runs': 0, 'outbox': 0}
+monitor started (pid 1): jobs=['guest_cleanup', 'monitor_tick', 'outbox_send', 'team_renewals', 'watch_addresses', 'zone_hygiene']
+```
+
+`monitor_tick` and `outbox_send` must each appear **once** (`check_m1.sh` checks it). A non-zero `outbox` count after
+a restart is normal: emails that were mid-send are put back in the queue and go out within a minute.
 
 ## 6. Point `A @` at the VPS (the ONLY hand-made record)
 
@@ -191,7 +190,15 @@ first. Both are unit-tested but **new on the real API**, so watch it.
    In a private window, sign in as `hello@launchwitness.com` (open the link from GoDaddy webmail,
    email.secureserver.net). As the admin, approve that account on `#/admin`.
 3. As hello@: Describe → the demo shop (e.g. Meera's text from `backend/tests/fixtures/sellers/meera_cakes.json`) →
-   address `meerasbakes` → Launch → **for real**. With `CLAUDE_MODE=live` the policy check runs (one cheap call).
+   address `meerasbakes`. Then the **go-live checklist** (the Launch page lists what's missing; "Launch for real" is
+   disabled until all of it is done, and the server refuses it too):
+   - WhatsApp number → **Test this number** (opens WhatsApp to that number) → **Yes, that's me**.
+   - UPI ID + the name the UPI app shows → the **₹1 UPI test** (her shop's real QR for ₹1) → confirm the name matches.
+   - Pickup area and/or delivery areas, working days and hours.
+   - **The two ticks:** "I make or sell these myself" and "I accept the Terms" → save.
+   - **Preview my shop** once.
+   Then Launch → **for real**. With `CLAUDE_MODE=live` the go-live policy check runs (one cheap call). If the daily spend
+   cap is reached, or `CLAUDE_MODE=fixture`, the launch is **held for team review** (`#/admin`) instead: safe, not a bug.
 4. Watch while it runs:
    ```bash
    lwc logs -f app                                                   # the plan's steps
@@ -246,8 +253,12 @@ email. The hop becomes "Owner confirmed", the only delivery proof for an inbox w
 ## 13. Afterwards
 
 - Update `docs/PROGRESS.md` + `docs/STATE_FOR_NEXT_SESSION.md` with what was proven, then the transcript (`CLAUDE.md`).
-- The daily jobs run on their own: monitoring (one test order per live shop per day through hello@: **check GoDaddy's
-  send limit**), team renewals, zone hygiene (the team page lists anything that doesn't match), backups at 03:15.
+- The jobs run on their own: `monitor_tick` every minute (each live shop: address + padlock every 15 minutes, the full
+  check with one test order once a day, at its own minute), `outbox_send` every 20 s, team renewals, watched addresses,
+  zone hygiene (the team page lists anything that doesn't match), guest clean-up hourly, backups at 03:15 (cron).
+- Email budget: one test order per live shop per day goes through hello@. `SMTP_DAILY_LIMIT=450` (GoDaddy's limit is
+  500/day per mailbox). At 40 shops that's ~40 a day plus sign-ins and orders: far below. The team page's **Email outbox**
+  card shows sent today / the limit, anything retrying and anything dead (counts and error kinds only).
 
 ---
 
@@ -265,6 +276,8 @@ email. The hop becomes "Owner confirmed", the only delivery proof for an inbox w
 
 1. godaddy.com → launchwitness.com → DNS → add **A `*`** → `<VPS_IP>`, TTL 600 (this replaces "Don't add `*`" in step 6).
 2. In `.env` set `DNS_MODE=wildcard`, then `lwc up -d --wait`. The app now reads and writes nothing at GoDaddy for shops.
+   (Step 10's "first real write" doesn't happen; check instead that `dig +short meerasbakes.launchwitness.com @ns55.domaincontrol.com`
+   answers `<VPS_IP>` before you launch.) Keep Let's Encrypt on staging (step 5) until a shop name resolves on both nameservers.
 3. Each shop is still proven: every nameserver must answer `<VPS_IP>` for its name, then the padlock and the shop's own marker over HTTPS.
 4. Certificates stay safe: `/internal/tls-ask` says yes only for live, unpaused shops, so `anything.launchwitness.com` gets none.
 5. Weaker than per-shop records: a deleted shop's name still reaches our server (it shows "not found"), and "Address records" on the team page only checks that `*` is right; fixes there are by hand.
@@ -279,3 +292,80 @@ email. The hop becomes "Owner confirmed", the only delivery proof for an inbox w
 - A shop gets no certificate: `/internal/tls-ask` says no unless the shop is live, real and unpaused. Check with
   `lwc exec -T caddy wget -qO- "http://app:8000/internal/tls-ask?domain=<shop>.launchwitness.com"`.
   It also says no while any nameserver doesn't answer `<VPS_IP>` for the shop (so no failed attempt is spent).
+
+## If email misbehaves
+
+- **Sign-in says "We're having trouble sending email"**: the first try failed; the outbox keeps trying for the link's
+  life. Look at the team page → **Email outbox** (error kinds, e.g. `login refused` = wrong `SMTP_PASSWORD`,
+  `unreachable` = port 465 blocked: the app also tries 587). `lwc logs app | grep -i "could not send"`.
+- **An order shows "Email to you: retrying"**: it's saved; the email goes when the mail server answers. "failed" =
+  gave up after ~2 h (the order is still on the Orders page).
+- **Gmail puts our mail in spam**: check the mailbox's own SPF/DKIM at GoDaddy (Email & Office → DNS settings) but
+  **don't edit MX/TXT by hand today**; note it in PROGRESS. (The sign-in page has no "check your spam folder" hint
+  yet: if Gmail files us as spam, adding one is a small follow-up.)
+- `/api/health` as the admin shows `outbox_dead` when anything gave up in the last day.
+
+---
+
+## The production `.env` checklist (names and what to put; **no values here**)
+
+Fill in on the server only (`nano .env`, mode 600). "default" = leave the `.env.example` value.
+
+| Variable | What to put |
+|---|---|
+| `APP_DOMAIN` | `launchwitness.com` |
+| `APP_BASE_URL` | `https://launchwitness.com` |
+| `APP_ORIGIN` | empty (taken from `APP_BASE_URL`) |
+| `ADMIN_EMAIL` | the owner's address for the team page (signs in by email link) |
+| `DEV_MODE` | `false` (the app refuses `true` on https) |
+| `SESSION_DAYS` | default (14) |
+| `SIGNIN_LINKS_PER_EMAIL_PER_DAY` / `SIGNIN_LINKS_PER_IP_PER_HOUR` | default (5 / 10) |
+| `MAX_SHOPS_PER_USER` / `USER_DESCRIBES_PER_DAY` | default (3 / 5) |
+| `MAX_LIVE_SHOPS` | default (40: the certificate limit) |
+| `SHOP_REPORTS_PER_VISITOR_PER_DAY`, `ADDRESS_CHECKS_PER_HOUR`, `ADDRESS_CHECKS_PER_DAY` | defaults |
+| `MAILBOX_EXPIRES_ON` | the hello@ plan's end date, `YYYY-MM-DD` (from GoDaddy; about 2026-12-15) |
+| `ADMIN_TOKEN` | a fresh random one, 16+ characters (`openssl rand -base64 32`); never a local one |
+| `SERVER_IP` | `<VPS_IP>` |
+| `USE_FAKES` | `false` |
+| `DNS_MODE` | `per_shop` (`wildcard` only per the section above) |
+| `PRACTICE_STEP_SECONDS` | `0` |
+| `VISITOR_DESCRIBES_PER_DAY`, `VISITOR_LAUNCHES_PER_DAY`, `ORDERS_PER_VISITOR_PER_HOUR`, `ORDERS_PER_SHOP_PER_DAY`, `VISITOR_CONTACTS_PER_DAY` | defaults |
+| `MONITOR_ENABLED` | `true` (the prod compose forces it anyway) |
+| `MONITOR_WORKERS` | default (4) |
+| `ANTHROPIC_API_KEY` | the owner's key |
+| `CLAUDE_MODE` | `live` |
+| `CLAUDE_MODEL_STRONG` / `CLAUDE_MODEL_CHEAP` / `CLAUDE_MAX_TOKENS` | defaults |
+| `CLAUDE_DAILY_SPEND_CAP_USD` | `2` (whole budget $100; at the cap, calls stop for the day and real launches are held) |
+| `GODADDY_ENV` | `prod` |
+| `GODADDY_API_KEY` / `GODADDY_API_SECRET` | the production key + secret (developer.godaddy.com) |
+| `GODADDY_OTE_API_KEY` / `GODADDY_OTE_API_SECRET` | empty (not used with `prod`) |
+| `ALLOW_PURCHASE` | `false`. **Never change.** |
+| `MAX_SPEND_USD` / `EMAIL_PLAN_ESTIMATE_USD` | defaults (15 / 23.88) |
+| `MAIL_PROVIDER` | `secureserver` |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURITY` | `smtpout.secureserver.net` / `465` / `ssl` |
+| `SMTP_USER` | `hello@launchwitness.com` |
+| `SMTP_PASSWORD` | the mailbox password |
+| `SMTP_DAILY_LIMIT` | `450` |
+| `IMAP_HOST` / `IMAP_PORT` | `imap.secureserver.net` / `993` |
+| `IMAP_USER` | `hello@launchwitness.com` |
+| `IMAP_PASSWORD` | the same mailbox password |
+| `DATABASE_URL` | default (`sqlite:///./data/launchwitness.db`, on the `app-data` volume) |
+| `CADDYFILE` | default: ignored by the prod compose (it always mounts `Caddyfile.prod`) |
+| `ACME_CA` | **not in `.env`**: set it only on the command line for the staging start (step 5) |
+
+**✔ Check:** `grep -c . .env` is about 50 lines; `grep -E '^(USE_FAKES|DEV_MODE|ALLOW_PURCHASE)=' .env` shows `false`
+three times; `lwc logs app | grep 'self-check \['` prints nothing.
+
+## Smoke test after deploy (10 lines, in order)
+
+1. **Sign in** at `https://launchwitness.com/#/signin` with a real **Gmail** address: the link arrives (check the inbox
+   **and the spam folder**; note which), it opens the app, you're signed in.
+2. **Team page** (`#/admin`, as `ADMIN_EMAIL`): approve that account; the **Email outbox** card shows sent today ≥ 1, nothing dead.
+3. **Launch the demo shop for real** (step 10: the go-live checklist, both confirmations, the two ticks, preview).
+4. The shop opens over **https** with a padlock on a phone: `https://<shop>.launchwitness.com` (Let's Encrypt, not staging).
+5. Place a **test order** as a customer from the phone: it shows on the Orders page with "Email to you: sent".
+6. The order email arrives in the owner's inbox; press **"Yes, I got it"** in the test-order email → the hop says "Owner confirmed".
+7. **Share** the report → open the link logged out → **Verify** says the receipt is intact.
+8. Landing → **Check any address** with `gmail.com` and with the shop's address: both answer in plain words.
+9. `bash scripts/backup_db.sh` makes a file in `backups/daily/`, and `crontab -l` shows the 03:15 line.
+10. `EXTERNAL_SUBJECT=... bash scripts/check_m1.sh` → `Stack check: all checks passed.` (one `monitor_tick`, one `outbox_send`).

@@ -32,7 +32,8 @@ OWNER, OTHER = "a@example.org", "b@example.org"
 ORDER = {"qty_0": "1", "customer_name": "Asha Rao", "customer_phone": "98765 43210"}
 FAULTS = ("dns_missing", "dns_wrong", "cert_not_ready", "smtp_down", "smtp_login", "mail_lost", "write_fails",
           "restart", "claude_down", "double_submit", "two_runs", "cert_later")
-MACHINE_STEPS = {"dns_answer", "http_response", "form_post", "smtp_accepted", "imap_seen"}
+MACHINE_STEPS = {"dns_answer", "http_response", "form_post", "smtp_accepted", "imap_seen",
+                 "public_resolvers"}  # S13b: a lookup through 8.8.8.8 / 1.1.1.1 / 9.9.9.9 (information only)
 
 
 class AwayClaude(FixtureClaudeClient):

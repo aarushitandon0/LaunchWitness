@@ -198,6 +198,9 @@ steps written by code (stored on the check's row, so the report shows it).
 | The checker's own HTTPS look meets a redirect to another host, plain http or a private address | refused; one request, to the shop only | `test_https_probe_never_follows_a_redirect_off_the_shop` (5 targets) |
 | A practice shop is monitored | only ever against the pretend world; all its proof is labelled practice | `test_practice_shops_are_never_checked_against_real_services` |
 | A shop the team paused | its shared proof page answers 404 | `test_a_paused_shop_has_no_public_proof_page` |
+| **Public resolvers (S13b), daily run only** | each live shop's address is also asked of Google 8.8.8.8, Cloudflare 1.1.1.1 and Quad9 9.9.9.9; saved through `proof.add` as a `site_points` / `public_resolvers` hop: "Reachable from 3 of 3 public resolvers" (report: monitoring card "Seen from the wider internet"). Quick rounds don't ask | `test_s13b_public_resolvers::test_daily_run_saves_it_through_the_proof_chain`, `…test_quick_rounds_do_not_ask` |
+| One (or more) public resolvers disagree or don't answer | said plainly ("Quad9 still shows an old address", "has no address for it yet", "didn't answer us": "this usually clears by itself within hours; no alert for this"). **Never an alert, never a re-check, never fails the shop**: the shop's own nameservers stay the proof | `…test_one_resolver_disagreeing_never_alerts_or_fails_the_shop`, `…test_one_disagrees_is_said_plainly` |
+| The public look itself breaks | audit `public_resolvers` failed; the round carries on | `…test_a_broken_look_never_breaks_the_round` |
 
 Whole-system invariants 9 (at most one "keeps breaking" email per check per day) and 10 (an unfinished check, and its run, are never
 "passed") were added to `test_s11_invariants.py`.
