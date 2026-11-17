@@ -292,3 +292,12 @@ One entry per Claude Code session, newest last. This is what judges read to unde
 - Result: backend suite, ruff, tsc and build clean; e2e 22/22 on the dev server (Docker flows skip); live Claude $0 (no key
   here): the theme values in the saved Reader replies are hand-written placeholders marked `_note`.
 - Next: owner captures the theme fields live (`--theme-only reader:themes`), VPS smoke test Wednesday, then merge.
+
+### Session 15 — 2026-11-17 — where a shop sells, how customers pay, what the order form asks (Opus, Claude Code on the web, unattended)
+- Goal: real home sellers in India: a Pune baker delivers only in Pune, a candle maker ships across India. Customers must know where, when and how to pay before they order.
+- Asked Claude to: list what exists, add only what is missing (selling mode, city, validated areas/PINs, fees, payment terms, cancellation, food marks, break, days off, daily limit), enforce every rule on the server, keep the address private, keep the checker's test order passing in every mode.
+- Claude built: `sites/fulfilment.py` (every rule as pure functions), `Profile` fields (old profiles load with defaults; `selling_mode` drives the old yes/no boxes), new `Order` columns, `parse_order_form` rules (fulfilment choice, PIN/area, notice, days off, capacity, slots, totals from the menu), break refusal, UPI link/QR for the right amount with the order ref, order email lines, Orders page payment labels, go-live "fulfilment" item, shop sections that work in all six themes, Review inputs, privacy texts, `tests/test_s15_selling.py` (98), `e2e/tests/k-s15.spec.ts`, screenshots `docs/screenshots/s15/`.
+- What checking caught: the shop's strict CSP blocks `fetch()` on shop pages (the e2e posts the form from the test instead); "missing data shows nothing" tests caught a payment line shown with no UPI/cash; the `selling_mode` is the source of truth so old tests that set only the yes/no boxes needed updating; a break date of today must reopen the shop.
+- I changed / rejected: see PR description (decisions).
+- Result: backend suite, ruff, tsc, build clean; e2e 22 passed + 1 skipped (Docker-only) on the dev server; live Claude $0.
+- Next: owner re-captures Reader fixtures (`--theme-only reader:themes`, one run refreshes S14 + S15 placeholders), VPS smoke test, merge S15 after S14.

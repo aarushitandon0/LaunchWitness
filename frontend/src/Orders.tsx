@@ -105,11 +105,32 @@ export function OrdersPage({ businessId }: { businessId: number }) {
                   <span>No items chosen, see the note</span>
                 </li>
               )}
+              {o.fee_inr > 0 && (
+                <li>
+                  <span>{o.fulfilment === "delivery" ? "Delivery / shipping" : "Charge"}</span>
+                  <span>{inr(o.fee_inr)}</span>
+                </li>
+              )}
               <li className="order-total">
                 <span>Total</span>
                 <span>{inr(o.total_inr)}</span>
               </li>
             </ul>
+            {o.fulfilment && (
+              <div className="order-where">
+                <strong>{o.fulfilment === "pickup" ? "Pickup" : "Delivery"}</strong>
+                {o.wanted_date && <> · wanted by {o.wanted_date}</>}
+                {o.time_slot && <> · {o.time_slot}</>}
+                {o.fulfilment === "delivery" && (
+                  <address style={{ fontStyle: "normal", whiteSpace: "pre-line" }}>
+                    {o.delivery_address}
+                    {"\n"}PIN {o.delivery_pin}
+                  </address>
+                )}
+              </div>
+            )}
+            {!o.fulfilment && o.wanted_date && <p className="order-where">Wanted by {o.wanted_date}</p>}
+            {o.payment_label && <p className="order-pay">{o.payment_label}</p>}
             {o.note && <p className="order-note">“{o.note}”</p>}
             <p className="order-phone">{o.tel_url ? <a href={o.tel_url}>{o.customer_phone}</a> : o.customer_phone}</p>
             <p className={`order-email ${o.email_status === "failed" ? "warn" : "muted"}`}>
@@ -129,7 +150,7 @@ export function OrdersPage({ businessId }: { businessId: number }) {
                   disabled={busy === o.id}
                   onClick={() => move(o, to)}
                 >
-                  {ACTION[to]}
+                  {to === "paid" ? o.paid_action : ACTION[to]}
                 </button>
               ))}
             </div>

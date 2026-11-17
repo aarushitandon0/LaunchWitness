@@ -88,7 +88,7 @@ def test_every_theme_keeps_the_marker_the_order_path_the_links_and_the_basket(ke
     p = themed("cake_studio", key).model_copy(update={"instagram": "sugar.crumb"})
     html = render_site(p, shop="asha", photos={"shop": [], "items": {}})
     assert '<meta name="lw-shop" content="asha">' in html
-    assert '<form class="layout" method="post" action="/order" id="order-form">' in html
+    assert 'method="post" action="/order" id="order-form"' in html
     assert re.search(r'<input type="hidden" name="order_token" value="[\w-]{16,}">', html)
     assert 'name="customer_name" required' in html and 'name="customer_phone" required' in html
     assert 'class="hp" aria-hidden="true"' in html and 'name="website"' in html  # the honeypot

@@ -10,7 +10,20 @@ import { ThemePicker } from "./ThemePicker";
 
 type TextKey = {
   [K in keyof Profile]: Profile[K] extends string
-    ? K extends "kind" | "not_supported_reason" | "niche" | "delivery_areas" | "theme" | "accent"
+    ? K extends
+        | "kind"
+        | "not_supported_reason"
+        | "niche"
+        | "delivery_areas"
+        | "theme"
+        | "accent"
+        | "selling_mode"
+        | "payment_terms"
+        | "cancellation_preset"
+        | "cancellation_text"
+        | "shipping_note"
+        | "back_on"
+        | "allergens"
       ? never
       : K
     : never;
@@ -23,8 +36,9 @@ const FIELDS: { key: TextKey; label: string; hint?: string; long?: boolean }[] =
   {
     key: "area",
     label: "Area or locality",
-    hint: "Neighbourhood and city, e.g. Baner, Pune. Only this is shown, never your home address: you share the exact pickup address yourself on WhatsApp after you confirm an order.",
+    hint: "Your neighbourhood, e.g. Baner. Only this and your city are shown, never your home address: you share the exact pickup address yourself on WhatsApp after you confirm an order.",
   },
+  { key: "city", label: "City", hint: "e.g. Pune. Shown with your area." },
   { key: "hours", label: "Working days and hours", hint: "e.g. Tue–Sun, 10am–7pm. Closed Mondays." },
   { key: "phone", label: "Phone number" },
   { key: "whatsapp", label: "WhatsApp number", hint: "An Indian mobile number. Customers use it to reach you: your shop shows a WhatsApp button, and after ordering they can send you the order there." },
@@ -49,7 +63,25 @@ const emptyProduct = (category: string): Product => ({
   category,
   addon: false,
   price_from: false,
+  food_mark: "",
 });
+
+const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const CANCEL_PRESETS: [string, string][] = [
+  ["", "Don't say anything"],
+  ["no_custom", "No cancellations for custom orders"],
+  ["full_24h", "Cancel up to 24 hours before for a full refund"],
+  ["advance_kept_48h", "Cancel up to 48 hours before; the advance is not refunded"],
+  ["custom", "I'll write my own line"],
+];
+
+type Mode = Profile["selling_mode"];
+const modeParts = (m: Mode): { pickup: boolean; kind: "none" | "local" | "india" } => ({
+  pickup: m.startsWith("pickup"),
+  kind: m.endsWith("local") ? "local" : m.endsWith("india") ? "india" : "none",
+});
+const toMode = (pickup: boolean, kind: "none" | "local" | "india"): Mode =>
+  kind === "none" ? (pickup ? "pickup" : "") : (`${pickup ? "pickup_" : ""}${kind}` as Mode);
 
 export default function Review({ id }: { id: number }) {
   const [biz, setBiz] = useState<Business | null>(null);
@@ -61,6 +93,7 @@ export default function Review({ id }: { id: number }) {
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [slotsText, setSlotsText] = useState<string | null>(null);
   const [note] = useState(() => takeNote(id));
   const ph = usePhotos(id);
 
@@ -140,6 +173,247 @@ export default function Review({ id }: { id: number }) {
         ))}
       </section>
 
+      <h2>Where you sell</h2>
+      <section className="card">
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={modeParts(profile.selling_mode).pickup}
+            onChange={(e) => update({ selling_mode: toMode(e.target.checked, modeParts(profile.selling_mode).kind) })}
+          />
+          <span>Customers can pick up</span>
+        </label>
+        {modeParts(profile.selling_mode).pickup && (
+          <p className="muted small">
+            Pickup: customers see only your area ({profile.area || "add it above"}
+            {profile.city ? `, ${profile.city}` : ""}). You send the exact address on WhatsApp once you confirm the order.
+          </p>
+        )}
+        <fieldset className="field">
+          <legend>Delivery</legend>
+          {(
+            [
+              ["none", "No delivery"],
+              ["local", "I deliver locally (only to places I list)"],
+              ["india", "I ship across India (by courier)"],
+            ] as const
+          ).map(([k, label]) => (
+            <label className="check" key={k}>
+              <input
+                type="radio"
+                name="delivery_kind"
+                checked={modeParts(profile.selling_mode).kind === k}
+                onChange={() => update({ selling_mode: toMode(modeParts(profile.selling_mode).pickup, k) })}
+              />
+              <span>{label}</span>
+            </label>
+          ))}
+        </fieldset>
+        {modeParts(profile.selling_mode).kind === "local" && (
+          <>
+            <label className="field">
+              <span>Places you deliver to</span>
+              <input
+                value={profile.delivery_areas}
+                maxLength={400}
+                placeholder="e.g. Baner, Aundh, 411045"
+                onChange={(e) => update({ delivery_areas: e.target.value })}
+              />
+              <small>Localities and/or 6-digit PIN codes, separated by commas. A customer outside these is told politely and can choose pickup instead.</small>
+            </label>
+            <label className="field">
+              <span>Delivery charge (₹)</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={profile.delivery_fee_inr}
+                onChange={(e) => update({ delivery_fee_inr: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
+              />
+              <small>0 means free delivery.</small>
+            </label>
+            <label className="field">
+              <span>Free delivery above (₹) (optional)</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={profile.free_delivery_above_inr}
+                onChange={(e) => update({ free_delivery_above_inr: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
+              />
+              <small>Orders worth this much or more get free delivery. 0 means never.</small>
+            </label>
+          </>
+        )}
+        {modeParts(profile.selling_mode).kind === "india" && (
+          <>
+            <label className="field">
+              <span>Shipping charge (₹)</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={profile.shipping_fee_inr}
+                onChange={(e) => update({ shipping_fee_inr: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
+              />
+              <small>One flat charge per order. 0 means free shipping.</small>
+            </label>
+            <label className="field">
+              <span>Days to dispatch an order</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={30}
+                value={profile.dispatch_days}
+                onChange={(e) => update({ dispatch_days: Math.min(30, Math.max(0, Math.round(Number(e.target.value) || 0))) })}
+              />
+            </label>
+            <label className="field">
+              <span>A note about shipping (optional)</span>
+              <input
+                value={profile.shipping_note}
+                maxLength={120}
+                placeholder="e.g. Ships via courier, tracking on WhatsApp"
+                onChange={(e) => update({ shipping_note: e.target.value })}
+              />
+            </label>
+          </>
+        )}
+      </section>
+
+      <h2>When customers can order</h2>
+      <section className="card">
+        <label className="field">
+          <span>Days of notice you need</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={60}
+            value={profile.min_notice_days}
+            onChange={(e) => update({ min_notice_days: Math.min(60, Math.max(0, Math.round(Number(e.target.value) || 0))) })}
+          />
+          <small>0 means customers can order for the same day. Customers can't pick a date sooner than this.</small>
+        </label>
+        <fieldset className="field">
+          <legend>Days off (you don't deliver or hand over orders)</legend>
+          <div className="weekdays">
+            {WEEKDAYS.map((w, i) => (
+              <label className="check" key={w}>
+                <input
+                  type="checkbox"
+                  checked={profile.days_off.includes(i)}
+                  onChange={(e) => {
+                    const next = e.target.checked ? [...profile.days_off, i] : profile.days_off.filter((d) => d !== i);
+                    update({ days_off: Array.from(new Set(next)).sort() });
+                  }}
+                />
+                <span>{w}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <label className="field">
+          <span>Most orders you can take on one day (optional)</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={500}
+            value={profile.max_orders_per_day}
+            onChange={(e) => update({ max_orders_per_day: Math.min(500, Math.max(0, Math.round(Number(e.target.value) || 0))) })}
+          />
+          <small>When a day is full, customers can't pick it. 0 means no limit.</small>
+        </label>
+        <label className="field">
+          <span>Time slots (optional)</span>
+          <input
+            value={slotsText ?? profile.time_slots.join(", ")}
+            placeholder="e.g. 10am-1pm, 4pm-7pm"
+            onChange={(e) => setSlotsText(e.target.value)}
+            onBlur={() => {
+              if (slotsText !== null) update({ time_slots: slotsText.split(",").map((x) => x.trim()).filter(Boolean).slice(0, 6) });
+              setSlotsText(null);
+            }}
+          />
+          <small>Customers can pick one of these when they order. Leave empty for no slot choice.</small>
+        </label>
+        <label className="check">
+          <input type="checkbox" checked={profile.on_break} onChange={(e) => update({ on_break: e.target.checked })} />
+          <span>I'm taking a break (the shop stays up but doesn't take orders)</span>
+        </label>
+        {profile.on_break && (
+          <label className="field">
+            <span>Back on (optional)</span>
+            <input type="date" value={profile.back_on} onChange={(e) => update({ back_on: e.target.value })} />
+            <small>Your shop says “Taking a break, back on …”. Orders start again on that day.</small>
+          </label>
+        )}
+      </section>
+
+      <h2>How customers pay</h2>
+      <section className="card">
+        <fieldset className="field">
+          <legend>Payment</legend>
+          {(
+            [
+              ["upfront", "Full payment upfront (by UPI after they order)"],
+              ["advance", "An advance, the rest on delivery or pickup"],
+              ["on_delivery", "Pay when they collect or receive it"],
+            ] as const
+          ).map(([k, label]) => (
+            <label className="check" key={k}>
+              <input
+                type="radio"
+                name="payment_terms"
+                checked={profile.payment_terms === k}
+                onChange={() => update({ payment_terms: k, advance_percent: k === "advance" ? profile.advance_percent || 50 : profile.advance_percent })}
+              />
+              <span>{label}</span>
+            </label>
+          ))}
+        </fieldset>
+        {profile.payment_terms === "advance" && (
+          <label className="field">
+            <span>Advance (% of the total)</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={10}
+              max={90}
+              value={profile.advance_percent}
+              onChange={(e) => update({ advance_percent: Math.round(Number(e.target.value) || 0) })}
+            />
+            <small>Between 10 and 90. The customer's UPI link asks for exactly this amount, with the order number in the note.</small>
+          </label>
+        )}
+        <label className="check">
+          <input type="checkbox" checked={profile.accepts_cash} onChange={(e) => update({ accepts_cash: e.target.checked })} />
+          <span>I also accept cash</span>
+        </label>
+        <label className="field">
+          <span>Cancellation and refunds</span>
+          <select
+            value={profile.cancellation_preset}
+            onChange={(e) => update({ cancellation_preset: e.target.value as Profile["cancellation_preset"] })}
+          >
+            {CANCEL_PRESETS.map(([k, label]) => (
+              <option key={k} value={k}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <small>Shown on your shop and in the order email.</small>
+        </label>
+        {profile.cancellation_preset === "custom" && (
+          <label className="field">
+            <span>Your cancellation line</span>
+            <input value={profile.cancellation_text} maxLength={140} onChange={(e) => update({ cancellation_text: e.target.value })} />
+          </label>
+        )}
+      </section>
+
       <h2>How customers order</h2>
       <section className="card">
         <label className="field">
@@ -153,60 +427,6 @@ export default function Review({ id }: { id: number }) {
           <small>A few words shown as a label at the top of your site. Leave empty to show nothing.</small>
         </label>
         <label className="field">
-          <span>Days of notice you need</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            max={60}
-            value={profile.min_notice_days}
-            onChange={(e) => update({ min_notice_days: Math.min(60, Math.max(0, Math.round(Number(e.target.value) || 0))) })}
-          />
-          <small>0 means customers can order for the same day.</small>
-        </label>
-        <label className="check">
-          <input type="checkbox" checked={profile.pickup_available} onChange={(e) => update({ pickup_available: e.target.checked })} />
-          <span>Customers can pick up</span>
-        </label>
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={profile.delivery_available}
-            onChange={(e) => update({ delivery_available: e.target.checked })}
-          />
-          <span>I deliver</span>
-        </label>
-        {profile.delivery_available && (
-          <label className="field">
-            <span>Delivery charge (₹)</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              value={profile.delivery_fee_inr}
-              onChange={(e) => update({ delivery_fee_inr: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
-            />
-            <small>0 means free delivery.</small>
-          </label>
-        )}
-        {profile.delivery_available && (
-          <label className="field">
-            <span>Areas you deliver to</span>
-            <input
-              value={profile.delivery_areas}
-              maxLength={200}
-              placeholder="e.g. Baner, Aundh, Pashan"
-              onChange={(e) => update({ delivery_areas: e.target.value })}
-            />
-          </label>
-        )}
-        {profile.pickup_available && (
-          <p className="muted small">
-            Pickup: customers see only your area ({profile.area || "add it above"}). You send the exact address on
-            WhatsApp once you confirm the order.
-          </p>
-        )}
-        <label className="field">
           <span>What kind of shop is it?</span>
           <select value={profile.niche} onChange={(e) => update({ niche: e.target.value as Profile["niche"] })}>
             <option value="">Not sure</option>
@@ -215,6 +435,16 @@ export default function Review({ id }: { id: number }) {
             <option value="custom">Custom work (tailoring, embroidery, art)</option>
           </select>
           <small>It helps us suggest a look for your shop.</small>
+        </label>
+        <label className="field">
+          <span>Allergens (optional, for food)</span>
+          <input
+            value={profile.allergens}
+            maxLength={200}
+            placeholder="e.g. Contains nuts, gluten and dairy"
+            onChange={(e) => update({ allergens: e.target.value })}
+          />
+          <small>Shown on your shop. We may have suggested this from what you wrote: please check it.</small>
         </label>
         <label className="check">
           <input
@@ -329,6 +559,16 @@ export default function Review({ id }: { id: number }) {
             <label className="check">
               <input type="checkbox" checked={p.addon} onChange={(e) => updateProduct(i, { addon: e.target.checked })} />
               <span>Extra (only added to another item)</span>
+            </label>
+            <label className="field">
+              <span>Food mark</span>
+              <select value={p.food_mark} onChange={(e) => updateProduct(i, { food_mark: e.target.value as Product["food_mark"] })}>
+                <option value="">Not food / not marked</option>
+                <option value="veg">Veg</option>
+                <option value="egg">Contains egg</option>
+                <option value="nonveg">Non-veg</option>
+              </select>
+              {p.food_mark === "" ? null : <small>Shown with the green / brown mark and the word. Please check it's right.</small>}
             </label>
             <ItemPhoto ph={ph} saved={biz.profile.products[i]?.name ?? ""} dirty={dirty} />
             <label className="check">

@@ -1,4 +1,21 @@
-# State for the next session (written 2026-11-17 IST, end of Session 14)
+# State for the next session (written 2026-11-17 IST, end of Session 15)
+
+## Session 15 (Opus, cloud, unattended): where she sells, how customers pay, what the order form asks (PR into `main`, merge AFTER S14)
+
+Built on S14's branch. All rules live in `app/sites/fulfilment.py` (pure functions); `sites/orders.py::parse_order_form` applies them
+on the server; `render.py` + `seller.html` show them; `golive.py::fulfilment` uses `selling_problem`.
+- Profile: `selling_mode` (pickup|local|pickup_local|india|pickup_india), `city`, `delivery_areas` (localities and/or PINs), `delivery_fee_inr`,
+  `free_delivery_above_inr`, `shipping_fee_inr`, `dispatch_days`, `shipping_note`, `payment_terms` (upfront|advance|on_delivery), `advance_percent` 10-90,
+  `accepts_cash`, `cancellation_preset|text`, `allergens`, `on_break`, `back_on`, `days_off`, `time_slots`, `max_orders_per_day`; `Product.food_mark`.
+- Order columns: fulfilment, delivery_address, delivery_pin, wanted_date, time_slot, fee_inr, payment_terms, pay_now_inr, pay_later_inr (auto-migrated).
+- Privacy: the street address is only in the owner's Orders page and the order email; not in audit rows, evidence, the shared report, the shop or the thank-you page; purged with the shop.
+- Checker untouched: the test order gets defaults inside `parse_order_form(test=True)` (pickup, else a test address in her area / a test PIN) and skips date rules + the break.
+- PLACEHOLDERS: Reader `allergens` and per-item `food_mark` (schema + prompt added; hand-written in `reader_meera_cakes|tiffin_service|tiffin_hinglish`, marked `_food_placeholder` + `_note`).
+  Re-capture on the laptop (same command as S14, it refreshes both; cap <= $0.10): `cd backend && CLAUDE_MODE=live ../.venv/bin/python ../scripts/capture_live_fixtures.py --theme-only --dry-run reader:themes` then without `--dry-run`.
+- Tests: `tests/test_s15_selling.py` (98); `e2e/tests/k-s15.spec.ts`; screenshots `docs/screenshots/s15/` (3 themes x 375/1440, order form + info sections; regenerate: `scripts/render_s15_shots.py` + `scripts/shoot_s15.js`).
+- Not run: Docker stack, `check_m1.sh --local`, live Claude, real email. Real-phone UPI app opening the link untested.
+
+# (Session 14, earlier)
 
 ## Session 14 (Opus, 2026-11-17, cloud, unattended): shop themes (PR into `main`, NOT merged: merge only after the VPS smoke test)
 

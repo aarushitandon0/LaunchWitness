@@ -219,6 +219,17 @@ class Order(SQLModel, table=True):
     client_token: str = Field(default="", index=True)  # hidden form field: a double submit makes one order
     email_status: str = "pending"  # S13: queued | sent | retrying | failed (from its Outbox row); "pending" = older rows
     email_message_id: str = ""
+    # S15: how it gets to the customer, when, and what is paid now. The address is the customer's private detail: only the
+    # owner's Orders page and the order email show it (never audit rows, evidence, the shared report or the thank-you page).
+    fulfilment: str = ""  # "" (a shop with no way chosen) | pickup | delivery (local delivery or shipping)
+    delivery_address: str = ""
+    delivery_pin: str = ""
+    wanted_date: str = Field(default="", index=True)  # YYYY-MM-DD, "" = no date given
+    time_slot: str = ""
+    fee_inr: int = 0  # delivery / shipping, already inside total_inr
+    payment_terms: str = ""  # the shop's terms when the order was placed: upfront | advance | on_delivery
+    pay_now_inr: int = 0
+    pay_later_inr: int = 0
     # S10.5: the owner's own progress on the order (sites/orders.py STATUS_STEPS). Only the owner sets it.
     status: str = Field(default="new", index=True)  # new | confirmed | paid | done | cancelled
     status_changed_at: datetime | None = None

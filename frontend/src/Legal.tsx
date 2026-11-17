@@ -33,8 +33,11 @@ export function PrivacyPage() {
           its address, and the checks we run on it (what we saw, and when).
         </li>
         <li>
-          <strong>Your customers' orders</strong>: the name and phone number a customer types, what they ordered, and
-          their note. These are kept so you can see and export your orders.
+          <strong>Your customers' orders</strong>: the name and phone number a customer types, what they ordered, their
+          note, the date they want it and, for delivery or shipping, their delivery address and PIN code. These are kept so
+          you can see and export your orders. A customer's address is shown only to the shop owner (on the Orders page and
+          in the order email). It is never shown on the shop's website, the shared report, the proof records or the audit
+          log, and it is deleted when the shop or the account is deleted. We never ask for Aadhaar, PAN or bank details.
         </li>
         <li>
           <strong>Records of what happened</strong> (an audit log): sign-ins, launches, changes and checks, with the time.

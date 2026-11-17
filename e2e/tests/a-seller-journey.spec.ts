@@ -1,7 +1,7 @@
 // (a) sign up -> pending -> team approves -> describe -> practice launch -> real launch (pretend GoDaddy on this
 // server) -> a customer order through the public shop -> report -> share link opened logged out.
 import { expect, test } from "@playwright/test";
-import { ADMIN_EMAIL, api, approveUser, BASE, describe, launch, me, newSignedIn, readyForReal, setAddress, shopUrl, statusOf, unique } from "./helpers";
+import { ADMIN_EMAIL, api, approveUser, BASE, describe, launch, me, newSignedIn, pickDate, readyForReal, setAddress, shopUrl, statusOf, unique } from "./helpers";
 
 test("a seller goes from sign-up to a live, proven, shared shop", async ({ browser }) => {
   const sellerCtx = await browser.newContext();
@@ -71,6 +71,7 @@ test("a seller goes from sign-up to a live, proven, shared shop", async ({ brows
   await customer.locator(".item .add").first().click(); // the basket script replaces the plain quantity box
   await customer.locator("#customer_name").fill("Riya E2E");
   await customer.locator("#customer_phone").fill("98765 43210");
+  await pickDate(customer);
   await customer.locator("#order-form").evaluate((f: HTMLFormElement) => f.requestSubmit());
   await customer.waitForLoadState("load");
   await expect(customer.getByText(/thank you|order is with/i).first()).toBeVisible();

@@ -4,6 +4,8 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
+**Session 15 (Nov 17, Opus, cloud, unattended): where she sells, how customers pay, what the order form asks** (PR into `main`, merge after S14). Selling modes, validated delivery areas/PINs, fees, payment terms with exact UPI amounts, cancellation, food marks, break, days off, daily limit; all enforced on the server; address private. See STATE_FOR_NEXT_SESSION and SPEC §9d. CHECKS_MATRIX unchanged (no check changed; the test order only gets safe defaults).
+
 **Session 14 (Nov 17, Opus, cloud, unattended): a theme for every kind of home business** (PR open, not merged: after the VPS smoke
 test). Six themes on one engine and one safety layer; Claude picks `theme` / `accent` / `section_copy` (keys and short plain text
 only), code validates and draws; rule-based fallback; look picker on Review (audited); fonts self-hosted (OFL, `docs/FONTS.md`); a
@@ -409,6 +411,8 @@ Everything below is behind an interface with a working fake; tests cover the fak
 - **S9F (Opus) fixes:** the policy check never uses the saved-fixture fallback (fails closed); the daily describe cap counts `describe_used` rows that survive shop deletion; a delete-account token is checked against the signed-in email before it's used up; ruff rules pinned in `backend/pyproject.toml` (E4/E7/E9/F/I); the Vite dev proxy rewrites Origin to `LW_APP_ORIGIN` (default `http://localhost`) in dev only; `seed_demo.py` now works as a command-line admin (no owner keys).
 
 - **S9F P3:** a real shop's headline is "Almost ready" until the owner taps "Yes, I got it" (her inbox can't be read), because "accepted" must never read as "delivered"; the daily monitoring run includes a test order (one email per shop per day); test orders are marked by a single-use `TestTicket` nonce posted as `lw_test` (an unknown or used nonce is just a normal order); the "Yes, I got it" link uses a random token (hash stored), not an HMAC, so no new secret is needed; `/r/<token>` shows check names, states, hop times and servers only.
+
+- **S15 decisions (unattended):** (1) `selling_mode` is the source of truth; `pickup_available`/`delivery_available` follow it; an old profile's mode is inferred from the two boxes (delivery = local). (2) `delivery_areas` stays one comma-separated text (old profiles keep loading); strict checking only when she saves and at go-live. (3) A customer's PIN is accepted if listed, or if a listed locality is named in the address (whole word); localities-only shops therefore can't check the PIN itself. (4) The wanted-by date is required when the shop has notice/days off/daily limit, otherwise optional; dates are IST. (5) Default `payment_terms` = pay on delivery/pickup; `accepts_cash` default false (no claim until she says so). (6) Advance rounds UP to a whole rupee. (7) A break with a return date ends on that date (today or earlier = open). (8) Test orders get safe defaults (pickup, else a test address inside her area) and skip the date rules and the break; the same area/PIN checks still run. (9) The thank-you page shows the customer's PIN but never the street address. (10) Free delivery above ₹X applies to local delivery only; shipping is one flat fee. (11) Statuses unchanged; "Advance paid / Fully paid / Due on delivery" is a label derived from terms + status. (12) Daily limit counts non-cancelled real orders by wanted date.
 
 ## Open questions
 

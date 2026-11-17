@@ -114,8 +114,10 @@ def seller_page(path: str, request: Request, settings: Settings, session: Sessio
         return HTMLResponse(PAUSED, status_code=503)
     if path in ("", "index.html"):
         from app import photos
+        from app.sites.orders import full_days
 
-        return shop_response(render_site(profile, shop=b.subdomain or str(b.id), photos=photos.for_site(session, b.id)))
+        return shop_response(render_site(profile, shop=b.subdomain or str(b.id), photos=photos.for_site(session, b.id),
+                                         full_dates=full_days(session, b, profile)))
     if path.rstrip("/") == "privacy":
         return shop_response(render_site(profile, page="privacy"))
     if path.rstrip("/") == "report-shop":

@@ -3,7 +3,7 @@
 import json
 import re
 import secrets
-from datetime import timedelta
+from datetime import date, timedelta
 
 from sqlmodel import Session, func, select
 
@@ -13,6 +13,7 @@ from app.config import Settings
 from app.mail.smtp import Mailer
 from app.models import Business, Order, utcnow
 from app.safety.access import owner_emails, run_by_team
+from app.sites import fulfilment as ful
 
 MAX_QTY = 50
 
@@ -59,9 +60,69 @@ class OrderInvalid(ValueError):
     """Message is shown to the customer as-is."""
 
 
-def parse_order_form(form: dict[str, str], profile: Profile) -> dict:
+TEST_ADDRESS = "Automatic test order. No real address."
+TEST_PIN = "110001"  # a valid PIN code; for local delivery the test address names a place she serves (see test_defaults)
+
+
+def test_defaults(profile: Profile) -> dict[str, str]:
+    """What the checker's test order fills in for the fields it doesn't know about: pickup when she offers pickup,
+    otherwise a delivery INSIDE her area (her first listed PIN, or a test address naming her first locality). The same
+    checks a customer's order faces then run on it, so a test order proves the real path in every selling mode."""
+    o = ful.offers(profile)
+    if o["pickup"]:
+        return {"fulfilment": "pickup"}
+    if o["local"]:
+        a = ful.parse_areas(profile.delivery_areas)
+        where = a.localities[0] if a.localities else ""
+        return {"fulfilment": "delivery", "delivery_address": f"{TEST_ADDRESS} {where}".strip(),
+                "delivery_pin": a.pins[0] if a.pins else TEST_PIN}
+    if o["india"]:
+        return {"fulfilment": "delivery", "delivery_address": TEST_ADDRESS, "delivery_pin": TEST_PIN}
+    return {}
+
+
+def clean_address(text: str) -> str:
+    """A multi-line address: each line tidied, blank lines dropped, 300 characters at most."""
+    lines = [" ".join(line.split()) for line in text.splitlines()]
+    return "\n".join(x for x in lines if x)[:300]
+
+
+def delivery_refusal(profile: Profile) -> str:
+    where = ful.area_phrase(profile)
+    pickup = " You could choose pickup instead." if ful.offers(profile)["pickup"] else ""
+    if where:
+        return f"{profile.name} delivers only in {where}.{pickup}"
+    return f"{profile.name} can't deliver to that address yet.{pickup}"
+
+
+def orders_on(session: Session, business_id: int, day: str) -> int:
+    """Her real orders already wanted on this date (cancelled ones free the day up; test orders never count)."""
+    return session.exec(select(func.count()).select_from(Order).where(
+        Order.business_id == business_id, Order.is_test == False, Order.wanted_date == day,  # noqa: E712
+        Order.status != "cancelled")).one()
+
+
+def full_days(session: Session | None, business: Business | None, profile: Profile, today: date | None = None) -> list[str]:
+    """Dates that reached her daily limit (for the date picker): only dates, never who ordered."""
+    if session is None or business is None or not profile.max_orders_per_day:
+        return []
+    today = today or ful.today_ist()
+    rows = session.exec(select(Order.wanted_date, func.count()).where(
+        Order.business_id == business.id, Order.is_test == False, Order.status != "cancelled",  # noqa: E712
+        Order.wanted_date >= today.isoformat()).group_by(Order.wanted_date)).all()
+    return ful.full_dates({d: n for d, n in rows if d}, profile)
+
+
+def parse_order_form(form: dict[str, str], profile: Profile, *, test: bool = False, session: Session | None = None,
+                     business: Business | None = None, today: date | None = None) -> dict:
+    """Everything the customer sent, checked against the shop's own rules. Prices, fees and totals come ONLY from the
+    profile: a price or fee field in the form is never read. `test` fills the fulfilment fields (see test_defaults) and
+    leaves the date out; a customer's order must give them. Raises OrderInvalid with a message fit to show as-is."""
     if form.get("website"):  # honeypot field, hidden from people
         raise OrderInvalid("Sorry, something went wrong. Please try again.")
+    today = today or ful.today_ist()
+    if test:
+        form = {**test_defaults(profile), **{k: v for k, v in form.items() if v}}
     name = " ".join(form.get("customer_name", "").split())[:80]
     phone = form.get("customer_phone", "").strip()
     note = form.get("note", "").strip()[:1000]
@@ -87,8 +148,56 @@ def parse_order_form(form: dict[str, str], profile: Profile) -> dict:
         raise OrderInvalid("Extras go with another item. Please choose an item too.")
     for it in items:
         del it["addon"]
-    total = sum(it["qty"] * it["price_inr"] for it in items)
-    return {"customer_name": name, "customer_phone": phone, "note": note, "items": items, "total_inr": total}
+
+    # --- how it gets to the customer
+    o = ful.offers(profile)
+    choices = [c for c, on in (("pickup", o["pickup"]), ("delivery", o["local"] or o["india"])) if on]
+    fulfilment, address, pin = "", "", ""
+    if choices:
+        asked = form.get("fulfilment", "").strip()
+        if not asked and len(choices) == 1:
+            asked = choices[0]
+        if asked not in choices:
+            raise OrderInvalid("Please choose " + (" or ".join(c if c == "pickup" else "delivery" for c in choices)) + ".")
+        fulfilment = asked
+    if fulfilment == "delivery":
+        address = clean_address(form.get("delivery_address", ""))
+        pin = re.sub(r"\s", "", form.get("delivery_pin", ""))
+        if len(address) < 6:
+            raise OrderInvalid("Please add the address we should deliver to.")
+        if not ful.PIN.fullmatch(pin):
+            raise OrderInvalid("Please add your 6-digit PIN code.")
+        if o["local"] and not ful.serves(profile, address, pin):
+            raise OrderInvalid(delivery_refusal(profile))
+
+    # --- when
+    wanted = ""
+    raw_date = form.get("wanted_date", "").strip()
+    if raw_date:
+        day = ful.parse_date(raw_date)
+        if day is None:
+            raise OrderInvalid("Please pick the date you want your order by.")
+        taken = orders_on(session, business.id, day.isoformat()) if session is not None and business is not None else 0
+        if problem := ful.date_problem(profile, day, today, taken):
+            raise OrderInvalid(problem)
+        wanted = day.isoformat()
+    elif ful.date_required(profile) and not test:
+        raise OrderInvalid("Please pick the date you want your order by.")
+    slot = " ".join(form.get("time_slot", "").split())
+    if profile.time_slots and slot and slot not in profile.time_slots:
+        raise OrderInvalid("Please pick one of the time slots on the list.")
+    if not profile.time_slots:
+        slot = ""
+
+    # --- the money, worked out here from the menu
+    items_sum = ful.items_total(items)
+    fee = ful.fee_for(profile, fulfilment, items_sum)
+    total = items_sum + fee
+    pay_now, pay_later = ful.pay_split(profile, total)
+    return {"customer_name": name, "customer_phone": phone, "note": note, "items": items, "total_inr": total,
+            "items_inr": items_sum, "fee_inr": fee, "fulfilment": fulfilment, "delivery_address": address,
+            "delivery_pin": pin, "wanted_date": wanted, "time_slot": slot, "payment_terms": profile.payment_terms,
+            "pay_now_inr": pay_now, "pay_later_inr": pay_later}
 
 
 def order_email(business: Business, profile: Profile, order: Order, items: list[dict],
@@ -110,7 +219,27 @@ def order_email(business: Business, profile: Profile, order: Order, items: list[
                       f"Test code: {order.nonce}"]
     lines += [f"- {it['qty']} x {it['name']} @ {format_inr(it['price_inr'])} = {format_inr(it['qty'] * it['price_inr'])}"
               for it in items] or ["(no items chosen; see note)"]
-    lines += ["", f"Estimated total: {format_inr(order.total_inr)}"]
+    if order.fee_inr:
+        what = "Shipping" if ful.offers(profile)["india"] else "Delivery"
+        lines.append(f"- {what}: {format_inr(order.fee_inr)}")
+    lines += ["", f"Total: {format_inr(order.total_inr)}"]
+    if order.payment_terms:  # S15: what the customer was told to pay, and what is left
+        lines.append(f"Paid now (asked of the customer): {format_inr(order.pay_now_inr)}" if order.pay_now_inr
+                     else "Nothing asked to be paid now.")
+        if order.pay_later_inr:
+            lines.append(f"Due on {'delivery' if order.fulfilment == 'delivery' else 'pickup'}: {format_inr(order.pay_later_inr)}")
+    if order.fulfilment == "pickup":
+        lines += ["", "How: PICKUP. Send the exact address on WhatsApp once you confirm the order."]
+    elif order.fulfilment == "delivery":
+        lines += ["", "How: " + ("SHIPPING across India" if ful.offers(profile)["india"] else "LOCAL DELIVERY"),
+                  "Deliver to:", *order.delivery_address.splitlines(), f"PIN code: {order.delivery_pin}"]
+        if ful.offers(profile)["india"] and profile.dispatch_days:
+            lines.append(f"Dispatch within {profile.dispatch_days} day{'s' if profile.dispatch_days != 1 else ''}.")
+    if order.wanted_date:
+        d = ful.parse_date(order.wanted_date)
+        lines.append(f"Wanted by: {ful.nice_date(d) if d else order.wanted_date}" + (f", {order.time_slot}" if order.time_slot else ""))
+    if cancel := ful.cancellation_line(profile):
+        lines += ["", f"Your cancellation rule shown to the customer: {cancel}"]
     if order.note:
         lines += ["", "Note from customer:", order.note]
     if confirm_url:
@@ -175,8 +304,12 @@ def existing_order(session: Session, business: Business, token: str) -> Order | 
 
 
 def order_view(order: Order) -> dict:
+    """What the thank-you page may show. Deliberately NOT the street address: that stays with the owner."""
     return {"customer_name": order.customer_name, "customer_phone": order.customer_phone, "note": order.note,
-            "items": json.loads(order.items_json), "total_inr": order.total_inr, "ref": order.ref}
+            "items": json.loads(order.items_json), "total_inr": order.total_inr, "ref": order.ref,
+            "fulfilment": order.fulfilment, "delivery_pin": order.delivery_pin, "wanted_date": order.wanted_date,
+            "time_slot": order.time_slot, "fee_inr": order.fee_inr, "payment_terms": order.payment_terms,
+            "pay_now_inr": order.pay_now_inr, "pay_later_inr": order.pay_later_inr}
 
 
 def place_order(session: Session, mailer: Mailer, settings: Settings, *, business: Business, profile: Profile,
@@ -192,12 +325,19 @@ def place_order(session: Session, mailer: Mailer, settings: Settings, *, busines
     order = Order(business_id=business.id, customer_name=data["customer_name"], customer_phone=data["customer_phone"],
                   items_json=json.dumps(data["items"], ensure_ascii=False), total_inr=data["total_inr"],
                   note=data["note"], is_test=is_test, nonce=nonce, visitor=visitor, ref=new_ref(),
-                  client_token=token if TOKEN.match(token) else "", email_status="queued")
+                  client_token=token if TOKEN.match(token) else "", email_status="queued",
+                  fulfilment=data.get("fulfilment", ""), delivery_address=data.get("delivery_address", ""),
+                  delivery_pin=data.get("delivery_pin", ""), wanted_date=data.get("wanted_date", ""),
+                  time_slot=data.get("time_slot", ""), fee_inr=data.get("fee_inr", 0),
+                  payment_terms=data.get("payment_terms", ""), pay_now_inr=data.get("pay_now_inr", 0),
+                  pay_later_inr=data.get("pay_later_inr", 0))
     session.add(order)
     session.commit()
     session.refresh(order)
     audit.record(session, actor="checker" if is_test else "customer", action="order_placed", target=f"order:{order.id}", result="ok",
-                 business_id=business.id, detail=f"{len(data['items'])} item(s), total {data['total_inr']}")
+                 business_id=business.id,  # never the address, PIN or phone: only counts and the mode
+                 detail=f"{len(data['items'])} item(s), total {data['total_inr']}"
+                 + (f", {data['fulfilment']}" if data.get("fulfilment") else ""))
 
     recipients = order_recipients(session, settings, business)
     orders_url = f"{settings.app_base_url.rstrip('/')}/#/b/{business.id}/orders"
@@ -226,16 +366,23 @@ def accept_order_form(session: Session, settings: Settings, mailer: Mailer, *, b
     again = existing_order(session, business, token)
     if again is not None:  # double tap / form sent twice: show the same thank-you, make nothing new
         return 200, render_site(profile, page="thanks", order=order_view(again))
+    ticket = proof.open_ticket(session, business, form.get("lw_test", ""))  # the checker's own test order, or None
+    shown = {"session": session, "business": business}
+    if ticket is None and ful.on_break(profile):  # S15: refused politely here, not only in the page; the checker's test order is not
+        audit.record(session, actor="customer", action="order_placed", target=f"business:{business.id}", result="blocked",
+                     business_id=business.id, detail="shop is taking a break")
+        return 409, render_site(profile, form_error=ful.break_refusal(profile), form_values=form,
+                                full_dates=full_days(session, business, profile))
     try:
-        data = parse_order_form(form, profile)
+        data = parse_order_form(form, profile, test=ticket is not None, session=session, business=business)
     except OrderInvalid as e:
-        return 422, render_site(profile, form_error=str(e), form_values=form)
-    ticket = proof.open_ticket(session, business, form.get("lw_test", ""))
+        return 422, render_site(profile, form_error=str(e), form_values=form, full_dates=full_days(**shown, profile=profile))
     if ticket is None:
         try:
             check_order_limits(session, settings, business, visitor)
         except TooManyOrders:
-            return 429, render_site(profile, form_error=TOO_MANY, form_values=form)
+            return 429, render_site(profile, form_error=TOO_MANY, form_values=form,
+                                    full_dates=full_days(**shown, profile=profile))
         order = place_order(session, mailer, settings, business=business, profile=profile, data=data, visitor=visitor,
                             token=token, channel=channel)
     else:

@@ -350,6 +350,10 @@ none makes the order-path proof stronger.
 
 ---
 
+## 9d. Where she sells, how she is paid (S15)
+
+A shop says where it sells (`selling_mode`: pickup, local delivery, ships across India; pickup can combine with one of the others), shows only city + locality (never a home address; the exact pickup address is shared by the seller on WhatsApp), and takes orders by these rules, all enforced on the server: customer picks pickup or delivery; delivery needs an address + 6-digit PIN, and for local delivery the PIN or a locality in the address must be one she serves (else "<shop> delivers only in <areas>. You could choose pickup instead."); the wanted-by date respects minimum notice, days off and an optional orders-per-day limit; optional time slots; totals (items + delivery/shipping fee) come from the menu only. Payment terms: full upfront, an advance of 10-90%, or on delivery/pickup (+ accepts cash); the UPI link/QR after ordering carries the exact amount and the order ref. Cancellation preset or one plain line; food marks (veg / contains egg / non-veg, always with a word) and allergens; a "taking a break" switch with optional return date refuses orders on the server. The customer's address is visible only to the owner (Orders page, order email), never in audit, evidence, the shared report or the public pages, and is deleted with the shop. The go-live checklist requires a valid mode with its fields; drafts and practice are never blocked. The checker's test order uses pickup (or a test address inside her area) and ignores date rules and the break.
+
 ## 10. Budget
 
 **GoDaddy:** VPS is added to the cart at $0 by organizers. ~$25 in-store credit covers domain + email. Buy on godaddy.com only after organizers confirm credit; use the CLI to explore and manage.

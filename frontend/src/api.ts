@@ -5,6 +5,7 @@ export type Product = {
   category: string;
   addon: boolean; // an extra on top of another item
   price_from: boolean; // shown as "from ₹X"
+  food_mark: "" | "veg" | "egg" | "nonveg"; // the Reader may suggest it; she confirms it
 };
 
 export type Profile = {
@@ -35,6 +36,24 @@ export type Profile = {
   accent: string;
   section_copy: { hero_line: string; about: string; how_ordering: string };
   testimonials: { name: string; text: string }[]; // real comments she pasted: never written by us
+  // S15: where she sells, when, and how she is paid
+  selling_mode: "" | "pickup" | "local" | "pickup_local" | "india" | "pickup_india";
+  city: string;
+  free_delivery_above_inr: number;
+  shipping_fee_inr: number;
+  dispatch_days: number;
+  shipping_note: string;
+  payment_terms: "upfront" | "advance" | "on_delivery";
+  advance_percent: number;
+  accepts_cash: boolean;
+  cancellation_preset: "" | "no_custom" | "full_24h" | "advance_kept_48h" | "custom";
+  cancellation_text: string;
+  allergens: string;
+  on_break: boolean;
+  back_on: string; // YYYY-MM-DD or ""
+  days_off: number[]; // Monday = 0
+  time_slots: string[];
+  max_orders_per_day: number;
 };
 
 export type ThemeAccent = { key: string; label: string; color: string; ink: string; tint: string };
@@ -185,6 +204,18 @@ export type Order = {
   note: string;
   email_status: string;
   created_at: string;
+  // S15: shown to the owner only
+  fulfilment: "" | "pickup" | "delivery";
+  delivery_address: string;
+  delivery_pin: string;
+  wanted_date: string;
+  time_slot: string;
+  fee_inr: number;
+  pay_now_inr: number;
+  pay_later_inr: number;
+  payment_terms: string;
+  payment_label: string; // "Advance paid · ₹300 due on delivery"
+  paid_action: string; // what the "paid" button says
 };
 
 export type Step = {

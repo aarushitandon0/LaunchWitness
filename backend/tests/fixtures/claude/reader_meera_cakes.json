@@ -13,64 +13,74 @@
       "name": "Chocolate truffle cake 1/2 kg",
       "price_inr": 650,
       "description": "Eggless, made fresh to order",
-      "category": "Cakes"
+      "category": "Cakes",
+      "food_mark": "veg"
     },
     {
       "name": "Chocolate truffle cake 1 kg",
       "price_inr": 1200,
       "description": "Eggless, made fresh to order",
-      "category": "Cakes"
+      "category": "Cakes",
+      "food_mark": "veg"
     },
     {
       "name": "Pineapple cake 1/2 kg",
       "price_inr": 550,
       "description": "Eggless, made fresh to order",
-      "category": "Cakes"
+      "category": "Cakes",
+      "food_mark": "veg"
     },
     {
       "name": "Red velvet cake with cream cheese 1/2 kg",
       "price_inr": 750,
       "description": "Eggless, with cream cheese frosting",
-      "category": "Cakes"
+      "category": "Cakes",
+      "food_mark": "veg"
     },
     {
       "name": "Rasmalai cake 1 kg",
       "price_inr": 1400,
       "description": "Festive special",
-      "category": "Cakes"
+      "category": "Cakes",
+      "food_mark": "veg"
     },
     {
       "name": "Cupcakes box of 6",
       "price_inr": 420,
       "description": "Assorted flavours",
-      "category": "Cupcakes & brownies"
+      "category": "Cupcakes & brownies",
+      "food_mark": "veg"
     },
     {
       "name": "Brownies box of 9",
       "price_inr": 480,
       "description": "Box of 9 brownies",
-      "category": "Cupcakes & brownies"
+      "category": "Cupcakes & brownies",
+      "food_mark": ""
     },
     {
       "name": "Photo print on cake",
       "price_inr": 250,
       "description": "Extra charge on top of the cake price",
-      "category": "Add-ons"
+      "category": "Add-ons",
+      "food_mark": ""
     },
     {
       "name": "Theme topper",
       "price_inr": 300,
       "description": "Price starts from ₹300",
-      "category": "Add-ons"
+      "category": "Add-ons",
+      "food_mark": ""
     },
     {
       "name": "Delivery within 10 km",
       "price_inr": 80,
       "description": "Delivery charge for orders within 10 km; pickup from Baner is also available",
-      "category": "Delivery"
+      "category": "Delivery",
+      "food_mark": ""
     }
   ],
-  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only).",
+  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only). S15: `allergens` and each item's `food_mark` are hand-written too (a food mark only where the seller's own words say veg / eggless); the same --theme-only re-capture refreshes them.",
   "_theme_placeholder": true,
   "theme": "bakery",
   "accent": "raspberry",
@@ -78,5 +88,7 @@
     "hero_line": "Fresh eggless cakes and cupcakes, baked in Baner",
     "about": "I bake eggless cakes and cupcakes at home in Baner, Pune, made to order.",
     "how_ordering": "Choose your cakes, send your order, and we'll confirm the details with you."
-  }
+  },
+  "allergens": "",
+  "_food_placeholder": true
 }
