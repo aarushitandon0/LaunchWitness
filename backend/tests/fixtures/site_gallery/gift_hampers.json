@@ -1,0 +1,100 @@
+{
+  "_note": "S14 gallery seller: invented sample data for rendering tests + screenshots. Phone/UPI/FSSAI values are demo samples, not real.",
+  "name": "Gift Garden Hampers",
+  "tagline": "Festive hampers and return gifts, packed by hand",
+  "about": "We put together hampers for Diwali, weddings and birthdays. Tell us your budget and who it's for.",
+  "area": "Satellite, Ahmedabad",
+  "hours": "Open every day, 10am to 9pm.",
+  "phone": "98765 43210",
+  "whatsapp": "98765 43210",
+  "upi_id": "giftgarden.demo@example",
+  "tone": "premium",
+  "selling_point": "Custom packing",
+  "min_notice_days": 3,
+  "pickup_available": true,
+  "delivery_available": true,
+  "delivery_fee_inr": 90,
+  "allow_item_message": true,
+  "upi_display_name": "GIFT GARDEN DEMO",
+  "theme": "gifts",
+  "accent": "ruby",
+  "section_copy": {
+    "hero_line": "Gifts that look as good as the thought behind them",
+    "about": "",
+    "how_ordering": "Choose a hamper, tell us the date and your message, and we'll confirm the packing."
+  },
+  "products": [
+    {
+      "name": "Diwali dry fruit hamper",
+      "price_inr": 1450,
+      "description": "Almonds, cashews, dates and a diya",
+      "category": "Diwali",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Diwali sweets and diya box",
+      "price_inr": 950,
+      "description": "",
+      "category": "Diwali",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Festive thali hamper",
+      "price_inr": 1800,
+      "description": "Brass thali with sweets",
+      "category": "Diwali",
+      "addon": false,
+      "price_from": true
+    },
+    {
+      "name": "Rakhi gift box",
+      "price_inr": 650,
+      "description": "Rakhi, roli, sweets",
+      "category": "Rakhi",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Wedding return gift (per piece)",
+      "price_inr": 180,
+      "description": "From 50 pieces",
+      "category": "Weddings",
+      "addon": false,
+      "price_from": true
+    },
+    {
+      "name": "Wedding welcome kit",
+      "price_inr": 420,
+      "description": "",
+      "category": "Weddings",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Birthday surprise box",
+      "price_inr": 799,
+      "description": "Chocolates, card and a candle",
+      "category": "Birthdays",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Baby shower hamper",
+      "price_inr": 1200,
+      "description": "",
+      "category": "Birthdays",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Gift card with your message",
+      "price_inr": 60,
+      "description": "",
+      "category": "Extras",
+      "addon": true,
+      "price_from": false
+    }
+  ]
+}

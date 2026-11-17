@@ -1,2 +1,4 @@
 -r requirements.txt
 pytest==9.2.0
+fonttools==4.68.0   # S14: the font tests read the woff2 files
+brotli==1.2.1        # (fonttools needs it for woff2)

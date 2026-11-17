@@ -4,6 +4,15 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
+**Session 14 (Nov 17, Opus, cloud, unattended): a theme for every kind of home business** (PR open, not merged: after the VPS smoke
+test). Six themes on one engine and one safety layer; Claude picks `theme` / `accent` / `section_copy` (keys and short plain text
+only), code validates and draws; rule-based fallback; look picker on Review (audited); fonts self-hosted (OFL, `docs/FONTS.md`); a
+strict CSP on shop pages; honest content only (testimonials only if the seller pasted them). See STATE_FOR_NEXT_SESSION and SPEC §5a.
+Decisions (S14): the hero line is the page's h1 only when the Reader provides one (else the shop name); the three old palettes
+(`niche-*`) are replaced by the six themes (`niche` now only feeds the rule-based suggestion); her own About text wins over the
+Reader's short paragraph; the picker's inline preview doesn't count as "looked at your preview"; the owner's switch saves at once.
+**Hand-written placeholders: the `theme`/`accent`/`section_copy` values in the 12 saved Reader replies** (re-capture command in STATE).
+
 **Session 13b (Nov 17, Opus, cloud): S13 verified on the real stack, VPS guide current, public resolvers.**
 Docker prod-like stack rebuilt, `check_m1.sh --local` all PASS (now also: one `monitor_tick`, one `outbox_send`), e2e
 **16/16** (2 new S13 flows: order while practice mail is down -> "retrying" -> "sent"; sign-in while the mail server is

@@ -20,6 +20,8 @@ from app.sites.render import render_site
 router = APIRouter(tags=["demo"])
 FIXTURES = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "claude"
 DEMOS = {"meera": "reader_meera_cakes", "imran": "reader_tailor", "sunita": "reader_tiffin_service"}
+# S14: each demo shop shows the theme that fits it (the same choice the Reader fixtures carry).
+DEMO_LOOKS = {"meera": ("bakery", "raspberry"), "imran": ("tailor", "navy"), "sunita": ("kitchen", "turmeric")}
 HEADERS = {"X-Robots-Tag": "noindex"}
 
 
@@ -29,7 +31,9 @@ def demo_profile(name: str) -> Profile:
         raise HTTPException(status_code=404)
     profile = Profile.model_validate(json.loads((FIXTURES / f"{DEMOS[name]}.json").read_text(encoding="utf-8")))
     # Never point a demo at a real person's phone, WhatsApp or UPI ID, even if a sample gains one later.
-    return profile.model_copy(update={"phone": "", "whatsapp": "", "upi_id": "", "upi_display_name": ""})
+    theme, accent = DEMO_LOOKS[name]
+    return profile.model_copy(update={"phone": "", "whatsapp": "", "upi_id": "", "upi_display_name": "",
+                                      "theme": theme, "accent": accent})
 
 
 def page(name: str, which: str = "home", **kw) -> HTMLResponse:

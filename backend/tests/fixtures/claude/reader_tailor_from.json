@@ -75,5 +75,14 @@
       "addon": true,
       "price_from": false
     }
-  ]
+  ],
+  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only).",
+  "_theme_placeholder": true,
+  "theme": "tailor",
+  "accent": "thread",
+  "section_copy": {
+    "hero_line": "Blouses, kurtis and lehengas, stitched to fit",
+    "about": "We do ladies tailoring for blouses, kurtis, lehengas and more, with 12 years of experience.",
+    "how_ordering": "Choose your stitching, send your order, and we'll confirm the details with you. Please order 7 days ahead."
+  }
 }

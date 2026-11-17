@@ -60,7 +60,7 @@ Eight core features first; no stretch item starts until all eight run end to end
 |---|---|---|---|
 | 1 | Business reader | Core | Description + price list (text or photo) → editable profile + site copy, one Claude call |
 | 2 | Name finder | Core | Claude suggests names; code checks real availability and price; shows 3 |
-| 3 | Site builder | Core | One fixed template for every seller: badges from data, menu + basket, extras, about, hours, pickup/delivery, order form, WhatsApp link, UPI QR, privacy page |
+| 3 | Site builder | Core | One rendering engine, six themes (S14, §5a), for every seller: badges from data, menu + basket, extras, about, hours, pickup/delivery, order form, WhatsApp link, UPI QR, privacy page |
 | 3a | Orders and payment (session 9) | Core | Order date (min notice enforced), pickup/delivery, quantities, totals worked out on the server; per-order UPI pay link + QR (no gateway, no money passes through us); order ID + status page (Received → Confirmed → Paid → Preparing → Ready / Out for delivery → Delivered / Picked up, or Cancelled); seller's order list on her private link; WhatsApp hand-offs via `wa.me` links |
 | 3b | Trust and safety (session 9) | Core | Email-link sign-in (the owner's address is proven) + team approval before any real launch; Claude policy check that can only hold a shop for team review (never launches; fails closed); "Report this shop" link + admin pause switch |
 | 3c | Accounts and tenancy (session 9F) | Core | Guest practice → sign in to keep it; sessions; My shops (max 3); each owner sees only their own shops; team page; account deletion. See §9a |
@@ -74,7 +74,7 @@ Eight core features first; no stretch item starts until all eight run end to end
 | 11 | MCP server | Stretch | Engine tools over MCP behind the same safety gates |
 | 12 | Fleet view | Stretch | Dashboard of all launched businesses |
 
-Out of scope: payment gateways or holding money (UPI pay links only; "Connect Razorpay (after seller KYC)" is future work), appointments/booking, inventory, SMS, WhatsApp Business / Instagram APIs, multiple templates, custom code generation.
+Out of scope: payment gateways or holding money (UPI pay links only; "Connect Razorpay (after seller KYC)" is future work), appointments/booking, inventory, SMS, WhatsApp Business / Instagram APIs, custom code generation, and any look outside the six fixed themes (S14 themes are one engine with fixed tokens, not separate templates).
 
 ---
 
@@ -84,7 +84,7 @@ Claude decides and explains; plain code acts and checks. Three steps use Claude;
 
 | Agent | Job | Claude or code | Model | Output |
 |---|---|---|---|---|
-| Reader | Profile + site copy + ordering details from text or photo; orders vs bookings | Claude, 1 call | Strong (vision + structured output) | Profile JSON + copy (code tidies it) |
+| Reader | Profile + site copy + ordering details from text or photo; orders vs bookings; **the shop theme and accent (S14: keys only) and three short lines of page copy** | Claude, 1 call | Strong (vision + structured output) | Profile JSON + copy (code tidies it and validates every key) |
 | Policy check (session 9) | Is this shop OK to put live? | Claude decides, code holds | Cheap | OK, or "hold for review" + one plain reason; it can never launch or unpause |
 | Namer | Suggest names; check availability + price | Claude suggests, code checks | Cheap | 3 available domains with prices |
 | Planner | Every action, setting and cost | Code, fixed schema | — | Plan + before/after preview |
@@ -97,6 +97,33 @@ A manager loop runs them in order and stops at the approval card. **Doctor playb
 **The Doctor investigates before it chooses (S11).** For a failed address, padlock or test-order check, the Doctor (cheap model) may first *look* through read-only tools: `resolve` (the shop's own address), `fetch` (the shop's own page, SSRF-safe), `evidence` (the stored proof of this run), `smtp_test` (connect and sign in, never send) and `mailbox_status`. At most 4 looks and 1,500 output tokens. It then answers `{finding, fix_id | "needs_owner", owner_instruction}`. Code checks the answer and is the only thing that acts: a fix must be in the playbook and allowed for that check and launch mode; re-adding settings we wrote (or asking again for a certificate) is automatic; restoring a backup needs the owner; money never. If Claude is unavailable or over budget, plain rules decide: exactly one allowed fix → apply it, labelled "standard fix"; otherwise "needs you" with a plain instruction. Every look is audit-logged and kept as a trace on the check result, shown in the report. The owner's own words (`symptom`), tool results and check details are data, never instructions. The other email-setting checks keep the one-shot Doctor.
 
 Cost shape: ~3 Claude calls per launch + 1 per failed check.
+
+### 5a. Shop themes (S14): a look for each kind of home business, chosen by Claude, drawn by code
+
+The shop page is what a seller's customers (and the judges) see. One engine (`sites/render.py` + `templates/seller.html`) and
+one safety layer serve six themes (`sites/themes.py`): **Bakery & desserts**, **Home kitchen / tiffin / pickles**,
+**Handmade & crafts**, **Tailoring & custom work**, **Gifts & hampers**, **General** (the fallback).
+
+| Who decides | What |
+|---|---|
+| **Claude (Reader, one call, already part of reading the business)** | `theme` (one of six keys), `accent` (one of that theme's 2–3 keys), `section_copy` (a hero line ≤ 90 chars, an about paragraph ≤ 400 (used only when she has no About text of her own), one "how ordering works" line ≤ 160; plain text). Never HTML, CSS, colours or fonts. |
+| **Code** | Validates every key against the fixed lists (an invalid key becomes the rule-based choice: `rule_choice` = the Reader's `niche` plus keyword counts over name, tagline, categories, item names, about; it also serves shops saved before themes and runs when Claude is down). Strips tags from the three lines. Draws everything: tokens, fonts, layout, art. |
+| **The seller** | Can switch the look and its colour on the Review page (small live thumbnails, then a private preview that reloads), edit the headline and the ordering line (the About text is her normal About field), and paste real customer messages. Saved on the profile, audit-logged (`theme_changed`). |
+
+A theme only changes: colour tokens (with roles), radius, a self-hosted font pair (SIL OFL, Latin + ₹, ≤ 120 KB per theme,
+`docs/FONTS.md`), the **hero layout** (split, board, centred gallery, ledger, festive), the **menu layout** (list, cards, board with
+dotted leaders, price list with a big "from ₹X"), the **order of sections** ("how ordering works", "pick a gift" collection tiles,
+about, kind words, contact) and its **placeholder art** (SVG patterns plus the initials; no stock photos, no people). It never
+changes the order form and its idempotency token, the basket script, the `lw-shop` marker, the UPI link and QR, WhatsApp links,
+"Report this shop", the privacy page, product photos or the works-without-JS form: a test renders every theme against every
+gallery seller and checks all of them, and hostile text in every field is escaped in every theme.
+Every accent and base text colour passes WCAG AA (tested). Shop pages send a strict Content-Security-Policy (`default-src 'none'`,
+own images and fonts only, inline styles, scripts only by hash of the template's one fixed script).
+
+Honest content: sections show only what the seller gave. No invented reviews, ratings, "bestseller" labels or testimonials; a
+"Kind words" section appears only if the seller pasted real messages (name + text, shown "shared by the seller"); "Prices
+start at ₹X" is the lowest price she listed; the "how ordering works" steps come from the real order path (pickup, delivery, UPI
+and notice only when she said so).
 
 ---
 

@@ -31,7 +31,27 @@ export type Profile = {
   instagram: string; // handle only
   delivery_areas: string;
   niche: "" | "food" | "handmade" | "custom";
+  theme: string; // a key from /api/themes ("" = the suggested look)
+  accent: string;
+  section_copy: { hero_line: string; about: string; how_ordering: string };
+  testimonials: { name: string; text: string }[]; // real comments she pasted: never written by us
 };
+
+export type ThemeAccent = { key: string; label: string; color: string; ink: string; tint: string };
+export type ThemeInfo = {
+  key: string;
+  label: string;
+  blurb: string;
+  for_whom: string;
+  hero: string;
+  menu: string;
+  tokens: { bg: string; paper: string; ink: string; ink2: string; soft: string; line: string; radius: string };
+  display: string;
+  body: string;
+  art: string;
+  accents: ThemeAccent[];
+};
+export type ThemeChoice = { key: string; accent: string; suggested: string; chosen: boolean };
 
 export type GoLiveItem = { key: string; label: string; done: boolean; hint: string };
 
@@ -84,6 +104,7 @@ export type Business = {
   site_url: string | null;
   status: string;
   practice: boolean;
+  theme: ThemeChoice;
   public: boolean; // false = only the owner sees it (preview)
   guest: boolean; // made without signing in: practice only, removed after 24 hours
   paused: boolean;
@@ -491,10 +512,14 @@ export const api = {
     request<{ ok: boolean }>(`/api/plans/${planId}/practice-buy`, { method: "POST" }),
   save: (id: number, profile: Profile, subdomain: string) =>
     request<Business>(`/api/businesses/${id}`, json({ profile, subdomain }, "PUT")),
+  themes: () => request<ThemeInfo[]>("/api/themes"),
+  setTheme: (id: number, theme: string, accent: string) =>
+    request<Business>(`/api/businesses/${id}/theme`, json({ theme, accent }, "PUT")),
   contact: (name: string, email: string, message: string, website: string) =>
     request<{ ok: boolean; message: string }>("/api/contact", json({ name, email, message, website })),
-  preview: async (id: number, page: "home" | "privacy" = "home"): Promise<string> => {
-    const r = await send(`/api/businesses/${id}/preview?page=${page}`).catch(() => null);
+  // look: the picker's small inline preview; it doesn't count as "she looked at her preview" for the go-live list.
+  preview: async (id: number, page: "home" | "privacy" = "home", inline = false): Promise<string> => {
+    const r = await send(`/api/businesses/${id}/preview?page=${page}${inline ? "&inline=1" : ""}`).catch(() => null);
     if (!r || !r.ok) throw new ApiError("We couldn't load the preview. Please try again.", r?.status ?? 0);
     return r.text();
   },

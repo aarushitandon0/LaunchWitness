@@ -16,6 +16,17 @@ Usage (CLAUDE_MODE=live and ANTHROPIC_API_KEY in the environment):
     (Windows venv: use ../.venv/Scripts/python.exe instead of ../.venv/bin/python)
     ... --dry-run <targets>   worst-case cost per target, no key needed, no call made
     ... --report              today's live spend from the ClaudeUsage table, per fixture
+
+S14 (shop themes): the Reader now also picks a theme, an accent and three short lines of page copy. The saved Reader
+replies carry hand-written values for these (marked `_note` + `_theme_placeholder`). To replace them with live ones
+WITHOUT touching the rest of the saved replies (prices, categories and everything the other tests pin):
+
+    cd backend && CLAUDE_MODE=live ../.venv/bin/python ../scripts/capture_live_fixtures.py --theme-only reader:themes
+    (reader:themes = six sellers, reader:themes-all = all 12; or name some: --theme-only reader:meera_cakes reader:tailor)
+    ... --theme-only --dry-run reader:themes     worst-case cost first, no key needed
+
+One live Reader call per seller (strong model), stops at the first failure, daily cap applies (set it to <= $0.10).
+Only `theme`, `accent` and `section_copy` are copied into the saved file; `_note` / `_theme_placeholder` are removed.
 """
 
 import json
@@ -37,6 +48,12 @@ from app.config import get_settings  # noqa: E402
 from app.db import get_engine, init_db  # noqa: E402
 
 MAX_CALLS = 12
+# reader:themes = the six that matter most for the demo and the tests (about $0.07 in practice, worst case $0.11);
+# reader:themes-all = all twelve saved sellers (about $0.13 in practice, worst case $0.23: raise the cap above $0.10 first).
+THEME_SELLERS = ["meera_cakes", "tiffin_service", "tailor", "candle_note", "tailor_from", "tiffin_hinglish"]
+THEME_SELLERS_ALL = THEME_SELLERS + ["whatsapp_messy", "hinglish", "no_categories", "prompt_injection",
+                                     "handwritten_photo", "salon"]
+THEME_KEYS_ONLY = ("theme", "accent", "section_copy")
 RAW_DIR = ROOT / "replay" / "raw" / "claude"
 SELLER_DIRS = [reader.SELLER_FIXTURES, reader.SELLER_FIXTURES.parent / "sellers_hard"]
 
@@ -129,7 +146,14 @@ def main(args: list[str]) -> int:
     if args == ["--report"]:
         return report()
     dry = "--dry-run" in args
-    targets = [a for a in args if a != "--dry-run"]
+    theme_only = "--theme-only" in args
+    targets = [a for a in args if a not in ("--dry-run", "--theme-only")]
+    if theme_only:
+        targets = [t for x in targets for t in ([f"reader:{s}" for s in THEME_SELLERS] if x == "reader:themes" else
+                                    [f"reader:{s}" for s in THEME_SELLERS_ALL] if x == "reader:themes-all" else [x])]
+        if any(not t.startswith("reader:") for t in targets):
+            print("--theme-only works on reader targets only.")
+            return 2
     if not dry and settings.claude_mode != "live":
         print("Set CLAUDE_MODE=live to run this.")
         return 2
@@ -156,9 +180,15 @@ def main(args: list[str]) -> int:
             print(f"{target}: NOT saved ({type(e).__name__}: {str(e)[:300]}). Stopping: no more calls this run.")
             status = 1
         else:
-            (FIXTURE_DIR / f"{fixture}.json").write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n",
-                                                         encoding="utf-8")
-            print(f"{target}: saved {fixture}.json")
+            path = FIXTURE_DIR / f"{fixture}.json"
+            if theme_only:  # keep the saved live reply; take over only the S14 fields (and drop the placeholder marks)
+                saved = json.loads(path.read_text(encoding="utf-8"))
+                saved.update({k: data[k] for k in THEME_KEYS_ONLY})
+                saved.pop("_note", None)
+                saved.pop("_theme_placeholder", None)
+                data = saved
+            path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            print(f"{target}: saved {fixture}.json" + (" (theme fields only)" if theme_only else ""))
         if client.last_raw:
             (RAW_DIR / f"{fixture}.json").write_text(json.dumps(client.last_raw, ensure_ascii=False, indent=2),
                                                      encoding="utf-8")

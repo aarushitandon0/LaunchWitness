@@ -11,9 +11,10 @@ import re
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from app.agents.claude_client import Claude, ClaudeBadJson
+from app.sites.themes import ACCENT_KEYS, THEME_KEYS, clean_accent_key, clean_theme_key
 
 SELLER_FIXTURES = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "sellers"
 HARD_FIXTURES = SELLER_FIXTURES.parent / "sellers_hard"
@@ -70,6 +71,41 @@ class Product(BaseModel):
         return v or "Menu"
 
 
+def plain_text(v: object, limit: int) -> str:
+    """Page copy is plain text: tags and angle brackets are dropped, spaces collapsed, length capped. (The template
+    escapes it as well; this keeps stray markup out of the saved profile too.)"""
+    if not isinstance(v, str):
+        return ""
+    v = re.sub(r"<[^>]*>", " ", v).replace("<", " ").replace(">", " ")
+    v = re.sub(r"[\x00-\x08\x0b-\x1f\x7f]", " ", v)
+    v = " ".join(v.split())
+    return v[:limit].rstrip()
+
+
+class SectionCopy(BaseModel):
+    """Words for three spots on a themed shop page. Plain text, short, from the seller's own facts."""
+
+    model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
+
+    hero_line: str = Field(default="", max_length=90)       # the big headline line
+    about: str = Field(default="", max_length=400)          # the "about" paragraph (else the profile's `about`)
+    how_ordering: str = Field(default="", max_length=160)   # one line under "How ordering works"
+
+    @field_validator("hero_line", "about", "how_ordering", mode="before")
+    @classmethod
+    def _plain(cls, v, info):
+        return plain_text(v, {"hero_line": 90, "about": 400, "how_ordering": 160}[info.field_name])
+
+
+class Testimonial(BaseModel):
+    """A real comment the seller pasted. Never written by us; shown with "shared by the seller"."""
+
+    model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
+
+    name: str = Field(min_length=1, max_length=60)
+    text: str = Field(min_length=1, max_length=300)
+
+
 class Profile(BaseModel):
     """The editable business profile + site copy. Also what the seller edits on the review screen."""
 
@@ -100,9 +136,47 @@ class Profile(BaseModel):
     # S10.5 go-live details. Set by the owner on the Review form (the Reader leaves them empty).
     instagram: str = Field(default="", max_length=60)  # handle only, shown as a link
     delivery_areas: str = Field(default="", max_length=200)  # where she delivers, e.g. "Baner, Aundh, Pashan"
-    niche: Literal["", "food", "handmade", "custom"] = ""  # picks the shop's colours
+    niche: Literal["", "food", "handmade", "custom"] = ""  # picks the shop's colours (and the rule-based theme)
+    # S14 themes. `theme` / `accent` are keys from app/sites/themes.py; anything else becomes "" (= the rule-based
+    # choice, see themes.resolve). The Reader picks them; the owner can change them on the Review page.
+    theme: str = ""
+    accent: str = ""
+    section_copy: SectionCopy = Field(default_factory=SectionCopy)
+    testimonials: list[Testimonial] = Field(default_factory=list, max_length=6)  # owner-only: real ones she pasted
     # NOTE: there is deliberately no address field. `area` is the public locality; the exact pickup address is
     # shared by the seller herself on WhatsApp after she confirms an order.
+
+    @field_validator("theme", mode="before")
+    @classmethod
+    def _theme(cls, v):
+        return clean_theme_key(v)
+
+    @field_validator("accent", mode="before")
+    @classmethod
+    def _accent_text(cls, v):
+        return v if isinstance(v, str) else ""
+
+    @model_validator(mode="after")
+    def _accent_fits_theme(self):
+        # An accent belongs to one theme. With no theme chosen ("" = rule-based) any known accent key is kept as given
+        # and only checked at render time against the theme the rules pick.
+        if self.theme:
+            self.accent = clean_accent_key(self.theme, self.accent)
+        else:
+            self.accent = self.accent.strip().lower() if self.accent.strip().lower() in ACCENT_KEYS else ""
+        return self
+
+    @field_validator("section_copy", mode="before")
+    @classmethod
+    def _copy(cls, v):
+        return v if isinstance(v, (dict, SectionCopy)) else {}
+
+    @field_validator("testimonials", mode="before")
+    @classmethod
+    def _testimonials(cls, v):
+        if not isinstance(v, list):
+            return []
+        return [t for t in v if isinstance(t, (dict, Testimonial))]
 
     @field_validator("phone")
     @classmethod
@@ -149,7 +223,7 @@ class Profile(BaseModel):
 
 # Profile fields only the owner sets (Review form, S10.5). The Reader isn't asked for them, so its schema and
 # prompt (and its saved fixtures) stay as they were; they default to "".
-OWNER_ONLY = {"instagram", "delivery_areas", "niche"}
+OWNER_ONLY = {"instagram", "delivery_areas", "niche", "testimonials"}
 
 # JSON schema sent to the API (structured output). Kept to the plain subset:
 # every field required, strings for optional values ("" when unknown).
@@ -162,6 +236,11 @@ _TOP = {
     "selling_point": _STR, "min_notice_days": _INT, "pickup_available": _BOOL, "delivery_available": _BOOL,
     "delivery_fee_inr": _INT, "allow_item_message": _BOOL, "upi_display_name": _STR, "fssai_number": _STR,
     "kind": {"type": "string", "enum": ["orders", "appointments"]}, "not_supported_reason": _STR,
+    # S14: Claude only picks keys from these lists and writes three short plain-text lines. Never HTML, CSS, colours or fonts.
+    "theme": {"type": "string", "enum": list(THEME_KEYS)},
+    "accent": {"type": "string", "enum": list(ACCENT_KEYS)},
+    "section_copy": {"type": "object", "additionalProperties": False, "required": ["hero_line", "about", "how_ordering"],
+                     "properties": {"hero_line": _STR, "about": _STR, "how_ordering": _STR}},
 }
 _ITEM = {"name": _STR, "price_inr": _INT, "description": _STR, "category": _STR, "addon": _BOOL, "price_from": _BOOL}
 PROFILE_SCHEMA = {
@@ -181,7 +260,7 @@ SYSTEM = """You turn a small Indian home business's own words into a profile for
 Return ONLY a JSON object with exactly these keys:
 name, tagline, about, area, hours, phone, whatsapp, upi_id, tone, selling_point, min_notice_days,
 pickup_available, delivery_available, delivery_fee_inr, allow_item_message, upi_display_name, fssai_number,
-kind, not_supported_reason, products.
+kind, not_supported_reason, theme, accent, section_copy, products.
 - name: the business name as the owner would say it. If none is given, make a simple one from the owner's name and what they sell.
 - tagline: one short line (max ~10 words) saying what they sell. Don't repeat the area in it.
 - about: 2-4 warm, plain sentences in the owner's voice ("we"/"I"). Use only facts from the input; never invent awards, years, ingredients or promises.
@@ -197,6 +276,17 @@ kind, not_supported_reason, products.
 - kind: "orders" if customers order things or a piece of work (food, crafts, clothes, stitching, tiffin plans).
   "appointments" if what the customer buys is the owner's time at a booked slot (salon, beauty parlour, tuition, coaching, clinic, fitness classes).
 - not_supported_reason: if kind is "appointments", one plain friendly sentence to the owner saying we can't build a booking website yet; otherwise "".
+- theme: the look of the shop page. Pick exactly one key: "bakery" (cakes, cupcakes, brownies, desserts), "kitchen" (tiffin, home-cooked meals, snacks, pickles),
+  "handmade" (candles, resin, jewellery, decor and other handmade things), "tailor" (stitching, alterations, embroidery, custom clothing),
+  "gifts" (hampers, gift boxes, festive and return gifts), "general" (anything else that is in scope). You only choose a key; you never write HTML, CSS, colours or fonts.
+- accent: one accent key that belongs to the theme you chose: bakery: raspberry | caramel | pistachio; kitchen: turmeric | chilli | leaf;
+  handmade: clay | sage | plum; tailor: navy | thread | olive; gifts: ruby | emerald | gold; general: indigo | forest | ink.
+  Pick the one that fits the business's own words (e.g. chocolate -> caramel); when nothing hints, use the first one listed.
+- section_copy: an object with three short plain-text lines (no markup, no emoji, no quotes around them):
+  hero_line: a confident headline of at most 12 words about what they make or sell (not just the business name, not a slogan you invented).
+  about: one short paragraph (at most 3 sentences) in the owner's voice, only from facts in the input.
+  how_ordering: one plain line saying how ordering works, only from what the input says (notice needed, pickup or delivery, WhatsApp); if the input says nothing, "Choose your items, send your order, and we'll confirm it with you." Never mention payment methods the input doesn't mention.
+  Never invent reviews, ratings, awards, years in business, "bestseller" labels or testimonials.
 - products: every priced line. price_inr is a whole number of rupees (use the lowest number for "from"/"onwards" prices).
   description: one short helpful line from the input (size, what's included), or "".
   category: a short group name a customer would scan for, e.g. "Cakes", "Cupcakes & brownies", "Monthly plans", "Stitching", "Alterations". Use 2-5 categories.
@@ -255,13 +345,24 @@ def read_business(
             data = claude.ask_json(fixture=fixture, tier="strong", system=SYSTEM, user=content, schema=PROFILE_SCHEMA)
             if isinstance(data, dict) and data.get("whatsapp") and indian_mobile(str(data["whatsapp"])) is None:
                 data["whatsapp"] = ""  # not a usable Indian mobile: the owner adds it on the Review form
-            return tidy_profile(Profile.model_validate(data))
+            return choose_theme(tidy_profile(Profile.model_validate(data)))
         except (ClaudeBadJson, ValidationError) as e:
             last_error = str(e)
     raise ReaderError(
         "Sorry, we couldn't read your business details this time. Please check the text and try again."
         + (f" (details: {last_error[:200]})" if last_error else "")
     )
+
+
+def choose_theme(p: Profile) -> Profile:
+    """A reply with no valid theme key (the validator blanked it) gets the rule-based theme, so the owner sees a
+    concrete choice on the Review page. A valid key from Claude is kept."""
+    if not p.theme:
+        from app.sites.themes import rule_choice
+
+        p = p.model_copy(update={"theme": rule_choice(p)})
+        p.accent = clean_accent_key(p.theme, p.accent)
+    return p
 
 
 # ---------- Plain-code tidy-up (no Claude) ----------

@@ -59,8 +59,12 @@ def test_template_has_nothing_specific_to_one_seller_or_trade():
 
 
 def test_no_per_business_css():
-    """Every seller gets the same stylesheet; only the content changes."""
-    styles = {re.search(r"<style>.*?</style>", render_site(gallery(p.stem)), re.S).group(0) for p in GALLERY}
+    """Sellers who get the same theme and accent get the same stylesheet; only the content changes (S14: the theme
+    and its accent are the only things that vary the CSS)."""
+    styles = set()
+    for p in GALLERY:
+        prof = gallery(p.stem).model_copy(update={"theme": "general", "accent": ""})
+        styles.add(re.search(r"<style>.*?</style>", render_site(prof), re.S).group(0))
     assert len(styles) == 1
 
 
@@ -100,10 +104,10 @@ def test_monogram():
 
 def test_area_not_repeated_in_header_when_tagline_says_it():
     p = base(tagline="Fresh cakes from Baner, Pune", area="Baner, Pune")
-    hero = render_site(p).split('<div class="hero">')[1].split('<form class="layout"')[0]
+    hero = render_site(p).split('<section class="hero')[1].split('<form class="layout"')[0]
     assert hero.count("Baner, Pune") == 1
     p2 = base(tagline="Fresh cakes", area="Baner, Pune")
-    assert "Baner, Pune" in render_site(p2).split('<div class="hero">')[1].split('<form class="layout"')[0]
+    assert "Baner, Pune" in render_site(p2).split('<section class="hero')[1].split('<form class="layout"')[0]
 
 
 # ---------- New profile fields ----------

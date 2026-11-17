@@ -8,223 +8,29 @@
 <meta name="description" content="{{ p.tagline or p.about[:150] }}">
 <meta property="og:title" content="{{ p.name }}">
 <meta property="og:description" content="{{ p.tagline }}">
-<meta name="theme-color" content="#fbf8f3">
+<meta name="theme-color" content="{{ theme.tokens['bg'] }}">
+<link rel="preload" href="{{ font_base }}{{ theme.display[0].file }}" as="font" type="font/woff2" crossorigin>
 {#
-  ONE template for every seller. Nothing here may be specific to one business or one trade:
-  every word on the page comes from the seller's profile, or is generic shop wording.
-  Category colours come from the fixed palette below, picked by position (c0..c5), never per business.
+  ONE template and ONE safety layer for every seller and every theme (app/sites/themes.py).
+  A theme picks tokens, fonts, a hero and menu layout, section order and placeholder art: it never changes the
+  order form, the basket, the lw-shop marker, the pay / WhatsApp links or the "Report this shop" link.
+  Nothing here may be specific to one business or one trade: every word on the page comes from the seller's
+  profile, or is generic shop wording. No invented reviews, ratings or "bestseller" labels, ever.
 #}
 <style>
-  :root {
-    --bg: #fbf8f3; --paper: #ffffff; --ink: #1d1a16; --ink-2: #57514a; --muted: #7a736b;
-    --line: #ebe4da; --line-2: #ddd4c8; --primary: #1d1a16; --primary-ink: #ffffff;
-    --wa: #128c4a; --focus: #2563eb; --radius: 18px; --radius-sm: 12px;
-    --shadow: 0 1px 2px rgba(40,30,20,.05), 0 10px 30px -18px rgba(40,30,20,.25);
-    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Noto Serif", serif;
-    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", sans-serif;
-    /* Fixed category palette (soft background, strong ink), assigned by position. */
-    --c0-bg: #fde8d7; --c0-ink: #9a3412;
-    --c1-bg: #dff3e4; --c1-ink: #166534;
-    --c2-bg: #e3ecfb; --c2-ink: #1e40af;
-    --c3-bg: #f6e3f0; --c3-ink: #9d174d;
-    --c4-bg: #fbf1c7; --c4-ink: #854d0e;
-    --c5-bg: #e5f4f4; --c5-ink: #115e59;
-  }
-  * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
-  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
-  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 var(--sans);
-    -webkit-font-smoothing: antialiased; overflow-wrap: anywhere; }
-  a { color: inherit; }
-  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
-  @media (min-width: 720px) { .wrap { padding: 0 28px; } }
-
-  /* Top bar */
-  header.bar { position: sticky; top: 0; z-index: 10; background: rgba(251,248,243,.92);
-    backdrop-filter: saturate(1.4) blur(8px); -webkit-backdrop-filter: saturate(1.4) blur(8px);
-    border-bottom: 1px solid var(--line); }
-  header.bar .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; gap: 12px; }
-  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; font-weight: 650; text-decoration: none; }
-  .brand span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .mono { flex: none; display: grid; place-items: center; border-radius: 10px; font-family: var(--serif);
-    font-weight: 700; background: var(--c0-bg); color: var(--c0-ink); letter-spacing: .02em; }
-  .brand .mono { width: 34px; height: 34px; font-size: 14px; }
-  nav.links { display: none; gap: 22px; font-size: 15px; color: var(--ink-2); }
-  nav.links a { text-decoration: none; }
-  nav.links a:hover { color: var(--ink); }
-  @media (min-width: 900px) { nav.links { display: flex; } }
-
-  /* Buttons */
-  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px;
-    padding: 10px 20px; border-radius: 999px; border: 1px solid transparent; font: inherit; font-weight: 600;
-    text-decoration: none; cursor: pointer; transition: transform .12s ease, background-color .15s ease, box-shadow .15s ease;
-    -webkit-tap-highlight-color: transparent; white-space: nowrap; }
-  .btn:active { transform: scale(.97); }
-  .btn-primary { background: var(--primary); color: var(--primary-ink); }
-  .btn-primary:hover { background: #3a342d; }
-  .btn-wa { background: var(--wa); color: #fff; }
-  .btn-wa:hover { background: #0f7a40; }
-  .btn-line { background: var(--paper); color: var(--ink); border-color: var(--line-2); }
-  .btn-line:hover { border-color: var(--ink); }
-  .btn-sm { min-height: 38px; padding: 6px 16px; font-size: 15px; }
-  .btn-block { width: 100%; }
-  .btn svg { width: 18px; height: 18px; flex: none; }
-  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-
-  /* Hero */
-  .hero { padding: 36px 0 28px; display: grid; gap: 22px; }
-  .hero .mono { display: none; }
-  .hero h1 { font-family: var(--serif); font-weight: 700; font-size: clamp(34px, 8.5vw, 60px); line-height: 1.04;
-    letter-spacing: -.02em; margin: 0; }
-  .hero .tagline { font-size: clamp(18px, 2.4vw, 21px); color: var(--ink-2); margin: 10px 0 0; max-width: 36em; }
-  .meta { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 12px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: 15px; }
-  .meta li { display: inline-flex; align-items: flex-start; gap: 6px; }
-  .meta svg { width: 16px; height: 16px; flex: none; margin-top: 3px; }
-  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
-  .badges li { padding: 6px 12px; border-radius: 999px; background: var(--paper); border: 1px solid var(--line-2);
-    font-size: 14px; font-weight: 600; color: var(--ink-2); }
-  .cta { display: flex; flex-wrap: wrap; gap: 10px; }
-  @media (min-width: 720px) {
-    .hero { grid-template-columns: auto 1fr; align-items: start; column-gap: 28px; padding: 64px 0 44px; }
-    .hero .mono { display: grid; width: 96px; height: 96px; font-size: 36px; border-radius: 26px; }
-    .hero > :not(.mono) { grid-column: 2; }
-  }
-
-  /* Page grid: menu left, order panel right on wide screens */
-  .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; padding-bottom: 40px; }
-  @media (min-width: 960px) {
-    .layout { grid-template-columns: minmax(0, 1fr) 380px; gap: 40px; align-items: start; }
-    .panel { position: sticky; top: 84px; }
-  }
-  .section-h { font-family: var(--serif); font-size: 28px; line-height: 1.15; margin: 0 0 6px; letter-spacing: -.01em; }
-  .section-sub { color: var(--muted); margin: 0 0 18px; font-size: 15px; }
-
-  /* Category quick links */
-  .chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 14px; margin: 0; list-style: none; scrollbar-width: none; }
-  .chips::-webkit-scrollbar { display: none; }
-  .chips a { display: inline-block; padding: 7px 14px; border-radius: 999px; font-size: 14px; font-weight: 600;
-    text-decoration: none; white-space: nowrap; }
-
-  /* Menu */
-  .cat { margin: 0 0 22px; scroll-margin-top: 80px; }
-  .cat-h { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font-size: 15px; font-weight: 700; }
-  .cat-h .dot { width: 10px; height: 10px; border-radius: 3px; }
-  .cat-h .count { color: var(--muted); font-weight: 500; font-size: 14px; }
-  .items { list-style: none; margin: 0; padding: 0; background: var(--paper); border: 1px solid var(--line);
-    border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
-  .item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; align-items: center; padding: 14px 16px; }
-  .item + .item { border-top: 1px solid var(--line); }
-  .item.has-photo { grid-template-columns: 72px minmax(0, 1fr) auto; }
-  .item-photo { width: 72px; height: 72px; object-fit: cover; border-radius: 12px; background: var(--line); }
-  .gallery { list-style: none; margin: 0 0 28px; padding: 0 0 6px; display: grid; grid-auto-flow: column;
-    grid-auto-columns: min(80%, 340px); gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; }
-  .gallery li { scroll-snap-align: start; }
-  .gallery img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 16px;
-    background: var(--line); }
-  @media (min-width: 900px) {
-    .gallery { grid-auto-flow: row; grid-template-columns: repeat(3, 1fr); overflow: visible; }
-    .gallery.n1 { grid-template-columns: minmax(0, 560px); }
-    .gallery.n2, .gallery.n4 { grid-template-columns: repeat(2, 1fr); }
-  }
-  .item .name { font-weight: 600; line-height: 1.35; }
-  .item .desc { font-size: 14px; color: var(--muted); margin-top: 2px; }
-  .item .price { font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
-  .item .price small { font-weight: 500; color: var(--muted); font-size: 13px; }
-  .item.chosen { background: #fffdf8; }
-  /* Long lists: two columns on wide screens (1px gaps draw the dividers). */
-  .items.dense { display: grid; gap: 1px; background: var(--line); }
-  .items.dense .item { background: var(--paper); border-top: 0; }
-  .items.dense .item.chosen { background: #fffdf8; }
-  @media (min-width: 720px) { .items.dense { grid-template-columns: 1fr 1fr; } }
-  .find { margin: 0 0 14px; }
-  .find label { display: block; margin-bottom: 4px; }
-  .find input { max-width: 360px; }
-  .find-none { color: var(--muted); }
-  .item[hidden], .cat[hidden] { display: none; }
-  .qty { display: flex; align-items: center; gap: 8px; }
-  .qty input { width: 64px; text-align: center; }
-  .qty label { font-size: 13px; color: var(--muted); }
-  .step { display: none; align-items: center; border: 1px solid var(--line-2); border-radius: 999px; background: var(--paper); }
-  .step button { width: 38px; height: 38px; border: 0; background: none; font: inherit; font-size: 20px; line-height: 1;
-    cursor: pointer; color: var(--ink); border-radius: 999px; }
-  .step output { min-width: 22px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .add { display: none; }
-  .js .qty input, .js .qty label { display: none; }
-  .js .add { display: inline-flex; }
-  .js .chosen .add { display: none; }
-  .js .chosen .step { display: inline-flex; }
-  .extras-note { font-size: 14px; color: var(--muted); margin: -4px 0 10px; }
-  {% for n in range(6) %}
-  .c{{ n }} .dot { background: var(--c{{ n }}-ink); }
-  .c{{ n }}.chip { background: var(--c{{ n }}-bg); color: var(--c{{ n }}-ink); }
-  .c{{ n }} .cat-h { color: var(--c{{ n }}-ink); }
-  {% endfor %}
-
-  /* Order panel */
-  .panel { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; scroll-margin-top: 76px; }
-  .panel h2 { font-family: var(--serif); font-size: 24px; margin: 0 0 4px; }
-  .basket { list-style: none; margin: 12px 0; padding: 0; font-size: 15px; }
-  .basket li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; }
-  .basket .empty { color: var(--muted); }
-  .basket li > span:last-child { flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .total { display: flex; justify-content: space-between; border-top: 1px dashed var(--line-2); padding-top: 10px; font-weight: 700; font-size: 17px; }
-  .facts-sm { list-style: none; padding: 0; margin: 12px 0 0; font-size: 14px; color: var(--ink-2); display: grid; gap: 6px; }
-  .facts-sm li { display: flex; gap: 8px; }
-  .facts-sm svg { width: 16px; height: 16px; flex: none; margin-top: 3px; color: var(--muted); }
-  .field { display: grid; gap: 6px; margin-top: 14px; }
-  .field label { font-weight: 600; font-size: 15px; }
-  .field small { color: var(--muted); font-size: 13px; }
-  input, textarea { font: inherit; padding: 11px 12px; border: 1px solid var(--line-2); border-radius: var(--radius-sm);
-    background: #fff; color: var(--ink); width: 100%; }
-  input:focus, textarea:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgba(29,26,22,.12); }
-  .qty input { width: 64px; }
-  .hint { font-size: 13px; color: var(--muted); }
-  .error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; padding: 10px 12px; border-radius: var(--radius-sm); margin: 10px 0 0; }
-  .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
-
-  /* Sticky basket bar (phones, with JS) */
-  .bar-order { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 20; display: none; }
-  .bar-order a { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 18px;
-    border-radius: 16px; background: var(--primary); color: #fff; text-decoration: none; font-weight: 600;
-    box-shadow: 0 12px 30px -10px rgba(0,0,0,.45); }
-  .bar-order.show { display: block; }
-  @media (min-width: 960px) { .bar-order.show { display: none; } }
-  body.has-bar { padding-bottom: 84px; }
-  @media (min-width: 960px) { body.has-bar { padding-bottom: 0; } }
-
-  /* Info blocks */
-  .info { display: grid; gap: 14px; margin-top: 8px; }
-  @media (min-width: 640px) { .info { grid-template-columns: 1fr 1fr; } }
-  .tile { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
-  .tile h3 { margin: 0 0 6px; font-size: 13px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
-  .tile p { margin: 0; }
-  .tile .links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-  .tile.wide { grid-column: 1 / -1; }
-  .pay { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; align-items: center; }
-  .pay svg { width: 120px; height: 120px; background: #fff; border-radius: 10px; border: 1px solid var(--line); }
-  .upi-id { overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; background: var(--bg); padding: 2px 8px; border-radius: 6px; }
-  .upi-name { font-size: 14px; color: var(--ink-2); margin-top: 6px !important; }
-  .about { margin-top: 36px; }
-  .prose { max-width: 40em; color: var(--ink-2); font-size: 17px; }
-  .prose p { margin: 0 0 12px; }
-
-  footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; padding: 24px 0 32px; }
-  footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 20px; }
-  footer a { color: var(--ink-2); }
-
-  /* Thanks / privacy */
-  .narrow { max-width: 680px; }
-  .done-mark { width: 56px; height: 56px; border-radius: 18px; display: grid; place-items: center; background: var(--c1-bg); color: var(--c1-ink); }
-  .done-mark svg { width: 28px; height: 28px; }
-  /* S10.5: the owner's category picks the main colour (food warm, handmade plum, custom indigo). */
-  .niche-food { --primary: #7c2d12; }
-  .niche-handmade { --primary: #6b2150; }
-  .niche-custom { --primary: #1e3a8a; }
+  {{ css.faces | safe }}
+  {{ css.root | safe }}
+  :root { --focus: var(--accent); }
+{% include "css/base.css" %}
+{% include "css/hero_" ~ theme.hero ~ ".css" %}
+{% include "css/menu_" ~ theme.menu ~ ".css" %}
 </style>
 </head>
-<body{% if p.niche %} class="niche-{{ p.niche }}"{% endif %}>
-{% if preview %}<div role="note" style="background:#1f2937;color:#fff;text-align:center;padding:8px 12px;font-size:14px">Preview: only you can see this page. It isn't public.</div>{% endif %}
-{% if demo %}<div role="note" class="demo-banner" style="background:#7c2d12;color:#fff;text-align:center;padding:8px 12px;font-size:14px"><strong>Demo shop: orders here are not real.</strong> A sample made by LaunchWitness. <a href="/" style="color:#fff;text-decoration:underline">Back to LaunchWitness</a></div>{% endif %}
+<body class="theme-{{ theme.key }}">
+<a class="skip" href="#{{ 'menu' if page == 'home' else 'main' }}">Skip to {{ 'the menu' if page == 'home' else 'the page' }}</a>
+{% if preview %}<div role="note" class="banner" style="background:#1f2937">Preview: only you can see this page. It isn't public.</div>{% endif %}
+{% if demo %}<div role="note" class="banner demo-banner" style="background:#7c2d12"><strong>Demo shop: orders here are not real.</strong> A sample made by LaunchWitness. <a href="/" style="color:#fff;text-decoration:underline">Back to LaunchWitness</a></div>{% endif %}
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><g id="lw-art">{% include "art/" ~ theme.art ~ ".html" %}</g></defs></svg>
 {%- macro icon(name) -%}
 {%- if name == "pin" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.1-7-11.5a7 7 0 0 1 14 0C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
 {%- elif name == "clock" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
@@ -238,15 +44,19 @@
 {%- endif -%}
 {%- endmacro -%}
 {%- macro price(item) -%}{% if item.price_from %}<small>from </small>{% endif %}{{ item.price_inr | inr }}{%- endmacro -%}
+{%- macro art_svg() -%}<svg class="art" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><use href="#lw-art"/></svg>{%- endmacro -%}
+{%- macro art_panel(mono=true) -%}<div class="art-panel">{{ art_svg() }}{% if mono %}<span class="mono" aria-hidden="true">{{ monogram }}</span>{% endif %}</div>{%- endmacro -%}
+{%- macro photo_panel(ph, first=false) -%}<div class="photo-panel"><img src="{{ ph.large }}" width="{{ ph.large_w }}" height="{{ ph.large_h }}" alt="{{ ph.alt }}" {% if first %}fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async"></div>{%- endmacro -%}
 {%- macro item_row(i, item) -%}
 {%- set ph = photos["items"].get(item.name) -%}
 <li class="item{% if ph %} has-photo{% endif %}" data-i="{{ i }}">
-  {% if ph %}<img class="item-photo" src="{{ ph.small }}" width="{{ ph.small_w }}" height="{{ ph.small_h }}" alt="{{ ph.alt }}" loading="lazy" decoding="async">{% endif %}
-  <div>
-    <div class="name" id="n{{ i }}">{{ item.name }}</div>
+  {% if theme.menu == "cards" %}{% if ph %}<div class="thumb"><img src="{{ ph.small }}" width="{{ ph.small_w }}" height="{{ ph.small_h }}" alt="{{ ph.alt }}" loading="lazy" decoding="async"></div>{% else %}<div class="thumb art-tile"><svg class="art" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false" style="transform:rotate({{ (i % 4) * 90 }}deg) scale(1.7) translate({{ (i % 3) * 6 - 6 }}px,{{ (i % 5) * 4 - 8 }}px)"><use href="#lw-art"/></svg><b aria-hidden="true">{{ item.name[:1] | upper }}</b></div>{% endif %}
+  {% elif ph %}<img class="item-photo" src="{{ ph.small }}" width="{{ ph.small_w }}" height="{{ ph.small_h }}" alt="{{ ph.alt }}" loading="lazy" decoding="async">{% endif %}
+  <div class="item-main">
+    <div class="nameline"><div class="name" id="n{{ i }}">{{ item.name }}</div><span class="leader" aria-hidden="true"></span></div>
     {% if item.description %}<div class="desc">{{ item.description }}</div>{% endif %}
-    <div class="price">{{ price(item) }}</div>
   </div>
+  <div class="price">{{ price(item) }}</div>
   <div class="qty">
     <label for="qty_{{ i }}">Qty</label>
     <input id="qty_{{ i }}" name="qty_{{ i }}" type="number" inputmode="numeric" min="0" max="50" step="1"
@@ -257,51 +67,128 @@
 </li>
 {%- endmacro -%}
 
+{%- macro section(name) -%}
+{%- if name == "how" -%}
+<section class="section" id="how" aria-labelledby="how-h">
+  <h2 class="section-h" id="how-h">How ordering works</h2>
+  {% if p.section_copy.how_ordering %}<p class="how-line">{{ p.section_copy.how_ordering }}</p>{% endif %}
+  <ol class="steps">{% for title, text in steps %}<li><b>{{ title }}</b><span>{{ text }}</span></li>{% endfor %}</ol>
+</section>
+{%- elif name == "occasions" and categories | length > 1 -%}
+<section class="section" id="occasions" aria-labelledby="occ-h">
+  <h2 class="section-h" id="occ-h">Pick a gift</h2>
+  <p class="section-sub">Jump to a collection.</p>
+  <ul class="occasions">{% for cat in categories %}<li><a href="#cat-{{ loop.index0 }}"><b>{{ cat.name }}</b><span>{{ cat.items | length }} item{% if cat.items | length != 1 %}s{% endif %}{% if cat.from_inr %} · from {{ cat.from_inr | inr }}{% endif %}</span></a></li>{% endfor %}</ul>
+</section>
+{%- elif name == "about" and about_text -%}
+<section class="section" id="about" aria-labelledby="about-h">
+  <h2 class="section-h" id="about-h">About us</h2>
+  <div class="prose">{% for para in about_text.split("\n") if para.strip() %}<p>{{ para }}</p>{% endfor %}</div>
+</section>
+{%- elif name == "testimonials" and p.testimonials -%}
+<section class="section" id="reviews" aria-labelledby="rev-h">
+  <h2 class="section-h" id="rev-h">Kind words</h2>
+  <p class="section-sub">Messages from customers, shared by the seller.</p>
+  <ul class="quotes">{% for t in p.testimonials %}<li><figure><blockquote>“{{ t.text }}”</blockquote><figcaption><b>{{ t.name }}</b> · shared by the seller</figcaption></figure></li>{% endfor %}</ul>
+</section>
+{%- elif name == "info" -%}
+<section class="section" id="info" aria-labelledby="info-h">
+  <h2 class="section-h" id="info-h">Visit, contact &amp; pay</h2>
+  <div class="info">
+    {% if p.hours or p.area %}<div class="tile">
+      <h3>{% if p.hours %}Open{% else %}Where{% endif %}</h3>
+      {% if p.hours %}<p>{{ p.hours }}</p>{% endif %}
+      {% if p.area %}<p{% if p.hours %} class="hint" style="margin-top:6px"{% endif %}>{{ p.area }}</p>{% endif %}
+    </div>{% endif %}
+    {% if p.pickup_available or p.delivery_available %}<div class="tile">
+      <h3>Getting your order</h3>
+      {% if p.pickup_available %}<p>Pickup{% if p.area %} in {{ p.area }}{% endif %}</p>
+      <p class="hint">The exact pickup address is shared on WhatsApp once your order is confirmed.</p>{% endif %}
+      {% if p.delivery_available %}<p>Delivery{% if p.delivery_areas %} to {{ p.delivery_areas }}{% endif %}{% if p.delivery_fee_inr %}: {{ p.delivery_fee_inr | inr }}{% else %}: free{% endif %}</p>{% endif %}
+    </div>{% endif %}
+    {% if p.phone or whatsapp_url or p.instagram %}<div class="tile">
+      <h3>Contact</h3>
+      {% if p.phone %}<p>{{ p.phone }}</p>{% endif %}
+      <div class="links">
+        {% if p.phone %}<a class="btn btn-line btn-sm" href="tel:{{ p.phone | replace(' ', '') }}">{{ icon("phone") }}Call</a>{% endif %}
+        {% if whatsapp_url %}<a class="btn btn-wa btn-sm" href="{{ whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}WhatsApp</a>{% endif %}
+        {% if p.instagram %}<a class="btn btn-line btn-sm" href="https://www.instagram.com/{{ p.instagram }}/" target="_blank" rel="noopener">{{ icon("ig") }}Instagram</a>{% endif %}
+      </div>
+    </div>{% endif %}
+    {% if upi %}<div class="tile wide" id="pay">
+      <h3>Pay by UPI</h3>
+      <div class="pay">
+        {{ upi_qr }}
+        <div>
+          <p>Scan with any UPI app, or <a href="{{ upi }}">open your UPI app</a>.</p>
+          <p class="upi-name">UPI ID: <span class="upi-id">{{ p.upi_id }}</span></p>
+          {% if p.upi_display_name %}<p class="upi-name">Your UPI app should show: <strong>{{ p.upi_display_name }}</strong></p>{% endif %}
+          <p class="hint" style="margin-top:6px">Please confirm the amount with us before paying.</p>
+        </div>
+      </div>
+    </div>{% endif %}
+  </div>
+</section>
+{%- endif -%}
+{%- endmacro -%}
+
 <header class="bar">
   <div class="wrap">
+    <div class="pill">
     <a class="brand" href="{{ base }}/"><span class="mono" aria-hidden="true">{{ monogram }}</span><span>{{ p.name }}</span></a>
     {% if page == "home" %}
-    <nav class="links" aria-label="Sections"><a href="#menu">Menu</a>{% if p.about %}<a href="#about">About</a>{% endif %}<a href="#info">Contact</a></nav>
+    <nav class="links" aria-label="Sections"><a href="#menu">Menu</a>{% if "how" in theme.before or "how" in theme.after %}<a href="#how">How it works</a>{% endif %}{% if about_text %}<a href="#about">About</a>{% endif %}<a href="#info">Contact</a></nav>
     <a class="btn btn-primary btn-sm" href="#order">Order</a>
     {% else %}<a class="btn btn-line btn-sm" href="{{ base }}/">Back to the shop</a>{% endif %}
+    </div>
   </div>
 </header>
 
 {% if page == "home" %}
-<main class="wrap">
-  <div class="hero">
-    <span class="mono" aria-hidden="true">{{ monogram }}</span>
-    <div>
-      <h1>{{ p.name }}</h1>
-      {% if p.tagline %}<p class="tagline">{{ p.tagline }}</p>{% endif %}
+<main class="wrap" id="main">
+  <section class="hero hero-{{ theme.hero }}" id="top">
+    <div class="hero-text">
+      {% if eyebrow %}<p class="eyebrow">{{ eyebrow }}</p>{% endif %}
+      <h1>{{ headline }}</h1>
+      {% if lede %}<p class="lede">{{ lede }}</p>{% endif %}
       {% if show_area or p.hours %}<ul class="meta">
         {% if show_area %}<li>{{ icon("pin") }}{{ p.area }}</li>{% endif %}
         {% if p.hours %}<li>{{ icon("clock") }}{{ p.hours }}</li>{% endif %}
       </ul>{% endif %}
+      {% if badges %}<ul class="badges" aria-label="About ordering">{% for b in badges %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
+      <div class="cta">
+        <a class="btn btn-primary" href="#menu">See menu &amp; order</a>
+        {% if whatsapp_url %}<a class="btn btn-wa" href="{{ whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}WhatsApp</a>{% endif %}
+        {% if p.phone %}<a class="btn btn-line" href="tel:{{ p.phone | replace(' ', '') }}">{{ icon("phone") }}Call</a>{% endif %}
+      </div>
     </div>
-    {% if badges %}<ul class="badges" aria-label="About ordering">{% for b in badges %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
-    <div class="cta">
-      <a class="btn btn-primary" href="#menu">See menu &amp; order</a>
-      {% if whatsapp_url %}<a class="btn btn-wa" href="{{ whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}WhatsApp</a>{% endif %}
-      {% if p.phone %}<a class="btn btn-line" href="tel:{{ p.phone | replace(' ', '') }}">{{ icon("phone") }}Call</a>{% endif %}
+    <div class="hero-art">
+      {%- if theme.hero == "centered" -%}
+        {%- for n in range(3) -%}{% if hero_photos | length > n %}{{ photo_panel(hero_photos[n], n == 0) }}{% else %}{{ art_panel(n == 1) }}{% endif %}{%- endfor -%}
+      {%- else -%}
+        {%- if hero_photos -%}{{ photo_panel(hero_photos[0], true) }}{%- else -%}{{ art_panel() }}{%- endif -%}
+        {%- if theme.hero == "ledger" and min_price is not none -%}<div class="price-card"><small>Prices start at</small><b>{{ min_price | inr }}</b></div>{%- endif -%}
+      {%- endif -%}
     </div>
-  </div>
+  </section>
 
-  {% if photos["shop"] %}
-  <ul class="gallery n{{ photos['shop'] | length }}" aria-label="Photos">{% for ph in photos["shop"] %}
+  {% if rest_photos %}
+  <ul class="gallery n{{ rest_photos | length }}" aria-label="Photos">{% for ph in rest_photos %}
     <li><img src="{{ ph.small }}" srcset="{{ ph.small }} {{ ph.small_w }}w, {{ ph.large }} {{ ph.large_w }}w"
       sizes="(min-width: 900px) 33vw, 80vw" width="{{ ph.large_w }}" height="{{ ph.large_h }}" alt="{{ ph.alt }}"
       loading="lazy" decoding="async"></li>{% endfor %}
   </ul>
   {% endif %}
 
+  {% for name in theme.before %}{{ section(name) }}{% endfor %}
+
   <form class="layout" method="post" action="{{ base }}/order" id="order-form">
     <div>
-      <section id="menu" aria-labelledby="menu-h">
-        <h2 class="section-h" id="menu-h">Menu</h2>
+      <section class="section" id="menu" aria-labelledby="menu-h" style="padding-top:{{ '44px' if not theme.before else '40px' }}">
+        <h2 class="section-h" id="menu-h">{{ 'Price list' if theme.menu == 'pricelist' else 'Menu' }}</h2>
         <p class="section-sub">Prices in rupees. Tap Add to build your order.</p>
         {% if categories | length > 1 %}
-        <ul class="chips" aria-label="Jump to">{% for cat in categories %}<li><a class="chip c{{ loop.index0 % 6 }}" href="#cat-{{ loop.index0 }}">{{ cat.name }}</a></li>{% endfor %}</ul>
+        <ul class="chips" aria-label="Jump to">{% for cat in categories %}<li><a class="chip" href="#cat-{{ loop.index0 }}">{{ cat.name }}</a></li>{% endfor %}</ul>
         {% endif %}
         {% if p.products | length >= 20 %}
         <div class="find" hidden id="find"><label class="hint" for="find-input">Find an item</label>
@@ -309,64 +196,20 @@
           <p class="find-none" id="find-none" hidden>Nothing matches. Try another word.</p></div>
         {% endif %}
         {% for cat in categories %}
-        <div class="cat c{{ loop.index0 % 6 }}" id="cat-{{ loop.index0 }}">
-          {% if categories | length > 1 or cat.name | lower != "menu" %}<h3 class="cat-h"><span class="dot" aria-hidden="true"></span>{{ cat.name }} <span class="count">{{ cat.items | length }}</span></h3>{% endif %}
+        <div class="cat c{{ loop.index0 % 6 }}{% if cat.is_plan %} plan{% endif %}" id="cat-{{ loop.index0 }}">
+          {% if categories | length > 1 or cat.name | lower != "menu" %}<h3 class="cat-h">{{ cat.name }} <span class="count">{{ cat.items | length }}</span></h3>{% endif %}
           <ul class="items{% if cat.items | length >= 12 %} dense{% endif %}">{% for i, item in cat.items %}{{ item_row(i, item) }}{% endfor %}</ul>
         </div>
         {% endfor %}
         {% if extras %}
         <div class="cat c{{ categories | length % 6 }}" id="extras">
-          <h3 class="cat-h"><span class="dot" aria-hidden="true"></span>Extras <span class="count">{{ extras | length }}</span></h3>
+          <h3 class="cat-h">Extras <span class="count">{{ extras | length }}</span></h3>
           <p class="extras-note">Add these on top of an item.</p>
           <ul class="items">{% for i, item in extras %}{{ item_row(i, item) }}{% endfor %}</ul>
         </div>
         {% endif %}
       </section>
-
-      {% if p.about %}
-      <section class="about" id="about" aria-labelledby="about-h">
-        <h2 class="section-h" id="about-h">About us</h2>
-        <div class="prose">{% for para in p.about.split("\n") if para.strip() %}<p>{{ para }}</p>{% endfor %}</div>
-      </section>
-      {% endif %}
-
-      <section class="about" id="info" aria-labelledby="info-h">
-        <h2 class="section-h" id="info-h">Visit, contact &amp; pay</h2>
-        <div class="info">
-          {% if p.hours or p.area %}<div class="tile">
-            <h3>{% if p.hours %}Open{% else %}Where{% endif %}</h3>
-            {% if p.hours %}<p>{{ p.hours }}</p>{% endif %}
-            {% if p.area %}<p{% if p.hours %} class="hint" style="margin-top:6px"{% endif %}>{{ p.area }}</p>{% endif %}
-          </div>{% endif %}
-          {% if p.pickup_available or p.delivery_available %}<div class="tile">
-            <h3>Getting your order</h3>
-            {% if p.pickup_available %}<p>Pickup{% if p.area %} in {{ p.area }}{% endif %}</p>
-            <p class="hint">The exact pickup address is shared on WhatsApp once your order is confirmed.</p>{% endif %}
-            {% if p.delivery_available %}<p>Delivery{% if p.delivery_areas %} to {{ p.delivery_areas }}{% endif %}{% if p.delivery_fee_inr %}: {{ p.delivery_fee_inr | inr }}{% else %}: free{% endif %}</p>{% endif %}
-          </div>{% endif %}
-          {% if p.phone or whatsapp_url or p.instagram %}<div class="tile">
-            <h3>Contact</h3>
-            {% if p.phone %}<p>{{ p.phone }}</p>{% endif %}
-            <div class="links">
-              {% if p.phone %}<a class="btn btn-line btn-sm" href="tel:{{ p.phone | replace(' ', '') }}">{{ icon("phone") }}Call</a>{% endif %}
-              {% if whatsapp_url %}<a class="btn btn-wa btn-sm" href="{{ whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}WhatsApp</a>{% endif %}
-              {% if p.instagram %}<a class="btn btn-line btn-sm" href="https://www.instagram.com/{{ p.instagram }}/" target="_blank" rel="noopener">{{ icon("ig") }}Instagram</a>{% endif %}
-            </div>
-          </div>{% endif %}
-          {% if upi %}<div class="tile wide" id="pay">
-            <h3>Pay by UPI</h3>
-            <div class="pay">
-              {{ upi_qr }}
-              <div>
-                <p>Scan with any UPI app, or <a href="{{ upi }}">open your UPI app</a>.</p>
-                <p class="upi-name">UPI ID: <span class="upi-id">{{ p.upi_id }}</span></p>
-                {% if p.upi_display_name %}<p class="upi-name">Your UPI app should show: <strong>{{ p.upi_display_name }}</strong></p>{% endif %}
-                <p class="hint" style="margin-top:6px">Please confirm the amount with us before paying.</p>
-              </div>
-            </div>
-          </div>{% endif %}
-        </div>
-      </section>
+      {% for name in theme.after %}{{ section(name) }}{% endfor %}
     </div>
 
     <aside class="panel" id="order" aria-labelledby="order-h">
@@ -413,15 +256,15 @@
 <div class="bar-order" id="bar-order"><a href="#order"><span id="bar-count">0 items</span><span><span id="bar-total"></span> · Review →</span></a></div>
 
 {% elif page == "thanks" %}
-<main class="wrap narrow">
-  <div class="hero" style="grid-template-columns:1fr">
-    <span class="done-mark" style="grid-column:1">{{ icon("check") }}</span>
-    <div style="grid-column:1">
+<main class="wrap narrow" id="main">
+  <div class="plain-hero">
+    <span class="done-mark">{{ icon("check") }}</span>
+    <div>
       {% if demo %}<h1>This is a demo</h1>
-      <p class="tagline" role="status">This is a demo shop, so no order was placed and nobody was contacted. On a real shop, the order would reach the seller's inbox and you would get an order reference here.</p>
+      <p class="lede" role="status">This is a demo shop, so no order was placed and nobody was contacted. On a real shop, the order would reach the seller's inbox and you would get an order reference here.</p>
       {% else %}<h1>Thank you{% if order %}, {{ order.customer_name }}{% endif %}!</h1>
-      <p class="tagline">{{ p.name }} has your order and will contact you soon to confirm it.</p>{% endif %}
-      {% if order and order.ref %}<p class="hint">Your order reference: <strong>{{ order.ref }}</strong></p>{% endif %}
+      <p class="lede">{{ p.name }} has your order and will contact you soon to confirm it.</p>{% endif %}
+      {% if order and order.ref %}<p class="hint" style="margin-top:12px">Your order reference: <strong>{{ order.ref }}</strong></p>{% endif %}
     </div>
   </div>
   {% if order %}
@@ -440,8 +283,8 @@
 </main>
 
 {% elif page == "privacy" %}
-<main class="wrap narrow">
-  <div class="hero" style="grid-template-columns:1fr"><div style="grid-column:1"><h1>Privacy</h1><p class="tagline">How {{ p.name }} uses your details.</p></div></div>
+<main class="wrap narrow" id="main">
+  <div class="plain-hero"><h1>Privacy</h1><p class="lede">How {{ p.name }} uses your details.</p></div>
   <section class="prose" style="padding-bottom:40px">
     <p><strong>What we collect.</strong> When you place an order on this site we collect your name, your phone number, what you ordered and any note you add. We don't use cookies for tracking and we don't run ads.</p>
     <p><strong>Why.</strong> Only to prepare your order and contact you about it (to confirm timing, delivery and payment).</p>

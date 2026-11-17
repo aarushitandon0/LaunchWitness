@@ -69,5 +69,14 @@
       "description": "Delivery charge for orders within 10 km; pickup from Baner is also available",
       "category": "Delivery"
     }
-  ]
+  ],
+  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only).",
+  "_theme_placeholder": true,
+  "theme": "bakery",
+  "accent": "raspberry",
+  "section_copy": {
+    "hero_line": "Fresh eggless cakes and cupcakes, baked in Baner",
+    "about": "I bake eggless cakes and cupcakes at home in Baner, Pune, made to order.",
+    "how_ordering": "Choose your cakes, send your order, and we'll confirm the details with you."
+  }
 }

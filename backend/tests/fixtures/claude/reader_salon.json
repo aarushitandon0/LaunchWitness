@@ -75,5 +75,14 @@
       "addon": false,
       "price_from": true
     }
-  ]
+  ],
+  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only).",
+  "_theme_placeholder": true,
+  "theme": "general",
+  "accent": "forest",
+  "section_copy": {
+    "hero_line": "Threading, waxing, facials and bridal makeup",
+    "about": "A ladies parlour offering threading, waxing, facials and bridal makeup.",
+    "how_ordering": "This shop takes bookings, which we can't build yet."
+  }
 }

@@ -117,8 +117,9 @@ def test_upload_on_review_then_shown_lazy_and_sized_on_the_live_shop(client, sho
     r = up(client, shop, png(), item=item, name="cake.png", ctype="image/png")
     assert r.status_code == 201 and r.json()["items"][item]["small"].endswith("-480.webp")
     html = client.get("/", headers={"host": MEERA}).text
-    assert f'src="{p["small"]}"' in html and f'{p["large"]} 1200w' in html
-    assert html.count('loading="lazy"') == 2 and 'width="1200" height="900"' in html
+    # S14: the first shop photo is the hero image (large, loaded at once); the item photo is a lazy thumbnail
+    assert f'src="{p["large"]}"' in html and 'fetchpriority="high"' in html
+    assert html.count('loading="lazy"') == 1 and 'width="1200" height="900"' in html
     assert 'class="item has-photo"' in html
 
 

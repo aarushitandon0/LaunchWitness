@@ -1,0 +1,15 @@
+  /* Airy gallery: one centred, confident headline, then photo panels. */
+  .hero-centered { text-align: center; padding: 40px 0 8px; }
+  .hero-centered .hero-text { max-width: 860px; margin: 0 auto; }
+  .hero-centered h1 { font-weight: 400; font-size: clamp(44px, 11vw, 104px); line-height: .98; letter-spacing: -.03em; }
+  .hero-centered h1 em { font-style: italic; }
+  .hero-centered .lede, .hero-centered .meta, .hero-centered .badges, .hero-centered .cta { margin-left: auto; margin-right: auto; justify-content: center; }
+  .hero-centered .lede { max-width: 32em; }
+  .hero-centered .hero-art { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 40px; align-items: start; }
+  .hero-centered .art-panel, .hero-centered .photo-panel { aspect-ratio: 3 / 4; border-radius: 999px 999px var(--radius) var(--radius); }
+  .hero-centered .hero-art > :nth-child(2) { margin-top: 28px; }
+  .hero-centered .hero-art > :nth-child(2) .art-panel, .hero-centered .hero-art > :nth-child(2) .photo-panel { border-radius: var(--radius); }
+  .hero-centered .art-panel .mono { width: 34%; font-size: clamp(18px, 4vw, 40px); }
+  @media (min-width: 720px) { .hero-centered .hero-art { gap: 20px; } }
+  .hero-centered .art-panel:nth-child(1) svg.art { transform: scale(1.35) translate(-10px, 6px); }
+  .hero-centered .art-panel:nth-child(3) svg.art { transform: scaleX(-1) scale(1.25) translate(8px, 10px); }

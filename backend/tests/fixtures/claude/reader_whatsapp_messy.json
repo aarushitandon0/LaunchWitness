@@ -51,5 +51,14 @@
       "description": "Extra charge for delivery outside Indore",
       "category": "Delivery"
     }
-  ]
+  ],
+  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only).",
+  "_theme_placeholder": true,
+  "theme": "kitchen",
+  "accent": "chilli",
+  "section_copy": {
+    "hero_line": "Homemade achaar and papad from Vijay Nagar, Indore",
+    "about": "We make achaar and papad at home in Vijay Nagar, Indore.",
+    "how_ordering": "Choose your jars and packs, send your order, and we'll confirm it with you."
+  }
 }

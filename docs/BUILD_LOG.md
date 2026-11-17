@@ -271,3 +271,24 @@ One entry per Claude Code session, newest last. This is what judges read to unde
 - Open: Compose warns `"ztE" variable is not set` when reading the repo's `.env` — a `$` inside a value gets
   interpolated by Compose. On the VPS (`--env-file .env`) that value would be mangled: quote it with single quotes or
   write `$$`. Live Claude: $0.
+
+### Session 14 — 2026-11-17 — a theme for every kind of home business (Opus, Claude Code on the web, unattended)
+- Goal: the shop page is what customers and judges see; one template with three palettes made a bakery and a tailor look
+  alike. Six themes, chosen by Claude (keys only), drawn by code, same safety layer and order path.
+- Asked Claude to: build the theme system (tokens, fonts, hero/menu layouts, section order, placeholder art), let the Reader
+  pick `theme` / `accent` / `section_copy`, add a picker on Review, keep every proof check working, verify and screenshot.
+- Claude built: `sites/themes.py` (6 themes, 2–3 AA accents each, rule-based choice, contrast helper), a rewritten
+  `seller.html` + CSS per hero/menu variant + SVG placeholder art, 10 self-hosted OFL font families subset to Latin + ₹ (≤ 58 KB
+  per theme, `docs/FONTS.md`), `GET /api/themes`, `PUT /api/businesses/{id}/theme` (audited), the look picker with live
+  thumbnails + private preview, editable headline / ordering line / real testimonials, a strict CSP on shop pages,
+  `--theme-only` live re-capture in `capture_live_fixtures.py`, 5 new gallery sellers, `tests/test_s14_themes.py` (184 tests),
+  `e2e/tests/j-s14.spec.ts`, screenshots of every theme at 375 and 1440 + a contact sheet.
+- What checking caught: DM Serif Display, Hanken Grotesk and Instrument Serif have no ₹ glyph (swapped the first two; Instrument
+  Serif only sets headlines, prices use Manrope: tested); "plan" in the kitchen keywords matched "plant"; the Reader's about
+  paragraph shadowed the seller's own About text (her text now wins); the inline preview in the picker would have ticked the
+  go-live "looked at your preview" box (new `inline=1` flag); two older tests pinned the old markup (h1 = name, `niche-food`).
+- I changed / rejected: (unattended, decisions) see the PR description: hero line is the h1 only when the Reader gives one (else
+  the shop name, as before); the three old palettes are gone; the CSP is new (none existed on shop pages).
+- Result: backend suite, ruff, tsc and build clean; e2e 22/22 on the dev server (Docker flows skip); live Claude $0 (no key
+  here): the theme values in the saved Reader replies are hand-written placeholders marked `_note`.
+- Next: owner captures the theme fields live (`--theme-only reader:themes`), VPS smoke test Wednesday, then merge.

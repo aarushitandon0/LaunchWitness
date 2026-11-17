@@ -21,6 +21,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("MOUNT", "/assets"): PUBLIC,
     ("GET", "/api/health"): PUBLIC,
     ("GET", "/api/samples"): PUBLIC,
+    ("GET", "/api/themes"): PUBLIC,  # S14: the six shop themes + accents (picker data; nothing private)
     ("POST", "/api/contact"): PUBLIC,
     ("POST", "/api/check-address"): PUBLIC,  # read-only checks of any address; SSRF-guarded, rate-limited
     ("POST", "/api/proof/confirm"): PUBLIC,  # "Yes, I got it": the single-use token is the permission
@@ -30,6 +31,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/order"): PUBLIC,
     ("POST", "/report-shop"): PUBLIC,
     # --- demo shops (S10.5): sample profiles, no database row, the form places no order ---
+    ("GET", "/shop-assets/fonts/{file}"): PUBLIC,  # S14: the shop themes' self-hosted woff2 files (on every host)
     ("GET", "/photos/{file}"): PUBLIC,  # S12: on a shop host only its own photos; on the app host by random name
     ("GET", "/demo/{name}"): PUBLIC,
     ("GET", "/demo/{name}/privacy"): PUBLIC,
@@ -58,6 +60,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/businesses/{business_id}/orders/{order_id}/status"): OWNER,  # S10.5: New → Confirmed → Paid → Done
     ("GET", "/api/businesses/{business_id}/export"): OWNER,
     ("POST", "/api/businesses/{business_id}/describe-problem"): OWNER,  # S12: symptom → Doctor (data), 5/day per user
+    ("PUT", "/api/businesses/{business_id}/theme"): OWNER,  # S14: the owner's look; fixed keys only, audited
     ("GET", "/api/businesses/{business_id}/photos"): OWNER,  # S12 product photos
     ("POST", "/api/businesses/{business_id}/photos"): OWNER,  # content-checked, re-encoded, stripped, 60/day per shop
     ("DELETE", "/api/businesses/{business_id}/photos/{photo_id}"): OWNER,

@@ -210,4 +210,4 @@ def test_public_shop_never_shows_a_full_address():
     html = render_site(p, shop="asha")
     assert "Secret Lane" not in html and "411045" not in html
     assert "Pickup in Baner, Pune" in html and "exact pickup address is shared on WhatsApp" in html
-    assert 'href="https://www.instagram.com/asha.kitchen/"' in html and 'class="niche-food"' in html
+    assert 'href="https://www.instagram.com/asha.kitchen/"' in html and 'class="theme-kitchen"' in html

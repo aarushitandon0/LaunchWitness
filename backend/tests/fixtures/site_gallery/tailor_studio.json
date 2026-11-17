@@ -1,0 +1,122 @@
+{
+  "_note": "S14 gallery seller: invented sample data for rendering tests + screenshots. Phone/UPI/FSSAI values are demo samples, not real.",
+  "name": "Zari & Thread Tailoring",
+  "tagline": "Blouses, kurtas and alterations, stitched to your measurements",
+  "about": "We have been stitching in Lucknow for twenty years, and every piece is cut and finished by hand. Bring your fabric or ask us to suggest one.",
+  "area": "Hazratganj, Lucknow",
+  "hours": "Open 11am to 8pm. Closed on Sundays.",
+  "phone": "98765 43210",
+  "whatsapp": "98765 43210",
+  "upi_id": "zarithread.demo@example",
+  "tone": "traditional",
+  "selling_point": "Fitting included",
+  "min_notice_days": 5,
+  "pickup_available": true,
+  "delivery_available": false,
+  "upi_display_name": "ZARI THREAD DEMO",
+  "theme": "tailor",
+  "accent": "navy",
+  "section_copy": {
+    "hero_line": "Clothes cut and stitched around you",
+    "about": "",
+    "how_ordering": "Send your order, and we'll call to fix a measurement visit."
+  },
+  "products": [
+    {
+      "name": "Blouse stitching",
+      "price_inr": 650,
+      "description": "Princess cut, lining included",
+      "category": "Ladies",
+      "addon": false,
+      "price_from": true
+    },
+    {
+      "name": "Salwar suit stitching",
+      "price_inr": 900,
+      "description": "",
+      "category": "Ladies",
+      "addon": false,
+      "price_from": true
+    },
+    {
+      "name": "Lehenga stitching",
+      "price_inr": 3500,
+      "description": "Cancan and lining included",
+      "category": "Ladies",
+      "addon": false,
+      "price_from": true
+    },
+    {
+      "name": "Saree fall and pico",
+      "price_inr": 120,
+      "description": "",
+      "category": "Ladies",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Kurta stitching",
+      "price_inr": 700,
+      "description": "",
+      "category": "Gents",
+      "addon": false,
+      "price_from": true
+    },
+    {
+      "name": "Shirt stitching",
+      "price_inr": 600,
+      "description": "",
+      "category": "Gents",
+      "addon": false,
+      "price_from": true
+    },
+    {
+      "name": "Trouser stitching",
+      "price_inr": 550,
+      "description": "",
+      "category": "Gents",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Hem and length alteration",
+      "price_inr": 150,
+      "description": "",
+      "category": "Alterations",
+      "addon": false,
+      "price_from": true
+    },
+    {
+      "name": "Zip replacement",
+      "price_inr": 180,
+      "description": "",
+      "category": "Alterations",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Take in / let out",
+      "price_inr": 250,
+      "description": "",
+      "category": "Alterations",
+      "addon": false,
+      "price_from": true
+    },
+    {
+      "name": "Hand embroidery",
+      "price_inr": 400,
+      "description": "Per motif, from",
+      "category": "Embroidery",
+      "addon": false,
+      "price_from": true
+    },
+    {
+      "name": "Urgent (3 days)",
+      "price_inr": 300,
+      "description": "",
+      "category": "Extras",
+      "addon": true,
+      "price_from": false
+    }
+  ]
+}

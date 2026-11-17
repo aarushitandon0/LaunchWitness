@@ -69,5 +69,14 @@
       "description": "For ladies within Lucknow, on appointment",
       "category": "Extra services"
     }
-  ]
+  ],
+  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only).",
+  "_theme_placeholder": true,
+  "theme": "tailor",
+  "accent": "navy",
+  "section_copy": {
+    "hero_line": "Ladies and gents tailoring for every occasion",
+    "about": "We stitch for ladies and gents in Aminabad, Lucknow, for every occasion.",
+    "how_ordering": "Choose your stitching, send your order, and we'll confirm it with you."
+  }
 }
