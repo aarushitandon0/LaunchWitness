@@ -38,6 +38,7 @@ export async function signIn(page: Page, email: string, opts: { stay?: boolean }
   await page.getByPlaceholder("you@gmail.com").fill(email);
   await page.getByRole("button", { name: "Email me a link" }).click();
   await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
+  await expect(page.getByText("Can't find it? Look in your spam or promotions folder.")).toBeVisible();
   let link: string;
   if (MAIL) {
     const text = await mailTo(page, email, started);
