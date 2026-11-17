@@ -1,0 +1,102 @@
+{
+  "_note": "S14 gallery seller: invented sample data for rendering tests + screenshots. Phone/UPI/FSSAI values are demo samples, not real.",
+  "name": "Ember & Clay Candles",
+  "tagline": "Hand-poured soy candles in clay vessels",
+  "about": "Every candle is poured by hand in small batches in my Jaipur studio. I use soy wax and cotton wicks, and the clay vessels are made by a local potter.",
+  "area": "Vaishali Nagar, Jaipur",
+  "hours": "",
+  "phone": "98765 43210",
+  "whatsapp": "98765 43210",
+  "upi_id": "embernclay.demo@example",
+  "tone": "friendly",
+  "selling_point": "Hand-poured soy wax",
+  "min_notice_days": 0,
+  "pickup_available": false,
+  "delivery_available": true,
+  "delivery_fee_inr": 70,
+  "upi_display_name": "EMBER CLAY DEMO",
+  "instagram": "embernclay.demo",
+  "theme": "handmade",
+  "accent": "clay",
+  "section_copy": {
+    "hero_line": "Slow light for slow evenings",
+    "about": "",
+    "how_ordering": ""
+  },
+  "testimonials": [
+    {
+      "name": "Anika",
+      "text": "The sandalwood one filled my whole living room. Packed so carefully."
+    },
+    {
+      "name": "Rohit",
+      "text": "Ordered three for Diwali gifts, everyone asked where they were from."
+    }
+  ],
+  "products": [
+    {
+      "name": "Lavender clay jar",
+      "price_inr": 450,
+      "description": "180 g, about 35 hours",
+      "category": "Clay jar candles",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Sandalwood clay jar",
+      "price_inr": 480,
+      "description": "180 g, about 35 hours",
+      "category": "Clay jar candles",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Rose and oud clay jar",
+      "price_inr": 520,
+      "description": "180 g",
+      "category": "Clay jar candles",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Mini tin trio",
+      "price_inr": 600,
+      "description": "Three 50 g tins",
+      "category": "Gift sets",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Diwali diya set",
+      "price_inr": 360,
+      "description": "Set of six scented diyas",
+      "category": "Gift sets",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Pillar candle",
+      "price_inr": 280,
+      "description": "Unscented, 3 inch",
+      "category": "Pillars",
+      "addon": false,
+      "price_from": true
+    },
+    {
+      "name": "Tealights (12)",
+      "price_inr": 150,
+      "description": "",
+      "category": "Pillars",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Wick trimmer",
+      "price_inr": 199,
+      "description": "",
+      "category": "Extras",
+      "addon": true,
+      "price_from": false
+    }
+  ]
+}

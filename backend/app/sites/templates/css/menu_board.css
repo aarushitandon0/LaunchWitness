@@ -1,0 +1,21 @@
+  /* Menu board: dotted leaders from the dish to its price, hard-edged category headers. */
+  .cat-h { background: var(--ink); color: var(--bg); padding: 8px 16px; border-radius: 8px 8px 0 0; font-size: 20px; margin: 0; align-items: center; }
+  .cat-h .count { color: color-mix(in srgb, var(--bg) 75%, transparent); }
+  .cat.plan .cat-h { background: var(--accent); color: var(--accent-ink); }
+  .cat.plan .cat-h .count { color: color-mix(in srgb, var(--accent-ink) 80%, transparent); }
+  .items { background: var(--paper); border: 3px solid var(--ink); border-top: 0; border-radius: 0 0 var(--radius-sm) var(--radius-sm); overflow: hidden; }
+  .item { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "main price qty"; gap: 0 14px; align-items: center; padding: 14px 16px; }
+  .item + .item { border-top: 2px dotted var(--line2); }
+  .item.has-photo { grid-template-columns: 76px minmax(0, 1fr) auto auto; grid-template-areas: "photo main price qty"; }
+  .item .item-photo { grid-area: photo; } .item-main { grid-area: main; } .item .price { grid-area: price; margin: 0; font-size: 18px; white-space: nowrap; } .item .qty { grid-area: qty; }
+  .item .nameline { display: flex; align-items: baseline; gap: 8px; }
+  .item .leader { flex: 1; min-width: 12px; border-bottom: 2px dotted var(--line2); translate: 0 -4px; }
+  .item .thumb { display: none; }
+  .item.chosen { background: var(--accent-tint); }
+  .items.dense { display: grid; }
+  @media (max-width: 520px) {
+    .item { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "main price" "qty qty"; row-gap: 8px; }
+    .item.has-photo { grid-template-columns: 76px minmax(0, 1fr) auto; grid-template-areas: "photo main price" "photo qty qty"; }
+    .item .qty { justify-content: flex-end; }
+  }
+  .extras-note { margin: 0; padding: 8px 16px 0; background: var(--paper); border: 3px solid var(--ink); border-bottom: 0; border-top: 0; }

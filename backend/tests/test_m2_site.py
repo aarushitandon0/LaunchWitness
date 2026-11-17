@@ -115,7 +115,8 @@ def test_meera_localhost_shows_her_site(client, meera):
     r = client.get("/", headers={"host": MEERA})
     assert r.status_code == 200 and "text/html" in r.headers["content-type"]
     html = r.text
-    assert "<h1>Meera&#39;s Eggless Bakes</h1>" in html
+    assert "<h1>Fresh eggless cakes and cupcakes, baked in Baner</h1>" in html  # S14: the Reader's headline line
+    assert "Meera&#39;s Eggless Bakes</span>" in html and 'class="eyebrow">Meera&#39;s Eggless Bakes' in html
     for section in ('id="menu"', 'id="about"', 'id="info"', 'id="pay"', 'id="order"', 'href="/privacy"'):
         assert section in html
     assert "10am to 8pm, closed on Tuesdays" in html
@@ -131,7 +132,7 @@ def test_host_with_port_and_case_works(client, meera):
 def test_menu_grouped_by_category_in_order(client, meera):
     html = client.get("/", headers={"host": MEERA}).text
     cats = ["Cakes", "Cupcakes &amp; brownies", "Extras"]
-    head = '<h3 class="cat-h"><span class="dot" aria-hidden="true"></span>'
+    head = '<h3 class="cat-h">'
     positions = [html.index(f"{head}{c} ") for c in cats]
     assert positions == sorted(positions)
     assert html.index("Rasmalai") < html.index(f"{head}Cupcakes")

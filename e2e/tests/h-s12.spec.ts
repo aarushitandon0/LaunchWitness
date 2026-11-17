@@ -144,7 +144,9 @@ test("a photo uploaded on Review shows on the shop, re-encoded", async ({ page }
   await expect(page.locator(".item-thumb")).toHaveCount(1);
   // the owner's preview shows both, lazy and sized
   const html = await (await api(page, "GET", `/api/businesses/${id}/preview`)).text();
-  expect(html).toContain(`src="${src}"`);
-  expect(html).toContain('class="item-photo"');
-  expect((html.match(/loading="lazy"/g) || []).length).toBe(2);
+  // S14: the first shop photo is the hero image (large, loaded at once); the item's photo is a lazy thumbnail card
+  expect(html).toContain(`src="${src!.replace("-480", "-1200")}"`);
+  expect(html).toContain('fetchpriority="high"');
+  expect(html).toContain('class="thumb"');
+  expect((html.match(/loading="lazy"/g) || []).length).toBe(1);
 });

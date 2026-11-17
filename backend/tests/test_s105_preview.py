@@ -33,7 +33,7 @@ def test_public_shop_links_stay_on_the_shop_host_or_go_outside():
         html = render_site(profile(), page=page, shop="asha",
                            order={"customer_name": "R", "items": [], "total_inr": 0, "note": "", "ref": "LW-ABCDEFGH"})
         for href in HREF.findall(html):
-            ok = (href.startswith("#") or href in ("/", "/privacy", "/report-shop", "/order")
+            ok = (href.startswith("#") or href in ("/", "/privacy", "/report-shop", "/order") or href.startswith("/shop-assets/fonts/")
                   or href.startswith(("https://wa.me/", "tel:", "upi://", "https://www.instagram.com/")))
             assert ok, (page, href)
 

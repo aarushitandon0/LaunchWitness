@@ -1,0 +1,77 @@
+{
+  "_note": "S14 gallery seller: invented sample data for rendering tests + screenshots. Phone/UPI/FSSAI values are demo samples, not real.",
+  "name": "Green Corner Nursery",
+  "tagline": "Houseplants, succulents and seed kits from a balcony nursery",
+  "about": "We grow succulents and easy houseplants on our terrace in Pune and pot them in recycled pots.",
+  "area": "Aundh, Pune",
+  "hours": "Open Saturday and Sunday, 9am to 5pm.",
+  "phone": "98765 43210",
+  "whatsapp": "98765 43210",
+  "upi_id": "greencorner.demo@example",
+  "tone": "friendly",
+  "selling_point": "Grown at home",
+  "min_notice_days": 0,
+  "pickup_available": true,
+  "delivery_available": false,
+  "upi_display_name": "GREEN CORNER DEMO",
+  "theme": "",
+  "accent": "",
+  "products": [
+    {
+      "name": "Jade plant",
+      "price_inr": 250,
+      "description": "4 inch pot",
+      "category": "Houseplants",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Snake plant",
+      "price_inr": 320,
+      "description": "6 inch pot",
+      "category": "Houseplants",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Money plant in glass jar",
+      "price_inr": 180,
+      "description": "",
+      "category": "Houseplants",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Succulent trio",
+      "price_inr": 360,
+      "description": "Three assorted in recycled pots",
+      "category": "Succulents",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Cactus mix pot",
+      "price_inr": 220,
+      "description": "",
+      "category": "Succulents",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Herb seed kit",
+      "price_inr": 199,
+      "description": "Basil, mint, coriander",
+      "category": "Seed kits",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Organic potting mix 2 kg",
+      "price_inr": 140,
+      "description": "",
+      "category": "Supplies",
+      "addon": false,
+      "price_from": false
+    }
+  ]
+}

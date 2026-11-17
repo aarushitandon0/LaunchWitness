@@ -5,8 +5,11 @@ and an unknown name all get the same "not set up" page; a paused shop gets a neu
 Owners see their own draft/practice shop through the preview route in the API.
 """
 
+import base64
+import hashlib
 import re
 from html import escape
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -26,6 +29,25 @@ from app.sites.orders import accept_order_form
 from app.sites.render import render_site
 
 router = APIRouter(tags=["seller-site"])
+
+FONT_DIR = Path(__file__).parent / "fonts"
+FONT_FILE = re.compile(r"^[a-z0-9-]+\.woff2$")
+SCRIPT = re.compile(r"<script>(.*?)</script>", re.S)
+
+
+def shop_headers(html: str) -> dict[str, str]:
+    """A strict Content-Security-Policy for a public shop page (S14): nothing loads except the shop's own images and
+    fonts, styles are inline, and the only scripts that may run are the template's own fixed ones (matched by hash,
+    so a script that came from seller data could never run even if it got through escaping)."""
+    hashes = " ".join("'sha256-" + base64.b64encode(hashlib.sha256(m.encode()).digest()).decode() + "'"
+                      for m in SCRIPT.findall(html))
+    csp = ("default-src 'none'; img-src 'self'; font-src 'self'; style-src 'unsafe-inline'; "
+           f"script-src {hashes or chr(39) + 'none' + chr(39)}; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
+    return {"Content-Security-Policy": csp, "X-Content-Type-Options": "nosniff", "Referrer-Policy": "strict-origin-when-cross-origin"}
+
+
+def shop_response(html: str, status_code: int = 200) -> HTMLResponse:
+    return HTMLResponse(html, status_code=status_code, headers=shop_headers(html))
 
 
 def plain_page(title: str, text: str) -> str:
@@ -93,11 +115,11 @@ def seller_page(path: str, request: Request, settings: Settings, session: Sessio
     if path in ("", "index.html"):
         from app import photos
 
-        return HTMLResponse(render_site(profile, shop=b.subdomain or str(b.id), photos=photos.for_site(session, b.id)))
+        return shop_response(render_site(profile, shop=b.subdomain or str(b.id), photos=photos.for_site(session, b.id)))
     if path.rstrip("/") == "privacy":
-        return HTMLResponse(render_site(profile, page="privacy"))
+        return shop_response(render_site(profile, page="privacy"))
     if path.rstrip("/") == "report-shop":
-        return HTMLResponse(report_page(profile.name))
+        return shop_response(report_page(profile.name))
     return HTMLResponse(NOT_FOUND, status_code=404)
 
 
@@ -127,6 +149,18 @@ def photo(file: str, request: Request, settings: Annotated[Settings, Depends(get
                                                             "Content-Security-Policy": "default-src 'none'"})
 
 
+@router.get("/shop-assets/fonts/{file}")
+def shop_font(file: str) -> Response:
+    """S14: the themes' self-hosted fonts (open licence, see docs/FONTS.md). Served on every host (the shop pages and the
+    owner's preview). `Access-Control-Allow-Origin: *` because the preview runs in a sandboxed frame (opaque origin)."""
+    path = FONT_DIR / file
+    if not FONT_FILE.match(file) or not path.is_file():
+        raise HTTPException(status_code=404)
+    return Response(path.read_bytes(), media_type="font/woff2",
+                    headers={"Cache-Control": "public, max-age=604800", "Access-Control-Allow-Origin": "*",
+                             "X-Content-Type-Options": "nosniff"})
+
+
 @router.post("/order", response_class=HTMLResponse)
 async def submit_order(
     request: Request,
@@ -151,7 +185,7 @@ async def submit_order(
     integ = for_business(business, server, practice)
     status, html = accept_order_form(session, settings, integ.mailer, business=business, profile=profile, form=form,
                                      visitor=visitor_id(request), channel=channel_of(integ))
-    return HTMLResponse(html, status_code=status)
+    return shop_response(html, status)
 
 
 @router.post("/report-shop", response_class=HTMLResponse)

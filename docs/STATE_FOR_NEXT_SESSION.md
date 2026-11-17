@@ -1,4 +1,27 @@
-# State for the next session (written 2026-11-17 IST, end of Session 13b)
+# State for the next session (written 2026-11-17 IST, end of Session 14)
+
+## Session 14 (Opus, 2026-11-17, cloud, unattended): shop themes (PR into `main`, NOT merged: merge only after the VPS smoke test)
+
+Branch `claude/wonderful-heisenberg-fo2ery`. Six themes (bakery, kitchen, handmade, tailor, gifts, general) on one engine; spec
+in SPEC §5a. **Claude only picks keys**; code validates and draws.
+- Code: `app/sites/themes.py` (data, `rule_choice`, `resolve`, `css_for`, `catalog`, contrast helpers); `render.py` (headline, how-ordering
+  steps, hero/rest photos); `templates/seller.html` + `css/{base,hero_*,menu_*}.css` + `art/*.html`; fonts `app/sites/fonts/*.woff2`
+  served at `GET /shop-assets/fonts/<file>` (every host, CORS `*` for the sandboxed preview); `routes.py::shop_headers` = a strict
+  Content-Security-Policy on public shop pages (script-src by hash; there was none before).
+- Profile gains `theme`, `accent`, `section_copy {hero_line, about, how_ordering}`, owner-only `testimonials`. Invalid keys become `""`
+  (= rule-based at render); `reader.choose_theme` fills a concrete theme after a Reader reply. Her own About text wins over `section_copy.about`.
+- API: `GET /api/themes`, `PUT /api/businesses/{id}/theme` (audit `theme_changed`; the Review save audits a change too),
+  `business_out.theme {key, accent, suggested, chosen}`, `GET …/preview?inline=1` (the picker's preview; doesn't tick the go-live box).
+- UI: `frontend/src/ThemePicker.tsx` (live thumbnails, accent row, inline private preview), headline / ordering line / testimonials on Review.
+- Fixtures: all 12 `reader_*.json` carry hand-written `theme/accent/section_copy` with `_note` + `_theme_placeholder` (the rest of each file is
+  still the live reply). `REQUIRE_LIVE_FIXTURES=1 pytest -q tests/test_s6_agents.py tests/test_s11c_live.py` therefore FAILS until they are
+  captured: `cd backend && CLAUDE_MODE=live ../.venv/bin/python ../scripts/capture_live_fixtures.py --theme-only reader:themes`
+  (six sellers, about $0.07, worst case $0.11; `reader:themes-all` = 12, about $0.13; run `--dry-run` first; cap <= $0.10 means the six).
+- Tests: `tests/test_s14_themes.py` (184), `e2e/tests/j-s14.spec.ts` (6). Screenshots `docs/screenshots/s14/` (every theme at 375 + 1440,
+  `contact-sheet.png`, `review-picker-*.png`). Not touched: checker, Doctor, monitoring, accounts, outbox.
+- Open: placeholder theme values (above); not run here: the Docker stack and `check_m1.sh --local`; Devanagari text falls back to system
+  fonts; the demo seeds (`scripts/seed_demo.py`) not re-checked; the picker's thumbnails are drawn from tokens (not the real page).
+
 
 Read `CLAUDE.md` first (rules + commands), then this. **If today is the VPS day, follow `docs/NEXT_SESSION_VPS.md`
 step by step**: it's self-contained. You shouldn't need to read the whole codebase.

@@ -1,0 +1,14 @@
+  /* Festive but tasteful: a soft blush panel, a gold hairline, ribbon art. */
+  .hero-festive { display: grid; gap: 26px; margin-top: 14px; padding: 28px 22px; border-radius: calc(var(--radius) * 1.4);
+    background: linear-gradient(160deg, var(--soft), var(--bg) 85%); border: 1px solid var(--line2); position: relative; }
+  .hero-festive::before { content: ""; position: absolute; inset: 9px; border-radius: calc(var(--radius) * 1.2); border: 1px solid color-mix(in srgb, var(--art-b) 70%, transparent); pointer-events: none; }
+  .hero-festive h1 { font-weight: 600; font-style: italic; letter-spacing: -.02em; }
+  .hero-festive .art-panel, .hero-festive .photo-panel { border-radius: var(--radius); aspect-ratio: 1 / 1; max-width: 460px; justify-self: center; width: 100%; }
+  @media (min-width: 900px) { .hero-festive { grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); align-items: center; padding: 56px 52px; gap: 48px; margin-top: 30px; } }
+  .occasions { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .occasions a { display: block; height: 100%; padding: 20px; border-radius: var(--radius-sm); background: var(--paper); border: 1px solid var(--line2);
+    text-decoration: none; position: relative; overflow: hidden; }
+  .occasions a:hover { border-color: var(--accent); }
+  .occasions b { display: block; font: 600 22px/1.2 var(--display); }
+  .occasions span { display: block; margin-top: 6px; color: var(--muted); font-size: 14.5px; }
+  .occasions a::after { content: "→"; position: absolute; right: 18px; top: 18px; color: var(--accent); font-size: 20px; }

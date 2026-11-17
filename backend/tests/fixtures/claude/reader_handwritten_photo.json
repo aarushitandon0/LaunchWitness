@@ -67,5 +67,14 @@
       "addon": false,
       "price_from": false
     }
-  ]
+  ],
+  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only).",
+  "_theme_placeholder": true,
+  "theme": "kitchen",
+  "accent": "turmeric",
+  "section_copy": {
+    "hero_line": "Fresh idli dosa batter and podi, made at home every day",
+    "about": "We make our batter fresh each day at home. Order a day ahead and we'll have it ready.",
+    "how_ordering": "Choose what you need, send your order a day ahead, and we'll confirm it with you."
+  }
 }

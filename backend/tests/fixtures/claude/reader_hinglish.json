@@ -45,5 +45,14 @@
       "description": "Flask of 20 cups, order one day before",
       "category": "Bulk orders"
     }
-  ]
+  ],
+  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only).",
+  "_theme_placeholder": true,
+  "theme": "kitchen",
+  "accent": "chilli",
+  "section_copy": {
+    "hero_line": "Hot chai and nashta from a home stall in Aliganj",
+    "about": "We run a small home stall in Aliganj, Lucknow, serving chai and nashta.",
+    "how_ordering": "Choose your items, send your order, and we'll confirm it with you."
+  }
 }

@@ -57,5 +57,14 @@
       "description": "For service at your home",
       "category": "Add-ons"
     }
-  ]
+  ],
+  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only).",
+  "_theme_placeholder": true,
+  "theme": "general",
+  "accent": "indigo",
+  "section_copy": {
+    "hero_line": "Mehendi and simple makeup in Tolichowki",
+    "about": "We offer mehendi and simple makeup in Tolichowki, Hyderabad.",
+    "how_ordering": "Choose your items, send your order, and we'll confirm it with you."
+  }
 }

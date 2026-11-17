@@ -28,6 +28,7 @@ from app.safety.access import (
     user_describes_today,
     visitor_id,
 )
+from app.sites import themes
 from app.sites.hosts import is_public, site_url, slug_problem
 from app.sites.orders import STATUS_LABELS, STATUS_STEPS, can_move, customer_whatsapp_link, tel_link
 from app.sites.render import render_site, upi_qr_svg, upi_uri
@@ -82,7 +83,51 @@ def business_out(b: Business, settings: Settings, session: Session | None = None
         "public": is_public(b) and not b.paused,  # false = only the owner sees it, through the preview
         "owner_email": owners[0] if owners else "",  # the sign-in address orders and alerts go to
         "profile": json.loads(b.profile_json),
+        "theme": theme_out(b),
     }
+
+
+def theme_out(b: Business) -> dict:
+    """The look this shop is drawn with (S14): the valid choice on the profile, else the rule-based one."""
+    profile = Profile.model_validate_json(b.profile_json)
+    theme, accent = themes.resolve(profile)
+    return {"key": theme.key, "accent": accent.key, "suggested": themes.rule_choice(profile),
+            "chosen": bool(themes.clean_theme_key(profile.theme))}
+
+
+@router.get("/themes")
+def theme_catalog() -> list[dict]:
+    """The six shop themes and their accents (for the Review page's picker)."""
+    return themes.catalog()
+
+
+class ThemeChoice(BaseModel):
+    theme: str
+    accent: str = ""
+
+
+@router.put("/businesses/{business_id}/theme")
+def set_theme(body: ThemeChoice, actor: ActorDep, b: Annotated[Business, Depends(require_business_access)],
+              settings: Annotated[Settings, Depends(get_settings)],
+              session: Annotated[Session, Depends(get_session)]) -> dict:
+    """The owner's choice of look. Only keys from the fixed lists are accepted; saved on the profile and audited."""
+    key = themes.clean_theme_key(body.theme)
+    if not key:
+        raise HTTPException(status_code=422, detail="Please pick one of the looks on the list.")
+    accent = themes.clean_accent_key(key, body.accent)
+    if body.accent.strip() and not accent:
+        raise HTTPException(status_code=422, detail="That colour isn't one of this look's colours.")
+    profile = Profile.model_validate_json(b.profile_json)
+    before = f"{themes.resolve(profile)[0].key}/{themes.resolve(profile)[1].key}"
+    profile.theme, profile.accent = key, accent
+    b.profile_json = profile.model_dump_json()
+    session.add(b)
+    session.commit()
+    session.refresh(b)
+    after = f"{key}/{themes.THEMES[key].accent(accent).key}"
+    audit.record(session, actor="owner", action="theme_changed", target=f"business:{b.id}", result="ok",
+                 business_id=b.id, user_id=actor.user_id, detail=f"{before} -> {after}")
+    return business_out(b, settings, session)
 
 
 NOT_SUPPORTED_DEFAULT = ("Your customers book a time with you, and for now we can only build shops that take orders, "
@@ -246,6 +291,8 @@ def update_business(body: ProfileUpdate, actor: ActorDep, b: Annotated[Business,
 
     photos.follow_items(session, b.id, [p.name for p in Profile.model_validate_json(b.profile_json).products],
                         [p.name for p in body.profile.products])
+    old_look = themes.resolve(Profile.model_validate_json(b.profile_json))
+    new_look = themes.resolve(body.profile)
     b.name = body.profile.name
     b.profile_json = body.profile.model_dump_json()
     b.subdomain = sub
@@ -254,6 +301,10 @@ def update_business(body: ProfileUpdate, actor: ActorDep, b: Annotated[Business,
     session.refresh(b)
     audit.record(session, actor="owner", action="profile_saved", target=f"business:{b.id}", result="ok",
                  business_id=b.id, user_id=actor.user_id, detail=f"subdomain {old_sub} -> {sub}" if old_sub != sub else "")
+    if (old_look[0].key, old_look[1].key) != (new_look[0].key, new_look[1].key):
+        audit.record(session, actor="owner", action="theme_changed", target=f"business:{b.id}", result="ok",
+                     business_id=b.id, user_id=actor.user_id,
+                     detail=f"{old_look[0].key}/{old_look[1].key} -> {new_look[0].key}/{new_look[1].key}")
     for what in reset:
         audit.record(session, actor="system", action="confirmation_reset", target=f"business:{b.id}", result="ok",
                      business_id=b.id, user_id=actor.user_id, detail=f"{what} changed: please check it again")
@@ -346,10 +397,11 @@ def confirm(body: Confirmation, actor: ActorDep, b: Annotated[Business, Depends(
 
 @router.get("/businesses/{business_id}/preview", response_class=HTMLResponse)
 def preview(b: Annotated[Business, Depends(require_business_access)], actor: ActorDep,
-            session: Annotated[Session, Depends(get_session)], page: str = "home") -> HTMLResponse:
+            session: Annotated[Session, Depends(get_session)], page: str = "home",
+            inline: bool = False) -> HTMLResponse:
     """The owner's private look at their shop (drafts and practice shops are never public). The owner's first
     look is recorded for the go-live checklist (the team looking doesn't count)."""
-    if b.previewed_at is None and is_own(session, actor, b):
+    if b.previewed_at is None and not inline and is_own(session, actor, b):  # inline: the Review page's look picker
         b.previewed_at = utcnow()
         session.add(b)
         session.commit()

@@ -1,0 +1,125 @@
+{
+  "_note": "S14 gallery seller: invented sample data for rendering tests + screenshots. Phone/UPI/FSSAI values are demo samples, not real.",
+  "name": "Sugar & Crumb Cake Studio",
+  "tagline": "Custom celebration cakes and dessert boxes from a home studio in Koregaon Park",
+  "about": "I bake every cake to order in my home kitchen in Pune. Tell me the date, the flavour and the mood, and I'll sketch it with you before I start.\nI work with small orders so each cake gets proper attention.",
+  "area": "Koregaon Park, Pune",
+  "hours": "Open Wednesday to Sunday, 10am to 7pm. Orders close at 6pm the day before.",
+  "phone": "98765 43210",
+  "whatsapp": "98765 43210",
+  "upi_id": "sugarcrumb.demo@example",
+  "tone": "premium",
+  "selling_point": "Made to order",
+  "min_notice_days": 2,
+  "pickup_available": true,
+  "delivery_available": true,
+  "delivery_fee_inr": 100,
+  "allow_item_message": true,
+  "upi_display_name": "SUGAR CRUMB DEMO",
+  "fssai_number": "12345678901234",
+  "theme": "bakery",
+  "accent": "raspberry",
+  "section_copy": {
+    "hero_line": "Cakes made for the people you love, baked fresh to order",
+    "about": "",
+    "how_ordering": "Pick a cake, tell us the date, and we'll confirm the design on WhatsApp."
+  },
+  "products": [
+    {
+      "name": "Chocolate truffle cake (500 g)",
+      "price_inr": 850,
+      "description": "Dark chocolate ganache, two layers",
+      "category": "Celebration cakes",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Red velvet cake (500 g)",
+      "price_inr": 900,
+      "description": "Cream cheese frosting",
+      "category": "Celebration cakes",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Pineapple cake (1 kg)",
+      "price_inr": 1100,
+      "description": "Fresh pineapple, whipped cream",
+      "category": "Celebration cakes",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Butterscotch cake (1 kg)",
+      "price_inr": 1150,
+      "description": "",
+      "category": "Celebration cakes",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Photo cake (1 kg)",
+      "price_inr": 1800,
+      "description": "Edible print of your photo",
+      "category": "Celebration cakes",
+      "addon": false,
+      "price_from": true
+    },
+    {
+      "name": "Cupcakes box of 6",
+      "price_inr": 420,
+      "description": "Mixed flavours",
+      "category": "Cupcakes & brownies",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Walnut brownies box of 6",
+      "price_inr": 380,
+      "description": "",
+      "category": "Cupcakes & brownies",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Dessert jar",
+      "price_inr": 160,
+      "description": "Tiramisu or chocolate mousse",
+      "category": "Cupcakes & brownies",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Chocolate chip cookies (12)",
+      "price_inr": 300,
+      "description": "",
+      "category": "Cookies & tea cakes",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Banana walnut loaf",
+      "price_inr": 340,
+      "description": "Eggless on request",
+      "category": "Cookies & tea cakes",
+      "addon": false,
+      "price_from": false
+    },
+    {
+      "name": "Cake topper",
+      "price_inr": 120,
+      "description": "Names or numbers",
+      "category": "Extras",
+      "addon": true,
+      "price_from": false
+    },
+    {
+      "name": "Candles and knife",
+      "price_inr": 30,
+      "description": "",
+      "category": "Extras",
+      "addon": true,
+      "price_from": false
+    }
+  ]
+}

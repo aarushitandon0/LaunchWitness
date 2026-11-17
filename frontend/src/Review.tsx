@@ -6,10 +6,11 @@ import { ErrorBox } from "./Describe";
 import { takeNote } from "./Report";
 import { StepHeader } from "./Steps";
 import { GoLiveCard } from "./GoLive";
+import { ThemePicker } from "./ThemePicker";
 
 type TextKey = {
   [K in keyof Profile]: Profile[K] extends string
-    ? K extends "kind" | "not_supported_reason" | "niche" | "delivery_areas"
+    ? K extends "kind" | "not_supported_reason" | "niche" | "delivery_areas" | "theme" | "accent"
       ? never
       : K
     : never;
@@ -92,7 +93,11 @@ export default function Review({ id }: { id: number }) {
     setSaving(true);
     setSaveError(null);
     try {
-      const cleaned = { ...profile, products: profile.products.filter((p) => p.name.trim()) };
+      const cleaned = {
+        ...profile,
+        products: profile.products.filter((p) => p.name.trim()),
+        testimonials: profile.testimonials.filter((t) => t.name.trim() && t.text.trim()),
+      };
       const b = await api.save(id, cleaned, subdomain);
       setBiz(b);
       setProfile(b.profile);
@@ -209,7 +214,7 @@ export default function Review({ id }: { id: number }) {
             <option value="handmade">Handmade goods (candles, crafts, jewellery, hampers)</option>
             <option value="custom">Custom work (tailoring, embroidery, art)</option>
           </select>
-          <small>It picks your shop's colours.</small>
+          <small>It helps us suggest a look for your shop.</small>
         </label>
         <label className="check">
           <input
@@ -224,6 +229,75 @@ export default function Review({ id }: { id: number }) {
       <h2>Photos</h2>
       <p className="muted">Real photos make your shop look like yours. Without them, your shop keeps its plain design.</p>
       <ShopPhotos ph={ph} />
+
+      <h2>The look of your shop</h2>
+      <ThemePicker
+        biz={biz}
+        onSaved={(b) => {
+          setBiz(b);
+          setProfile((p) => (p ? { ...p, theme: b.profile.theme, accent: b.profile.accent } : p));
+        }}
+      />
+
+      <h2>Words on your page</h2>
+      <p className="muted">
+        We wrote these from what you told us. Change anything that isn't right. Leave a box empty and that spot uses your
+        other details instead. (The “About” text is the one in your details above.)
+      </p>
+      <section className="card copy-fields">
+        <label className="field">
+          <span>Big headline</span>
+          <input
+            value={profile.section_copy.hero_line}
+            maxLength={90}
+            onChange={(e) => update({ section_copy: { ...profile.section_copy, hero_line: e.target.value } })}
+          />
+        </label>
+        <label className="field">
+          <span>How ordering works (one line)</span>
+          <input
+            value={profile.section_copy.how_ordering}
+            maxLength={160}
+            onChange={(e) => update({ section_copy: { ...profile.section_copy, how_ordering: e.target.value } })}
+          />
+        </label>
+      </section>
+
+      <h2>Kind words from customers (optional)</h2>
+      <p className="muted">
+        Only add real messages your customers sent you. We never write these. They're shown as “shared by the seller”.
+      </p>
+      <section className="card">
+        {profile.testimonials.map((t, i) => (
+          <div className="quote-row" key={i}>
+            <label className="field">
+              <span>Customer's name</span>
+              <input
+                value={t.name}
+                maxLength={60}
+                onChange={(e) => update({ testimonials: profile.testimonials.map((q, j) => (j === i ? { ...q, name: e.target.value } : q)) })}
+              />
+            </label>
+            <label className="field">
+              <span>What they said</span>
+              <textarea
+                rows={2}
+                value={t.text}
+                maxLength={300}
+                onChange={(e) => update({ testimonials: profile.testimonials.map((q, j) => (j === i ? { ...q, text: e.target.value } : q)) })}
+              />
+            </label>
+            <button type="button" className="btn btn-ghost" onClick={() => update({ testimonials: profile.testimonials.filter((_, j) => j !== i) })}>
+              Remove
+            </button>
+          </div>
+        ))}
+        {profile.testimonials.length < 6 && (
+          <button type="button" className="btn btn-ghost" onClick={() => update({ testimonials: [...profile.testimonials, { name: "", text: "" }] })}>
+            + Add a message
+          </button>
+        )}
+      </section>
 
       <h2>Menu and prices</h2>
       <p className="muted">Items with the same group are shown together on your site.</p>

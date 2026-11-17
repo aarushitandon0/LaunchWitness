@@ -11,6 +11,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markupsafe import Markup
 
 from app.agents.reader import Product, Profile
+from app.sites import themes
 
 TEMPLATES = Path(__file__).parent / "templates"
 _env = Environment(loader=FileSystemLoader(TEMPLATES), autoescape=select_autoescape(["html"]))
@@ -72,10 +73,22 @@ def upi_qr_svg(uri: str) -> Markup:
     return Markup(svg.replace("<svg ", '<svg role="img" aria-label="UPI payment QR code" ', 1))
 
 
+PLAN_WORDS = re.compile(r"\b(plans?|weekly|monthly|subscriptions?|thali plans?)\b", re.I)
+
+
 @dataclass
 class Category:
     name: str
     items: list[tuple[int, Product]] = field(default_factory=list)  # (index in profile.products, product)
+
+    @property
+    def from_inr(self) -> int | None:
+        """The lowest price in this group (shown as "from ₹X" on the gifts page's collection tiles)."""
+        return min((p.price_inr for _, p in self.items), default=None)
+
+    @property
+    def is_plan(self) -> bool:
+        return bool(PLAN_WORDS.search(self.name))
 
 
 def group_products(products: list[Product]) -> list[Category]:
@@ -111,6 +124,29 @@ def badges(profile: Profile) -> list[str]:
     return out
 
 
+def how_steps(profile: Profile) -> list[tuple[str, str]]:
+    """"How ordering works": the steps of the real order path, with only the facts the seller gave."""
+    first = "Pick what you'd like from the menu."
+    if profile.min_notice_days:
+        first += f" Please order at least {profile.min_notice_days} day{'s' if profile.min_notice_days != 1 else ''} ahead."
+    steps = [("Choose", first), ("Send your order", "Add your name and phone number. Nothing is charged on this page."),
+             ("We confirm", "The shop contacts you to confirm the details, timing and the final amount.")]
+    if profile.pickup_available and profile.delivery_available:
+        steps.append(("Pickup or delivery", "Collect it yourself or have it delivered, as you agree with the shop."))
+    elif profile.pickup_available:
+        steps.append(("Pickup", "You collect it. The shop shares the exact address on WhatsApp once your order is confirmed."))
+    elif profile.delivery_available:
+        steps.append(("Delivery", "The shop delivers it" + (f" to {profile.delivery_areas}" if profile.delivery_areas else "") + "."))
+    if profile.upi_id:
+        steps.append(("Pay", "Pay by UPI once the shop has confirmed the amount."))
+    return steps
+
+
+def lowest_price(categories: list["Category"]) -> int | None:
+    prices = [p.price_inr for c in categories for _, p in c.items]
+    return min(prices) if prices else None
+
+
 def monogram(name: str) -> str:
     words = [w for w in re.findall(r"[A-Za-z0-9\u0900-\u097F]+", name) if w.lower() not in {"the", "and", "s"}]
     return "".join(w[0] for w in words[:2]).upper() or "•"
@@ -127,10 +163,30 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
     isn't public (banner on top, the order button is off). demo=True: a sample shop served by the app at
     `base` (e.g. /demo/meera), labelled as a demo; its form places no order."""
     uri = upi_uri(profile)
+    theme, accent = themes.resolve(profile)
+    cats = group_products(profile.products)
+    sc = profile.section_copy
+    tagline = profile.tagline.strip()
+    headline = sc.hero_line or profile.name
+    lede = tagline if tagline and tagline.lower() != headline.lower() else ""
+    ph = photos or {"shop": [], "items": {}}
+    take = 3 if theme.hero == "centered" else 1  # photos shown in the hero; the rest go to the strip below it
     return _env.get_template("seller.html").render(
+        theme=theme,
+        accent=accent,
+        css=themes.css_for(theme, accent),
+        font_base="/shop-assets/fonts/",
+        headline=headline,
+        lede=lede,
+        eyebrow=profile.name if headline.strip().lower() != profile.name.strip().lower() else "",
+        about_text=profile.about or sc.about,  # her own About text wins; the Reader's short paragraph fills in when empty
+        hero_photos=ph["shop"][:take],
+        rest_photos=ph["shop"][take:],
+        steps=how_steps(profile),
+        min_price=lowest_price(cats),
         p=profile,
         page=page,
-        categories=group_products(profile.products),
+        categories=cats,
         extras=extras(profile.products),
         badges=badges(profile),
         monogram=monogram(profile.name),
@@ -147,5 +203,5 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
         shop=shop,  # printed as <meta name="lw-shop">: the HTTPS check looks for it
         demo=demo,
         base=base,  # prefix for the shop's own links ("" on a shop host)
-        photos=photos or {"shop": [], "items": {}},  # S12 (app/photos.py for_site); none = the placeholders stay
+        photos=ph,  # S12 (app/photos.py for_site); none = the placeholders stay
     )

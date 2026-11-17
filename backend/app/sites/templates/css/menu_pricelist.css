@@ -1,0 +1,15 @@
+  /* Price list: the price is the loudest thing in each row ("from ₹850"), thin rules like a tailor's rate card. */
+  .cat-h { border-bottom: 1.5px solid var(--ink); padding-bottom: 8px; margin-bottom: 0; font-weight: 400; font-size: 26px; }
+  .items { background: transparent; border: 0; }
+  .item { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "main price qty"; gap: 0 18px; align-items: center; padding: 16px 4px; border-bottom: 1px solid var(--line2); }
+  .item.has-photo { grid-template-columns: 76px minmax(0, 1fr) auto auto; grid-template-areas: "photo main price qty"; }
+  .item .item-photo { grid-area: photo; } .item-main { grid-area: main; } .item .qty { grid-area: qty; }
+  .item .price { grid-area: price; margin: 0; text-align: right; font: 400 26px/1.1 var(--display); color: var(--accent); white-space: nowrap; }
+  .item .price small { display: block; font: 700 11px/1.2 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .item .leader, .item .thumb { display: none; }
+  .item.chosen { background: var(--accent-tint); }
+  @media (max-width: 520px) {
+    .item { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "main price" "qty qty"; row-gap: 8px; }
+    .item.has-photo { grid-template-columns: 76px minmax(0, 1fr) auto; grid-template-areas: "photo main price" "photo qty qty"; }
+    .item .qty { justify-content: flex-end; }
+  }
