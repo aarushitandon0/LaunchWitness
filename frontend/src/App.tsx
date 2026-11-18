@@ -134,6 +134,9 @@ function NavLinks({ page }: { page: Route["page"] }) {
   if (me?.user)
     return (
       <>
+        <a href="#/" {...current(page === "home")}>
+          Home
+        </a>
         <a href="#/shops" {...current(SHOP_PAGES.includes(page))}>
           My shops
         </a>
