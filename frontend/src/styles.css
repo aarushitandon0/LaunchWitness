@@ -483,7 +483,7 @@ input[type="checkbox"] { accent-color: var(--ink); width: 18px; height: 18px; }
 .stepper li > a, .stepper li > span { display: inline-flex; align-items: center; gap: 0.4rem; height: 30px; padding: 0 0.75rem;
   border-radius: var(--r-pill); font-size: var(--fs-sm); text-decoration: none; border: 1px solid var(--line-strong); color: var(--text); }
 .stepper .n { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; font-size: 11px; background: var(--line); }
-.stepper-here > span { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+.stepper li.stepper-here > span { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
 .stepper-here .n { background: var(--accent); color: var(--accent-ink); }
 .stepper-done > a:hover { background: var(--paper); border-color: var(--text); }
 .stepper-done .n { background: var(--success-soft); color: var(--success); }

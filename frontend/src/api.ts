@@ -133,6 +133,8 @@ export type Business = {
   profile: Profile;
   csrf?: string; // only when this reply also started a new guest workspace
   assistant_note?: string | null; // set when live Claude was resting and a saved sample was used
+  description?: string; // S17: her own words, for Describe again
+  price_list?: string;
 };
 
 export type BusinessSummary = Business;
@@ -536,6 +538,14 @@ export const api = {
     const b = await request<Business>("/api/businesses", { method: "POST", body: form });
     if (b.csrf) await session.me(true); // a new guest workspace began: pick up its token
     return b;
+  },
+  /** S17: read her (changed) words again for this shop, before launch. Same shape as create. */
+  reread: (id: number, description: string, priceList: string, photo: File | null) => {
+    const form = new FormData();
+    form.set("description", description);
+    form.set("price_list", priceList);
+    if (photo) form.set("photo", photo);
+    return request<Business>(`/api/businesses/${id}/reread`, { method: "POST", body: form });
   },
   remove: (id: number) => request<{ ok: boolean }>(`/api/businesses/${id}`, { method: "DELETE" }),
   names: (id: number) => request<NameIdea[]>(`/api/businesses/${id}/names`),

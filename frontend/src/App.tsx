@@ -37,6 +37,7 @@ type Route =
   | { page: "terms" }
   | { page: "notfound" }
   | { page: "review"; businessId: number }
+  | { page: "describe"; businessId: number }
   | { page: "launch"; businessId: number }
   | { page: "orders"; businessId: number }
   | { page: "report"; businessId: number }
@@ -45,7 +46,7 @@ type Route =
 /** Hash router. Every page has its own URL, so Back/Forward, refresh and deep links work:
  * #/ (landing; #check, #contact etc. are in-page anchors) · #/new (describe) · #/try (describe, no account) ·
  * #/signin[?next=] · #/signin/confirm?token= · #/shops · #/account · #/account/delete?token= · #/admin ·
- * #/b/<id> (review) · #/b/<id>/launch (name) · #/b/<id>/plan/<pid> (approve + launch) · #/b/<id>/report ·
+ * #/b/<id> (review) · #/b/<id>/describe (read her words again) · #/b/<id>/launch (name) · #/b/<id>/plan/<pid> (approve + launch) · #/b/<id>/report ·
  * #/b/<id>/orders · #/got-it?token= · #/privacy · #/terms. Anything else under #/ is "Page not found". */
 export function parseRoute(hash: string): Route {
   if (!hash.startsWith("#/")) return { page: "home" }; // "", "#", or an in-page anchor of the landing page
@@ -67,8 +68,8 @@ export function parseRoute(hash: string): Route {
   if (path in fixed) return { page: fixed[path] } as Route;
   let m = path.match(/^\/b\/(\d+)\/plan\/(\d+)$/);
   if (m) return { page: "plan", businessId: Number(m[1]), planId: Number(m[2]) };
-  m = path.match(/^\/b\/(\d+)\/(launch|report|orders)$/);
-  if (m) return { page: m[2] as "launch" | "report" | "orders", businessId: Number(m[1]) };
+  m = path.match(/^\/b\/(\d+)\/(launch|report|orders|describe)$/);
+  if (m) return { page: m[2] as "launch" | "report" | "orders" | "describe", businessId: Number(m[1]) };
   m = path.match(/^\/b\/(\d+)$/);
   if (m) return { page: "review", businessId: Number(m[1]) };
   return { page: "notfound" };
@@ -97,6 +98,7 @@ const TITLES: Partial<Record<Route["page"], string>> = {
   account: "Account",
   admin: "Team",
   review: "Check your details",
+  describe: "Describe your business",
   launch: "Choose an address",
   plan: "Approve and launch",
   report: "Launch report",
@@ -126,7 +128,7 @@ export function LogoMark() {
   );
 }
 
-const SHOP_PAGES: Route["page"][] = ["shops", "review", "launch", "plan", "report", "orders"];
+const SHOP_PAGES: Route["page"][] = ["shops", "describe", "review", "launch", "plan", "report", "orders"];
 
 function NavLinks({ page }: { page: Route["page"] }) {
   const me = useMe();
@@ -290,6 +292,7 @@ export default function App() {
                       </NeedsSignIn>
                     )}
                     {route.page === "try" && (me?.user ? <GoTo hash="#/new" /> : <Describe guest />)}
+                    {route.page === "describe" && <Describe key={route.businessId} businessId={route.businessId} />}
                     {route.page === "review" && <Review key={route.businessId} id={route.businessId} />}
                     {route.page === "launch" && <LaunchChoice key={route.businessId} businessId={route.businessId} />}
                     {route.page === "plan" && (

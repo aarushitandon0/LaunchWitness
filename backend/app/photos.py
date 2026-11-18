@@ -166,6 +166,26 @@ def match_item(typed: str, names: list[str]) -> list[str]:
     return tied if len(tied) <= MAX_TIED else []
 
 
+def remap_items(session: Session, business_id: int, new: list[str]) -> None:
+    """S17, after "Read it again": each item photo moves to the new item made from its old name (match_item), or is
+    deleted when nothing matches (or that item already has a photo). No commit (the caller saves the profile)."""
+    taken = set()
+    rows = session.exec(select(Photo).where(Photo.business_id == business_id, Photo.item != "").order_by(Photo.id)).all()
+    for p in rows:
+        if p.item in new and p.item not in taken:
+            taken.add(p.item)
+    for p in rows:
+        if p.item in new:
+            continue
+        target = next((n for n in match_item(p.item, new) if n not in taken), None)
+        if target is None:
+            session.delete(p)
+        else:
+            p.item = target
+            taken.add(target)
+            session.add(p)
+
+
 def follow_items(session: Session, business_id: int, old: list[str], new: list[str]) -> None:
     """After the owner saves her list: a renamed item keeps its photo (same position, new name, and the list kept its
     length, so it was an edit rather than an item added or removed); a photo whose item is gone is deleted.

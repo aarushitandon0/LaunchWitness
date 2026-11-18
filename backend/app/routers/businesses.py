@@ -84,6 +84,8 @@ def business_out(b: Business, settings: Settings, session: Session | None = None
         "owner_email": owners[0] if owners else "",  # the sign-in address orders and alerts go to
         "profile": json.loads(b.profile_json),
         "theme": theme_out(b),
+        "description": b.description,  # S17: her own words, so Describe can open with them again
+        "price_list": b.price_list_text,
     }
 
 
@@ -144,6 +146,105 @@ def samples() -> list[dict]:
     return out
 
 
+def check_describe_limits(session: Session, settings: Settings, actor, visitor: str) -> None:
+    """Each Claude reading counts, for a new shop or (S17) reading one again: per user, else per visitor."""
+    admin, user = actor.is_admin, actor.user
+    if user is not None and not admin:
+        if user_describes_today(session, user.id) >= settings.user_describes_per_day:
+            raise HTTPException(status_code=429, detail="You've described several shops today already. "
+                                "Please come back tomorrow to try another one.")
+        # One row per Claude call, not tied to a shop, so deleting the shop doesn't reset the daily cap.
+        audit.record(session, actor="reader", action="describe_used", result="ok", user_id=user.id)
+    elif not admin and describes_today(session, visitor) >= settings.visitor_describes_per_day:
+        raise HTTPException(status_code=429, detail="You've set up several shops today already. "
+                            "Please come back tomorrow to try another one.")
+
+
+async def read_words(session: Session, claude: Claude, actor, description: str, price_list: str,
+                     photo: UploadFile | None) -> tuple[Profile, tuple[bytes, str] | None]:
+    """The Reader on her words (and menu photo). Plain errors; a booking business is refused (v1 takes orders)."""
+    image = None
+    if photo is not None and photo.filename:
+        data = await photo.read(MAX_IMAGE_BYTES + 1)
+        image = (data, (photo.content_type or "").lower())
+    try:
+        profile = read_business(claude, description=description, price_list=price_list, image=image)
+    except ReaderError as e:
+        audit.record(session, actor="reader", action="read_business", result="failed", detail=str(e)[:300],
+                     user_id=actor.user_id)
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except ClaudeBudgetExceeded as e:
+        audit.record(session, actor="reader", action="read_business", result="blocked", detail=str(e))
+        raise HTTPException(status_code=503, detail="Our assistant has reached today's limit. Please try again tomorrow.") from e
+    if profile.kind == "appointments":
+        # Scope guard: v1 builds shops that take orders. Don't build a shop for a booking business.
+        reason = profile.not_supported_reason.strip() or NOT_SUPPORTED_DEFAULT
+        audit.record(session, actor="reader", action="read_business", result="refused",
+                     detail="needs appointments/booking, not orders; no shop built")
+        raise HTTPException(status_code=422, detail=reason)
+    return profile, image
+
+
+def _empty(v) -> bool:
+    return v is None or (isinstance(v, (str, list, dict)) and not v)
+
+
+def merge_reading(old: Profile, new: Profile, owner_picked_look: bool) -> Profile:
+    """S17 "Read it again": the fresh reading wins wherever it found something; a field it left empty keeps what she
+    had (her WhatsApp, UPI, delivery areas...). A look she picked herself on Review stays hers."""
+    data = new.model_dump()
+    for name, value in old.model_dump().items():
+        if _empty(data.get(name)) and not _empty(value):
+            data[name] = value
+    if owner_picked_look:
+        data["theme"], data["accent"] = old.theme, old.accent
+    return Profile.model_validate(data)
+
+
+@router.post("/businesses/{business_id}/reread")
+async def reread_business(
+    request: Request,
+    actor: ActorDep,
+    b: Annotated[Business, Depends(require_business_access)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    session: Annotated[Session, Depends(get_session)],
+    claude: Annotated[Claude, Depends(get_claude)],
+    description: Annotated[str, Form(max_length=4000)] = "",
+    price_list: Annotated[str, Form(max_length=4000)] = "",
+    photo: Annotated[UploadFile | None, File()] = None,
+) -> dict:
+    """S17: back to Describe. Read her (changed) words again for THIS shop: same address, no second shop. Only before
+    launch (after it, details change on Review). Same daily limit as describing a shop."""
+    running = session.exec(select(Plan.id).where(Plan.business_id == b.id,
+                                                 Plan.status.in_(("approved", "running")))).first()
+    if b.status == "live" or running is not None:
+        raise HTTPException(status_code=409, detail="Your shop is already launched, so it can't be read again from "
+                            "scratch. Change its details on the Review page instead.")
+    check_describe_limits(session, settings, actor, visitor_id(request))
+    new, image = await read_words(session, claude, actor, description, price_list, photo)
+    old = Profile.model_validate_json(b.profile_json)
+    picked = session.exec(select(AuditEvent.id).where(AuditEvent.business_id == b.id,
+                                                      AuditEvent.action == "theme_changed")).first() is not None
+    merged = merge_reading(old, new, picked)
+    from app import photos
+
+    photos.remap_items(session, b.id, [p.name for p in merged.products])
+    reset_confirmations(b, merged)
+    b.name, b.description, b.price_list_text = merged.name, description, price_list
+    b.profile_json = merged.model_dump_json()
+    session.add(b)
+    session.commit()
+    session.refresh(b)
+    audit.record(session, actor="reader", action="read_business", target=f"business:{b.id}", result="ok",
+                 business_id=b.id, user_id=actor.user_id,
+                 detail=f"read again: {len(merged.products)} products" + (", with photo" if image else ""))
+    fell_back = getattr(claude, "fell_back", False)
+    if fell_back:
+        audit.record(session, actor="reader", action="claude_fallback", target=f"business:{b.id}", result="ok",
+                     business_id=b.id, detail="live Claude unavailable or daily cap reached; used a saved sample")
+    return {**business_out(b, settings, session), "assistant_note": FALLBACK_NOTE if fell_back else None}
+
+
 @router.post("/businesses", status_code=201)
 async def create_business(
     request: Request,
@@ -158,39 +259,11 @@ async def create_business(
 ) -> dict:
     visitor = visitor_id(request)
     admin, user = actor.is_admin, actor.user
-    if user is not None and not admin:
-        if accounts.shops_of(session, user.id) >= settings.max_shops_per_user:
-            raise HTTPException(status_code=409, detail=f"You already have {settings.max_shops_per_user} shops, which is "
-                                "the most one account can have. Delete one you don't need to make another.")
-        if user_describes_today(session, user.id) >= settings.user_describes_per_day:
-            raise HTTPException(status_code=429, detail="You've described several shops today already. "
-                                "Please come back tomorrow to try another one.")
-    elif not admin and describes_today(session, visitor) >= settings.visitor_describes_per_day:
-        raise HTTPException(status_code=429, detail="You've set up several shops today already. "
-                            "Please come back tomorrow to try another one.")
-    if user is not None and not admin:
-        # One row per Claude call, not tied to a shop, so deleting the shop doesn't reset the daily cap.
-        audit.record(session, actor="reader", action="describe_used", result="ok", user_id=user.id)
-    image = None
-    if photo is not None and photo.filename:
-        data = await photo.read(MAX_IMAGE_BYTES + 1)
-        image = (data, (photo.content_type or "").lower())
-    try:
-        profile = read_business(claude, description=description, price_list=price_list, image=image)
-    except ReaderError as e:
-        audit.record(session, actor="reader", action="read_business", result="failed", detail=str(e)[:300],
-                     user_id=actor.user_id)
-        raise HTTPException(status_code=422, detail=str(e)) from e
-    except ClaudeBudgetExceeded as e:
-        audit.record(session, actor="reader", action="read_business", result="blocked", detail=str(e))
-        raise HTTPException(status_code=503, detail="Our assistant has reached today's limit. Please try again tomorrow.") from e
-
-    if profile.kind == "appointments":
-        # Scope guard: v1 builds shops that take orders. Don't build a shop for a booking business.
-        reason = profile.not_supported_reason.strip() or NOT_SUPPORTED_DEFAULT
-        audit.record(session, actor="reader", action="read_business", result="refused",
-                     detail="needs appointments/booking, not orders; no shop built")
-        raise HTTPException(status_code=422, detail=reason)
+    if user is not None and not admin and accounts.shops_of(session, user.id) >= settings.max_shops_per_user:
+        raise HTTPException(status_code=409, detail=f"You already have {settings.max_shops_per_user} shops, which is "
+                            "the most one account can have. Delete one you don't need to make another.")
+    check_describe_limits(session, settings, actor, visitor)
+    profile, image = await read_words(session, claude, actor, description, price_list, photo)
 
     # Every shop starts as practice. It becomes real only through an approved user's real launch.
     guest_raw, guest_hash = None, ""

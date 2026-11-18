@@ -23,8 +23,8 @@ export function stepsFor(biz: Business | null): StepLink[] {
   return ORDER.map((id) => {
     if (!biz) return { id, label: LABELS[id], href: null, done: false };
     switch (id) {
-      case "describe":
-        return { id, label: LABELS[id], href: null, done: true };
+      case "describe": // S17: her words again, to read once more (only before launch; the page says so after)
+        return { id, label: LABELS[id], href: `#/b/${biz.id}/describe`, done: true };
       case "review":
         return { id, label: LABELS[id], href: `#/b/${biz.id}`, done: !!plan || live };
       case "name":

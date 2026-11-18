@@ -54,6 +54,7 @@ ROUTES: dict[tuple[str, str], str] = {
     # --- everything that belongs to one business ---
     ("GET", "/api/businesses/{business_id}"): OWNER,
     ("PUT", "/api/businesses/{business_id}"): OWNER,
+    ("POST", "/api/businesses/{business_id}/reread"): OWNER,  # S17 back to Describe: one Claude reading, daily cap
     ("DELETE", "/api/businesses/{business_id}"): OWNER,
     ("GET", "/api/businesses/{business_id}/preview"): OWNER,
     ("GET", "/api/businesses/{business_id}/orders"): OWNER,

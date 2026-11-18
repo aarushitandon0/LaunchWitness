@@ -76,3 +76,37 @@ test("a photo too big is refused in its row, before anything is sent", async ({ 
   await expect(page.getByRole("alert")).toContainText("too big");
   await expect(page.locator(".item-entry .item-thumb")).toHaveCount(0);
 });
+
+test("Review -> back to Describe: her words come back, Read it again keeps the same shop", async ({ page }) => {
+  test.setTimeout(180_000);
+  await signIn(page, ADMIN_EMAIL);
+  await page.goto("/#/new");
+  await page.getByRole("button", { name: /Meera/ }).click();
+  await page.getByRole("button", { name: "Make my website" }).click();
+  await page.waitForURL(/#\/b\/\d+$/);
+  const id = Number(page.url().match(/#\/b\/(\d+)/)![1]);
+  const before = await (await api(page, "GET", `/api/businesses/${id}`)).json();
+
+  // The current step's label is readable (light on the dark pill), and Describe is a link back.
+  const here = page.locator(".stepper-here > span");
+  const [fg, bg] = await here.evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el).backgroundColor]);
+  expect(fg).not.toEqual(bg);
+  const lum = (c: string) => { const [r, g, b] = c.match(/\d+/g)!.map(Number); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  expect(Math.abs(lum(fg) - lum(bg))).toBeGreaterThan(100);
+  await page.locator(".stepper").getByRole("link", { name: /Describe/ }).click();
+  await page.waitForURL(new RegExp(`#/b/${id}/describe$`));
+
+  // Her words are back, as rows.
+  await expect(page.getByLabel("About your business")).toHaveValue(before.description);
+  await expect(page.getByLabel("Item 1 name")).toHaveValue(/truffle/i);
+  await page.getByLabel("Item 1 price").fill("700");
+  await page.getByRole("button", { name: "Read it again" }).click();
+  await page.waitForURL(new RegExp(`#/b/${id}$`));
+
+  const after = await (await api(page, "GET", `/api/businesses/${id}`)).json();
+  expect(after.id).toBe(id);
+  expect(after.subdomain).toBe(before.subdomain);
+  expect(after.price_list).toContain("₹700");
+  const shops = await (await api(page, "GET", "/api/businesses")).json();
+  expect(shops.filter((s: { id: number }) => s.id === id)).toHaveLength(1);
+});
