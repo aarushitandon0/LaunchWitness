@@ -301,3 +301,18 @@ One entry per Claude Code session, newest last. This is what judges read to unde
 - I changed / rejected: see PR description (decisions).
 - Result: backend suite, ruff, tsc, build clean; e2e 22 passed + 1 skipped (Docker-only) on the dev server; live Claude $0.
 - Next: owner re-captures Reader fixtures (`--theme-only reader:themes`, one run refreshes S14 + S15 placeholders), VPS smoke test, merge S15 after S14.
+
+### Session 17 — 2026-11-19 — Logo, branded email, the first real shop launch, backups, deploy key (Opus, laptop)
+- Goal: brand the app, deploy, launch the demo shop for real on GoDaddy DNS and prove it end to end; backups and a deploy key.
+- Asked Claude to: make a transparent logo master and every icon, wire them into the app (not the shops), one copy change, one shared
+  branded email layout, deploy, then watch the real launch step by step with evidence, check the proof chain, set up backups and a
+  read-only deploy key.
+- Claude built: `scripts/make_brand_assets.py` + `frontend/public/` icons + the header mark; `app/mail/layout.py` for every email; brand
+  files served on the app host only; tests `test_s17_brand.py`, `test_s17_email_layout.py`, `test_s17_inbox_wait.py`.
+- What the live run caught: the launch's inbox step called the unbuilt GoDaddy mailbox stub (fixed: sign in to our own inbox); GoDaddy's
+  VPS resolvers answer some names wrongly (the app container now uses public DNS); my email layout made the IMAP body empty (fixed); the
+  mailbox search index lags, so a test order could miss a 40 s window (now 120 s with a header scan, and the report says it's waiting).
+- I changed / rejected: the logo isn't purple, so its real lime/ink colours were kept (lime button, not purple); DNS change on the app
+  container only; asked for the longer wait + header scan; the restore test goes into a temp folder, not over the local stack.
+- Result: shop live with a real certificate, 7/7 checks, the shared report verifies (intact); backend 1355 passed; secret scan clean.
+- Next: demo video, README, brief PDF, submission.

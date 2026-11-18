@@ -1,4 +1,46 @@
-# State for the next session (written 2026-11-18 IST, end of Session 16)
+# State for the next session (written 2026-11-19 IST, end of Session 17)
+
+## Session 17 (Opus, 2026-11-18/19, laptop): brand, branded email, the first REAL shop launched, backups, deploy key
+
+**What's live**
+- https://launchwitness.com (apex + www, Let's Encrypt). VPS 148.66.158.18, user `lwadmin`, key `~/.ssh/launchwitness`. The VPS repo
+  is on `main`, now updated with **`git pull`** over a read-only GitHub deploy key (`~/.ssh/github_deploy`, ssh config `Host github.com`,
+  remote `git@github.com:aarushitandon0/LaunchWitness.git`; a push is refused). No more bundles.
+- **Demo shop live:** https://meeras-eggless-bakes.launchwitness.com (A record written by the app's guarded client, DnsBackup row 1;
+  ns43/ns44 + 8.8.8.8/1.1.1.1/9.9.9.9 answer 148.66.158.18; on-demand Let's Encrypt cert (YE1), valid to 2027-02-16; `lw-shop` marker).
+- **Shared report:** https://launchwitness.com/r/GsZj7gOAoCydSauqdNpoaWksKHVW-HSz (7 of 7 proven; `/verify` intact, 41 rows at 21:00 UTC).
+  The owner has NOT yet tapped "Yes, I got it" in a test-order email (the "Checked by you" row is still open).
+- Claude spend so far: $0.037 (3 calls) of the $2/day cap.
+
+**Built this session (all on `main`)**
+- Logo: `docs/brand/image.png` (owner's art: lime/cream/peach "W" on near-black, NOT purple-on-cream as first described) ->
+  `scripts/make_brand_assets.py` -> `brand/logo-mark.png` + `frontend/public/` (favicon.ico 16/32/48 on an ink rounded tile so it reads
+  on light tabs, favicon-32, apple-touch-icon on ink, icon-192/512, logo-mark-64/128, site.webmanifest). Header mark 30 px with srcset.
+  Served on the app host only (`BRAND_FILES` in `main.py`, after `seller_page`, so shops never get them). Backend HTML (shared report,
+  its 404, /build) links them (`app/sites/brand.py`). "Check any address" copy replaced (heading kept, body exact).
+- Email: `app/mail/layout.py`, one layout for every email (ink header band + logo from launchwitness.com, lime button 13:1, grey
+  fallback link, footer with "why you got this" per kind). Sign-in/delete use `render()`; every other email gets `wrap()` in the outbox
+  (and in `SmtpMailer` for direct sends). **Plain-text part unchanged**; subjects, keys and priorities unchanged.
+- Fixes found on the live launch: (1) `use_app_mailbox` called the unbuilt Titan stub -> it now signs in to the app's own inbox when the
+  provider is the stub (other mailboxes still need the real client). (2) The app container uses public DNS (`dns:` in
+  docker-compose.prod.yml): GoDaddy's VPS resolvers gave wrong answers (example.com -> a GoDaddy IP, no SPF). Caddy unchanged.
+  (3) The IMAP reader parsed with the old email policy -> empty body for multipart mail (my regression from the layout); fixed.
+  (4) Test-order wait: up to 120 s (a look at once, every 5 s for 30 s, then every 10 s), stopping at the first find; each look is the IMAP
+  search OR a subject scan of the newest 20 INBOX messages (the search index lags by tens of seconds). The report shows "Waiting for the
+  test email to arrive (up to 2 minutes)..." (`run.info.waiting_for`). Monitoring keeps its non-blocking later passes (3 x 60 s) + the scan.
+- Backups: cron `15 3 * * *` (UTC = 08:45 IST) -> `backups/backup.log`; first backup 1.1 MB. Laptop copy in
+  `C:\Users\Aarushi\Downloads\lw-backups\`. Restore test: `app.backup.restore()` into a temp folder (not over the local stack's DB):
+  identical row counts, chain intact. Fetch the latest:
+  `scp -i ~/.ssh/launchwitness lwadmin@148.66.158.18:'LaunchWitness/backups/daily/*.db' ~/Downloads/lw-backups/`
+
+**Tests:** backend 1355 passed, 3 skipped; the `test_s13_scale.py` timing tests fail on this laptop both before and after this session's
+commits (1-2 of 10; known: run them alone on a quiet machine). There are no frontend unit tests (vitest finds none); `tsc` + build clean.
+e2e not run this session.
+
+**Left for the hackathon:** demo video, README, brief PDF, submission. Owner, optional: a Google account for hello@ with the logo as its
+photo (Gmail's sender avatar). The real GoDaddy mailbox client (Titan) is still a stub (matters only for own-domain "full" launches).
+
+# (Session 16, earlier)
 
 ## Session 16 (Opus, 2026-11-18, laptop): S14 + S15 verified together, merged to `main`
 

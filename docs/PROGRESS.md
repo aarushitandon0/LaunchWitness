@@ -4,6 +4,18 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
+**Session 17 (Nov 18-19, Opus, laptop): LIVE. The first real shop is launched and proven.** Logo + favicon + app icons; one branded
+email layout; demo shop https://meeras-eggless-bakes.launchwitness.com launched for real (7/7 checks, real Let's Encrypt cert, test order
+found over IMAP); shared report https://launchwitness.com/r/GsZj7gOAoCydSauqdNpoaWksKHVW-HSz (chain intact); nightly backups + restore
+test; the VPS deploys by `git pull` over a read-only deploy key. Four fixes found on the live run (see STATE). **Next: demo video, README,
+brief PDF, submission.**
+
+Decisions (S17): the logo's real colours (lime/cream/peach on ink) drive everything: the email button is lime with dark text (the art has
+no purple), the tab icon sits on an ink tile, apple-touch/manifest on ink `#161614`; the mark is in the header only (the footer and the
+sign-in page only mention the name in sentences); the free-subdomain launch proves the app's own inbox by signing in to it while the Titan
+client is a stub; the app container uses public DNS (SECURITY.md, "DNS the app trusts"); the test-order wait is 120 s for launch and
+"Check again", while scheduled monitoring keeps its later passes; the restore test runs into a temp folder, never into a running stack.
+
 **Session 15 (Nov 17, Opus, cloud, unattended): where she sells, how customers pay, what the order form asks** (PR into `main`, merge after S14). Selling modes, validated delivery areas/PINs, fees, payment terms with exact UPI amounts, cancellation, food marks, break, days off, daily limit; all enforced on the server; address private. See STATE_FOR_NEXT_SESSION and SPEC §9d. CHECKS_MATRIX unchanged (no check changed; the test order only gets safe defaults).
 
 **Session 14 (Nov 17, Opus, cloud, unattended): a theme for every kind of home business** (PR open, not merged: after the VPS smoke
