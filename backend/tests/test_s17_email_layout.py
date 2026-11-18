@@ -109,3 +109,44 @@ def test_app_inbox_step_signs_in_when_provider_is_a_stub():
         step_use_app_mailbox(_mailbox_ctx("hello@launchwitness.com", "login refused: no"))
     with pytest.raises(NotImplementedError):  # someone else's mailbox still needs the real client
         step_use_app_mailbox(_mailbox_ctx("shop@example.com", "ok: connected and signed in"))
+
+
+def test_imap_reader_reads_the_plain_part_of_branded_mail(monkeypatch, make_settings):
+    """S17 regression: multipart/alternative mail came back with an empty body from the IMAP reader."""
+    from email.message import EmailMessage
+
+    from app.mail import imap
+
+    msg = EmailMessage()
+    msg["Subject"] = "[TEST] New order for Meera's Eggless Bakes (LW-1 code 2523c0b518ae6a89)"
+    msg["From"], msg["To"] = "hello@launchwitness.com", "hello@launchwitness.com"
+    msg.set_content("Test order\ncode 2523c0b518ae6a89\n")
+    msg.add_alternative(layout.wrap("test_order", msg["Subject"], "Test order"), subtype="html")
+    raw = msg.as_bytes()
+
+    class Conn:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def login(self, *a):
+            pass
+
+        def select(self, *a, **k):
+            pass
+
+        def search(self, *a):
+            return "OK", [b"1"]
+
+        def fetch(self, num, what):
+            return "OK", [(b'1 (INTERNALDATE "19-Nov-2026 01:31:55 +0530" RFC822 {%d}' % len(raw), raw)]
+
+    monkeypatch.setattr(imap.imaplib, "IMAP4_SSL", Conn)
+    found = imap.ImapInboxReader(make_settings(imap_user="hello@launchwitness.com")).find(subject_contains="2523c0b518ae6a89")
+    assert len(found) == 1 and "code 2523c0b518ae6a89" in found[0].body and "<html" not in found[0].body
+    assert "Meera's Eggless Bakes" in found[0].subject

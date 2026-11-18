@@ -1,6 +1,7 @@
 """Read the demo inbox (IMAP over SSL) to prove a test order arrived."""
 
 import email
+import email.policy
 import imaplib
 import time
 from dataclasses import dataclass
@@ -64,7 +65,7 @@ class ImapInboxReader:
             _, data = conn.search(None, *criteria)
             for num in data[0].split():
                 _, parts = conn.fetch(num, "(INTERNALDATE RFC822)")
-                msg = email.message_from_bytes(parts[0][1])
+                msg = email.message_from_bytes(parts[0][1], policy=email.policy.default)  # S17: get_body() for multipart mail
                 at = received_at(parts[0][0], msg)
                 if since is not None and (at is None or at < _aware(since)):
                     continue  # an old email must never pass
