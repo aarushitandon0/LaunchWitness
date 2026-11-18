@@ -21,6 +21,14 @@ services:
       MONITOR_ENABLED: "true"
       WEB_CONCURRENCY: "1"
     restart: unless-stopped
+    # Public DNS for the app only (S17). The VPS's own resolvers (GoDaddy's internal 10.255.x servers) give WRONG
+    # answers for some addresses (example.com came back as a GoDaddy IP with no SPF), which broke "Check any
+    # address" and would mislead monitoring. Docker's built-in DNS still answers container names (caddy, app) and
+    # forwards everything else here. Do not remove: see docs/SECURITY.md "DNS the app trusts".
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+      - 9.9.9.9
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3).status==200 else 1)"]
       interval: 30s

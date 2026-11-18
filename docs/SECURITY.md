@@ -52,6 +52,14 @@ forms, never emails the watched domain, and changes nothing there. Signed-in use
 to 10 a day, a daily job (not on demand), one email per new problem to the user's own verified address. The address is not
 written to the audit log. Tests: `test_s105b_watch.py`.
 
+## DNS the app trusts (S17, 2026-11-19 IST)
+
+The **app** container uses public DNS (8.8.8.8, 1.1.1.1, 9.9.9.9; `dns:` in `deploy/docker-compose.prod.yml`), not the VPS's own
+resolvers. GoDaddy's internal servers (10.255.251.80 / 10.255.250.80) gave wrong answers for some addresses: example.com came back as a
+GoDaddy IP (64.202.167.129) with no SPF, so "Check any address" reported problems that weren't there and connected to the wrong server.
+Docker's built-in DNS still answers container names (`app`, `caddy`) and forwards the rest. Caddy keeps the host's resolvers.
+**Do not remove it.** The demo shop's launch checks passed both before and after the switch.
+
 ## Still open (honest list)
 
 - **The admin is whoever reads `ADMIN_EMAIL`'s inbox.** No second factor in the beta.

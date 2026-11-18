@@ -33,6 +33,10 @@ running app, an outside-in test order over the internet, an IMAP delivery proof,
 
 ---
 
+> **S17 (2026-11-19): the app container uses public DNS on purpose** (8.8.8.8, 1.1.1.1, 9.9.9.9 via `dns:` in
+> `deploy/docker-compose.prod.yml`). The VPS's GoDaddy resolvers give wrong answers for some addresses (example.com → a GoDaddy IP, no SPF).
+> Don't "fix" it back; details in `docs/SECURITY.md` "DNS the app trusts".
+
 ## 0. Before you touch anything (laptop, 5 min)
 
 - **Write down what `A @` points to now** (GoDaddy's parked page): godaddy.com → launchwitness.com → DNS → the `A @`
