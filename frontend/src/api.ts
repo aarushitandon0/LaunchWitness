@@ -378,6 +378,7 @@ export type Report = {
     finished_at: string | null;
     checks: CheckRow[];
     repairs: Repair[];
+    info?: { waiting_for?: string };
   } | null;
   monitoring: {
     enabled: boolean;

@@ -353,8 +353,17 @@ export function ReportPage({ businessId }: { businessId: number }) {
               <Spinner />
             </span>
             <div className="body">
-              <div className="title">Running every check…</div>
-              <div className="muted when">Results appear here in a moment.</div>
+              {run.info?.waiting_for === "test_email" ? (
+                <>
+                  <div className="title">Waiting for the test email to arrive (up to 2 minutes)…</div>
+                  <div className="muted when">Your website and its settings are checked. We stop as soon as the email shows up.</div>
+                </>
+              ) : (
+                <>
+                  <div className="title">Running every check…</div>
+                  <div className="muted when">Results appear here in a moment.</div>
+                </>
+              )}
             </div>
           </li>
         </ul>

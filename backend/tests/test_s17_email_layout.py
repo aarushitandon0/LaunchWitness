@@ -138,12 +138,15 @@ def test_imap_reader_reads_the_plain_part_of_branded_mail(monkeypatch, make_sett
             pass
 
         def select(self, *a, **k):
-            pass
+            return "OK", [b"1"]
 
         def search(self, *a):
             return "OK", [b"1"]
 
         def fetch(self, num, what):
+            if "HEADER.FIELDS" in what:  # S17 header scan of the newest messages
+                head = b"Subject: " + msg["Subject"].encode() + b"\r\n\r\n"
+                return "OK", [(b"1 (BODY[HEADER.FIELDS (SUBJECT)] {10}", head), b")"]
             return "OK", [(b'1 (INTERNALDATE "19-Nov-2026 01:31:55 +0530" RFC822 {%d}' % len(raw), raw)]
 
     monkeypatch.setattr(imap.imaplib, "IMAP4_SSL", Conn)

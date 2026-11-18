@@ -21,7 +21,7 @@ from app.agents.planner import DKIM_PENDING
 from app.agents.reader import Profile
 from app.checks.dns_resolver import lookup
 from app.mail.providers import provider_for
-from app.models import CheckResult, Order, Outbox, utcnow
+from app.models import CheckResult, CheckRun, Order, Outbox, utcnow
 from app.sites.orders import order_recipients
 
 
@@ -268,15 +268,22 @@ def check_test_order(ctx: Ctx) -> Outcome:
         return Outcome("test_order", True, "The mail server accepted a test order for you. Tap “Yes, I got it” "
                        "in that email to prove it reached your inbox.", f"order {order.ref} code {ticket.nonce}",
                        waiting=True)
-    tries = 3 if ctx.inbox_wait else 1
-    for i in range(tries):
-        if ctx.integ.inbox.find(subject_contains=ticket.nonce, since=started - timedelta(minutes=2)):
-            evidence(ctx, "test_order", "imap_seen", nonce=ticket.nonce,
-                     server="pretend inbox" if fake else ctx.settings.imap_host, source=ctx.settings.imap_user)
-            return Outcome("test_order", True, "A test order reached your inbox.",
-                           f"order {order.ref} code {ticket.nonce} found")
-        if i < tries - 1:
-            ctx.integ.sleep(20)
+    gaps = list(INBOX_GAPS) if ctx.inbox_wait else []
+    if gaps:
+        run_waiting(ctx, "test_email")  # the report says what we're waiting for, so it doesn't look stuck
+    try:
+        while True:
+            if ctx.integ.inbox.find(subject_contains=ticket.nonce, since=started - timedelta(minutes=2)):
+                evidence(ctx, "test_order", "imap_seen", nonce=ticket.nonce,
+                         server="pretend inbox" if fake else ctx.settings.imap_host, source=ctx.settings.imap_user)
+                return Outcome("test_order", True, "A test order reached your inbox.",
+                               f"order {order.ref} code {ticket.nonce} found")
+            if not gaps:
+                break
+            ctx.integ.sleep(gaps.pop(0))
+    finally:
+        if ctx.inbox_wait:
+            run_waiting(ctx, None)
     if not ctx.inbox_wait:  # S13 B (monitoring): "accepted" is recorded; "seen" is looked for in a later short pass
         ctx.pending_inbox.append({"nonce": ticket.nonce, "since": (started - timedelta(minutes=2)).isoformat(),
                                   "ref": order.ref})
@@ -284,7 +291,33 @@ def check_test_order(ctx: Ctx) -> Outcome:
                        "the inbox again in a minute.", f"order {order.ref} code {ticket.nonce}: accepted, "
                        "inbox looked at once, looking again later", waiting=True)
     return Outcome("test_order", False, "A test order was sent but hasn't arrived in your inbox.",
-                   f"order {order.ref} code {ticket.nonce} not found in {ctx.settings.imap_user}")
+                   f"order {order.ref} code {ticket.nonce} not found in {ctx.settings.imap_user} "
+                   f"after {INBOX_WAIT_S} s")
+
+
+# S17: how long a launch / "Check again" waits for the test email: a look at once, then every 5 s for the first 30 s,
+# then every 10 s, up to 120 s in all; it stops at the first look that finds it. (Scheduled monitoring doesn't wait
+# here: it looks again in later passes, monitor/scheduler.py INBOX_PASSES.)
+INBOX_WAIT_S = 120
+INBOX_GAPS = (5,) * 6 + (10,) * 9
+assert sum(INBOX_GAPS) == INBOX_WAIT_S
+
+
+def run_waiting(ctx: Ctx, what: str | None) -> None:
+    """Mark the running CheckRun as waiting for something (shown on the report), or clear the mark."""
+    if not ctx.run_id:
+        return
+    run = ctx.session.get(CheckRun, ctx.run_id)
+    if run is None or run.status != "running":
+        return
+    info = json.loads(run.info_json or "{}")
+    if what:
+        info["waiting_for"] = what
+    else:
+        info.pop("waiting_for", None)
+    run.info_json = json.dumps(info)
+    ctx.session.add(run)
+    ctx.session.commit()
 
 
 def check_settings_match(ctx: Ctx) -> Outcome:

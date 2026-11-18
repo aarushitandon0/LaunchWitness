@@ -54,6 +54,8 @@ class ImapInboxReader:
         self._password = settings.imap_password
 
     def find(self, *, subject_contains: str, since: datetime | None = None) -> list[InboxMessage]:
+        """Search, AND (S17) read the subjects of the newest RECENT_SCAN messages: the mail server's search index
+        can lag behind new mail by tens of seconds, so either way of finding it counts."""
         out: list[InboxMessage] = []
         criteria = ["SUBJECT", f'"{subject_contains}"']
         if since is not None:  # IMAP SINCE only knows whole days; the exact time is checked below
@@ -61,9 +63,10 @@ class ImapInboxReader:
             criteria += ["SINCE", f"{day.day:02d}-{MONTHS[day.month - 1]}-{day.year}"]
         with imaplib.IMAP4_SSL(self.host, self.port, timeout=30) as conn:
             conn.login(self.user, self._password.get_secret_value())
-            conn.select("INBOX", readonly=True)
+            _, count = conn.select("INBOX", readonly=True)  # read-only: nothing is marked as read
             _, data = conn.search(None, *criteria)
-            for num in data[0].split():
+            nums = list(dict.fromkeys(data[0].split() + recent_matches(conn, count, subject_contains)))
+            for num in nums:
                 _, parts = conn.fetch(num, "(INTERNALDATE RFC822)")
                 msg = email.message_from_bytes(parts[0][1], policy=email.policy.default)  # S17: get_body() for multipart mail
                 at = received_at(parts[0][0], msg)
@@ -81,6 +84,29 @@ class ImapInboxReader:
                     )
                 )
         return out
+
+
+RECENT_SCAN = 20  # newest messages whose subjects are read directly on every look
+
+
+def recent_matches(conn, count, text: str) -> list[bytes]:
+    """Sequence numbers among the newest RECENT_SCAN messages whose (unfolded, decoded) subject contains `text`."""
+    try:
+        total = int((count or [b"0"])[0] or 0)
+    except (TypeError, ValueError):
+        return []
+    if total <= 0:
+        return []
+    first = max(1, total - RECENT_SCAN + 1)
+    _, parts = conn.fetch(f"{first}:{total}".encode(), "(BODY.PEEK[HEADER.FIELDS (SUBJECT)])")
+    found = []
+    for part in parts or []:
+        if not isinstance(part, tuple) or len(part) < 2:
+            continue
+        subject = str(email.message_from_bytes(part[1], policy=email.policy.default).get("Subject", ""))
+        if text in subject:
+            found.append(part[0].split()[0])
+    return found
 
 
 class FakeInboxReader:
