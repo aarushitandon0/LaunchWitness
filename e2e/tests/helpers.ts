@@ -113,6 +113,8 @@ export async function describe(page: Page, opts: { guest?: boolean; here?: boole
   if (!opts.here) await page.goto(opts.guest ? "/#/try" : "/#/new");
   await expect(page.getByRole("heading", { name: "Describe your business" })).toBeVisible();
   await page.getByLabel("About your business").fill(SELLER.description);
+  // S17: items are rows with photos by default; the whole pasted list is one click away (m-s17 covers the rows)
+  await page.getByRole("button", { name: "Paste a whole list instead" }).click();
   await page.getByLabel("Price list", { exact: true }).fill(SELLER.price_list);
   await page.getByRole("button", { name: "Make my website" }).click();
   await page.waitForURL(/#\/b\/\d+$/);

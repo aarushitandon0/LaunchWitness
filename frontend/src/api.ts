@@ -337,7 +337,13 @@ export type PhotoOut = {
   large_w: number;
   large_h: number;
 };
-export type PhotoList = { shop: PhotoOut[]; items: Record<string, PhotoOut>; max_shop: number; max_mb: number };
+export type PhotoList = {
+  shop: PhotoOut[];
+  items: Record<string, PhotoOut>;
+  max_shop: number;
+  max_mb: number;
+  matched?: string[]; // after an upload: the item(s) it went to
+};
 
 export type DemoFaultName = "" | "dmarc" | "mx" | "a_record" | "smtp_login" | "cert" | "marker";
 
@@ -561,6 +567,13 @@ export const api = {
     const form = new FormData();
     form.append("file", file);
     if (item) form.append("item", item);
+    return request<PhotoList>(`/api/businesses/${id}/photos`, { method: "POST", body: form });
+  },
+  /** S17: a photo from the Describe list, by what she typed; the server finds the item the Reader made from it. */
+  addItemPhoto: (id: number, file: File, typedName: string) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("item_hint", typedName);
     return request<PhotoList>(`/api/businesses/${id}/photos`, { method: "POST", body: form });
   },
   removePhoto: (id: number, photoId: number) =>

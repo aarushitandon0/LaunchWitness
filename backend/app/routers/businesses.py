@@ -523,32 +523,42 @@ def list_photos(b: Annotated[Business, Depends(require_business_access)],
 async def upload_photo(b: Annotated[Business, Depends(require_business_access)], actor: ActorDep,
                        session: Annotated[Session, Depends(get_session)],
                        file: Annotated[UploadFile, File()], item: Annotated[str, Form(max_length=120)] = "",
-                       alt: Annotated[str, Form(max_length=200)] = "") -> dict:
+                       alt: Annotated[str, Form(max_length=200)] = "",
+                       item_hint: Annotated[str, Form(max_length=200)] = "") -> dict:
     """One photo: for the shop (item "") or for one of its items (by the item's name). Checked by content, re-encoded,
-    stripped (app/photos.py). Audited without the image itself."""
+    stripped (app/photos.py). Audited without the image itself.
+    S17 `item_hint`: what the seller typed in a row of her list on the Describe step, before the Reader tidied the
+    name. The server finds the item(s) made from it (photos.match_item); no match is a plain refusal, nothing stored."""
     from datetime import timedelta
 
     from app import photos
 
     profile = Profile.model_validate_json(b.profile_json)
-    if item and item not in {p.name for p in profile.products}:
+    names = [p.name for p in profile.products]
+    if item and item not in names:
         raise HTTPException(status_code=422, detail="That item isn't on your list any more. Refresh the page.")
+    targets = [item.strip()] if item else (photos.match_item(item_hint, names) if item_hint.strip() else [""])
+    if not targets:
+        raise HTTPException(status_code=422, detail=f"We couldn't find “{item_hint.strip()[:60]}” on your list. "
+                            "Add its photo on the next page, next to the item.")
     recent = session.exec(select(AuditEvent.id).where(
         AuditEvent.business_id == b.id, AuditEvent.action == "photo_added",
         AuditEvent.created_at >= utcnow() - timedelta(days=1))).all()
     if len(recent) >= PHOTO_UPLOADS_PER_DAY:
         raise HTTPException(status_code=429, detail="That's a lot of photos for one day. Please try again tomorrow.")
     data = await file.read(photos.MAX_UPLOAD_BYTES + 1)
-    try:
-        row = photos.add(session, b.id, data, item=item.strip(), alt=alt.strip() or (item.strip() or profile.name))
-    except photos.PhotoRefused as e:
-        audit.record(session, actor=actor.label, action="photo_refused", target=f"business:{b.id}", result="refused",
-                     business_id=b.id, user_id=actor.user_id, detail=str(e)[:200])
-        raise HTTPException(status_code=422, detail=str(e)) from None
-    audit.record(session, actor=actor.label, action="photo_added", target=f"photo:{row.id}", result="ok",
-                 business_id=b.id, user_id=actor.user_id,
-                 detail=f"{'item' if row.item else 'shop'} photo, {len(row.small) + len(row.large)} bytes after re-encoding")
-    return photo_list(session, b)
+    for target in targets:  # one item, or (S17) each size of the item she named without a size
+        try:
+            row = photos.add(session, b.id, data, item=target, alt=alt.strip() or (target or profile.name))
+        except photos.PhotoRefused as e:
+            audit.record(session, actor=actor.label, action="photo_refused", target=f"business:{b.id}",
+                         result="refused", business_id=b.id, user_id=actor.user_id, detail=str(e)[:200])
+            raise HTTPException(status_code=422, detail=str(e)) from None
+        audit.record(session, actor=actor.label, action="photo_added", target=f"photo:{row.id}", result="ok",
+                     business_id=b.id, user_id=actor.user_id,
+                     detail=f"{'item' if row.item else 'shop'} photo, {len(row.small) + len(row.large)} bytes after "
+                            "re-encoding" + (" (matched from the Describe list)" if item_hint.strip() and not item else ""))
+    return photo_list(session, b) | {"matched": [t for t in targets if t]}
 
 
 @router.delete("/businesses/{business_id}/photos/{photo_id}")

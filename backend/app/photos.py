@@ -8,6 +8,7 @@ no colour profile, no embedded thumbnail, no trailing bytes.
 """
 
 import io
+import re
 import secrets
 import warnings
 
@@ -116,6 +117,53 @@ def for_site(session: Session, business_id: int | None, base: str = "") -> dict:
         return {"shop": [], "items": {}}
     return {"shop": [out(p, base) for p in shop_photos(session, business_id)],
             "items": {k: out(p, base) for k, p in item_photos(session, business_id).items()}}
+
+
+_FRACTIONS = {"½": " 1/2 ", "¼": " 1/4 ", "¾": " 3/4 "}
+_STOP = {"of", "with", "and", "the", "a", "an", "for", "in"}
+_UNITS = {"kg", "kgs", "g", "gm", "gms", "gram", "grams", "ml", "l", "litre", "liter", "pc", "pcs", "piece", "pieces"}
+MAX_TIED = 3  # "Cake" on a menu of five cakes says nothing: no match rather than a photo on every cake
+
+
+def _tokens(text: str) -> set[str]:
+    t = text.lower()
+    for k, v in _FRACTIONS.items():
+        t = t.replace(k, v)
+    t = re.sub(r"[^a-z0-9/]+", " ", t)
+    out = set()
+    for w in t.split():
+        if w in _STOP:
+            continue
+        out.add(w[:-1] if len(w) > 3 and w.endswith("s") and not w.endswith("ss") else w)  # cupcakes ~ cupcake
+    return out
+
+
+def _is_size(token: str) -> bool:
+    return token in _UNITS or bool(re.fullmatch(r"[0-9/.]+", token))
+
+
+def match_item(typed: str, names: list[str]) -> list[str]:
+    """S17: the item(s) the Reader made from what the seller typed in one row of her list. Most of her words must be in
+    the item's name, including at least one real word (not just a size). The best score wins; a tie (she typed no
+    size, the Reader made one item per size) gets the photo on each, up to MAX_TIED. No good match: []."""
+    want = _tokens(typed)
+    if not want or not any(not _is_size(w) for w in want):
+        return []
+    scored = []
+    for name in names:
+        have = _tokens(name)
+        common = want & have
+        if not any(not _is_size(w) for w in common):
+            continue
+        coverage = len(common) / len(want)
+        if coverage < 0.6:
+            continue
+        scored.append((coverage + 0.1 * len(common) / len(want | have), name))
+    if not scored:
+        return []
+    best = max(s for s, _ in scored)
+    tied = [n for s, n in scored if abs(s - best) < 1e-9]
+    return tied if len(tied) <= MAX_TIED else []
 
 
 def follow_items(session: Session, business_id: int, old: list[str], new: list[str]) -> None:

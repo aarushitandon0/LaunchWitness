@@ -776,3 +776,12 @@ fieldset.field > legend { font-weight: 600; padding: 0; margin-bottom: 0.35rem; 
 .order-where { margin: 0.4rem 0; font-size: var(--fs-sm); }
 .order-pay { font-weight: 600; margin: 0.25rem 0; }
 .pay-chip { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 999px; background: var(--surface-2, #eef2f7); font-size: var(--fs-sm); }
+
+/* S17: Describe step, one row per item with its own photo */
+.item-list { list-style: none; margin: var(--s-2) 0 0; padding: 0; display: grid; gap: var(--s-3); }
+.item-entry { display: grid; gap: var(--s-2); padding: var(--s-3); border: 1px solid var(--line); border-radius: var(--r-sm); }
+.item-entry-fields { display: grid; grid-template-columns: minmax(0, 1fr) 8.5rem; gap: var(--s-2); }
+@media (max-width: 480px) { .item-entry-fields { grid-template-columns: minmax(0, 1fr); } .item-price { max-width: 10rem; } }
+.item-rows .actions { margin: var(--s-3) 0 0; }
+.link-like { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; }
+.error { color: var(--danger); margin: 0; }
