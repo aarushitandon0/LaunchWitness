@@ -14,6 +14,7 @@ from email.utils import make_msgid
 from typing import Protocol
 
 from app.config import Settings
+from app.mail import layout
 
 log = logging.getLogger(__name__)
 
@@ -63,8 +64,8 @@ class SmtpMailer:
         msg["Subject"] = subject
         msg["Message-ID"] = message_id or make_msgid(domain=self.user.split("@")[-1])
         msg.set_content(body)
-        if html:
-            msg.add_alternative(html, subtype="html")
+        # S17: mail sent straight from here (not through the outbox) gets the same branded layout
+        msg.add_alternative(html or layout.wrap(None, subject, body), subtype="html")
         with self._connect(timeout or TIMEOUT_S) as s:
             if self.security != "plain" or self._password.get_secret_value():
                 s.login(self.user, self._password.get_secret_value())

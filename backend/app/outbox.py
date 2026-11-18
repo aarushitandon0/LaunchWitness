@@ -29,6 +29,7 @@ from sqlmodel import Session, select
 
 from app import audit
 from app.config import Settings
+from app.mail import layout
 from app.mail.smtp import Mailer
 from app.models import Order, Outbox, utcnow
 
@@ -160,7 +161,8 @@ def attempt(session: Session, settings: Settings, mailer: Mailer, row_id: int, *
     session.refresh(row)
     ref = json.loads(row.ref_json or "{}")
     try:
-        message_id = mailer.send(to=row.to_addr, subject=row.subject, body=row.body, html=row.html or None,
+        html = row.html or layout.wrap(row.kind, row.subject, row.body)  # S17: every email in the branded layout
+        message_id = mailer.send(to=row.to_addr, subject=row.subject, body=row.body, html=html,
                                  message_id=ref.get("planned_id"), timeout=timeout)
     except Exception as e:
         if permanent(e) or row.attempts >= MAX_ATTEMPTS:

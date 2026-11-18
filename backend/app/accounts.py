@@ -8,7 +8,6 @@ that POSTs the token: merely opening the link (as mail scanners do) uses nothing
 import re
 import secrets
 from datetime import timedelta
-from html import escape
 
 from fastapi import Response
 from sqlalchemy import update
@@ -83,23 +82,21 @@ def link_url(settings: Settings, page: str, raw: str, next_: str = "") -> str:
 
 
 def link_email(kind: str, url: str) -> tuple[str, str, str]:
-    """(subject, plain text, simple HTML) for a sign-in or delete-account link."""
+    """(subject, plain text, HTML) for a sign-in or delete-account link, in the shared layout (app/mail/layout.py)."""
+    from app.mail import layout
+
     if kind == "login":
-        subject, lead, button = "Your LaunchWitness sign-in link", "Tap the button to sign in to LaunchWitness.", "Sign in"
+        subject, heading, lead, button = ("Your LaunchWitness sign-in link", "Sign in to LaunchWitness",
+                                          "Tap the button to sign in to LaunchWitness.", "Sign in")
         tail = "If you didn't ask for this, you can ignore this email. Nobody can sign in without this link."
     else:
-        subject, lead, button = ("Confirm deleting your LaunchWitness account",
-                                 "Tap the button to confirm that you want to delete your LaunchWitness account.",
-                                 "Review and delete")
+        subject, heading, lead, button = ("Confirm deleting your LaunchWitness account", "Delete your account",
+                                          "Tap the button to confirm that you want to delete your LaunchWitness account.",
+                                          "Review and delete")
         tail = "If you didn't ask for this, ignore this email and nothing will be deleted."
-    text = f"{lead}\n\n{url}\n\nThe link works once, for {TOKEN_MINUTES} minutes.\n{tail}\n\n- LaunchWitness"
-    html = (f'<div style="font-family:system-ui,Arial,sans-serif;font-size:16px;line-height:1.5;color:#1f2937;max-width:480px">'
-            f"<p>{escape(lead)}</p>"
-            f'<p><a href="{escape(url, quote=True)}" style="display:inline-block;padding:12px 20px;border-radius:10px;'
-            f'background:#1f2937;color:#ffffff;text-decoration:none;font-weight:600">{button}</a></p>'
-            f"<p>The link works once, for {TOKEN_MINUTES} minutes.<br>{escape(tail)}</p>"
-            f'<p style="color:#6b7280;font-size:14px">If the button doesn\'t work, copy this address into your browser:<br>'
-            f"{escape(url)}</p><p>- LaunchWitness</p></div>")
+    text, html = layout.render(heading=heading, lead=lead, button=(button, url),
+                               after=f"The link works once, for {TOKEN_MINUTES} minutes.\n{tail}",
+                               why=layout.WHY["login" if kind == "login" else "delete"])
     return subject, text, html
 
 
