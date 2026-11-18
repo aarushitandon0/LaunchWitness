@@ -84,3 +84,28 @@ def test_smtp_message_is_multipart_alternative(monkeypatch, make_settings):
     assert msg.get_content_type() == "multipart/alternative"
     assert msg.get_body(("plain",)).get_content().strip() == "plain words here"
     assert layout.LOGO_URL in msg.get_body(("html",)).get_content()
+
+
+# ---- S17 VPS launch: the app's own inbox, while the real GoDaddy mailbox client is still a stub ----
+
+def _mailbox_ctx(address, login_result):
+    from types import SimpleNamespace
+
+    from app.godaddy.email import TitanMailboxProvider
+
+    mailer = SimpleNamespace(login_test=lambda: login_result)
+    return SimpleNamespace(plan=SimpleNamespace(mailbox=address), settings=SimpleNamespace(smtp_user="hello@launchwitness.com"),
+                           integ=SimpleNamespace(mailbox=TitanMailboxProvider(), mailer=mailer))
+
+
+def test_app_inbox_step_signs_in_when_provider_is_a_stub():
+    import pytest
+
+    from app.agents.executor import StepFailed, step_use_app_mailbox
+
+    assert step_use_app_mailbox(_mailbox_ctx("hello@launchwitness.com", "ok: connected and signed in")) == \
+        "Orders will arrive at hello@launchwitness.com."
+    with pytest.raises(StepFailed):
+        step_use_app_mailbox(_mailbox_ctx("hello@launchwitness.com", "login refused: no"))
+    with pytest.raises(NotImplementedError):  # someone else's mailbox still needs the real client
+        step_use_app_mailbox(_mailbox_ctx("shop@example.com", "ok: connected and signed in"))

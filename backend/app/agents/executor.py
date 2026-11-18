@@ -212,7 +212,20 @@ def step_get_domain(ctx: Ctx) -> str:
 
 
 def step_use_app_mailbox(ctx: Ctx) -> str:
-    if ctx.integ.mailbox.find(ctx.plan.mailbox) is None:
+    address = ctx.plan.mailbox
+    try:
+        found = ctx.integ.mailbox.find(address)
+    except NotImplementedError:
+        # S17: the real GoDaddy mailbox client isn't built yet. The app's OWN inbox needs no provider lookup:
+        # signing in to it proves it exists and works (nothing is sent).
+        if address != ctx.settings.smtp_user or not hasattr(ctx.integ.mailer, "login_test"):
+            raise
+        result = ctx.integ.mailer.login_test()
+        if not result.startswith("ok"):
+            raise StepFailed("We couldn't open the LaunchWitness inbox, so we can't receive your orders yet.",
+                             f"app mailbox {address}: {result}") from None
+        return f"Orders will arrive at {address}."
+    if found is None:
         raise StepFailed("The LaunchWitness inbox isn't set up yet, so we can't receive your orders.",
                          f"app mailbox {ctx.plan.mailbox} not found")
     return f"Orders will arrive at {ctx.plan.mailbox}."
