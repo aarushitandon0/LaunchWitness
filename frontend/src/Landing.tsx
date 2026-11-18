@@ -288,10 +288,10 @@ export default function Landing() {
             <p className="eyebrow">Read-only check</p>
             <h2 id="check-title">Check any address</h2>
             <p className="tagline">
-              Already have a website? Type its address and we'll look, from the outside, at whether it opens securely and
-              whether its email is set up so orders don't land in spam. We only read public information: we change
-              nothing, send no email and keep nothing about the address. Signed in, you can ask us to watch up to three
-              addresses this way every day.
+              Already have a website? Type its address and we'll look from the outside at whether it opens securely, and
+              whether the public email settings that help messages arrive (and stay out of spam) are in place. We only
+              read public information: we change nothing, send no email, and keep nothing about the address. Signed in,
+              you can ask us to watch up to three addresses this way every day.
             </p>
             <CheckAnyAddress />
           </Reveal>

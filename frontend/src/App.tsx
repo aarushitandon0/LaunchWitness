@@ -119,13 +119,8 @@ const routeKey = (r: Route) =>
   `${r.page}-${"businessId" in r ? r.businessId : ""}-${"planId" in r ? r.planId : ""}`;
 
 export function LogoMark() {
-  return (
-    <svg className="logo-mark" viewBox="0 0 24 24" aria-hidden>
-      <circle cx="12" cy="12" r="10.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
-      <circle cx="12" cy="12" r="5" fill="var(--accent)" />
-      <path d="M9.6 12.1l1.6 1.6 3.2-3.3" fill="none" stroke="var(--accent-ink)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  // alt="" on purpose: the "LaunchWitness" wordmark is right next to it.
+  return <img className="logo-mark" src="/logo-mark-64.png" srcSet="/logo-mark-64.png 1x, /logo-mark-128.png 2x" width={30} height={30} alt="" />;
 }
 
 const SHOP_PAGES: Route["page"][] = ["shops", "describe", "review", "launch", "plan", "report", "orders"];

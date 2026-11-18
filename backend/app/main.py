@@ -21,12 +21,26 @@ from app.routers import admin, auth, businesses, contact, health, internal, laun
 from app.safety.request_guard import request_guard
 from app.sites import demo as demo_routes
 from app.sites import routes as seller_routes
+from app.sites.brand import ICON_LINKS
 
 FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
 REPLAY_PAGE = REPO_ROOT / "replay" / "build.html"  # built by scripts/build-replay.sh, served at /build
 
+# LaunchWitness's own icons (frontend/public, copied into dist by Vite; made by scripts/make_brand_assets.py).
+# Served only on the app's own host: a shop host never reaches this list (seller_page answers first).
+BRAND_FILES = {
+    "favicon.ico": "image/x-icon",
+    "favicon-32.png": "image/png",
+    "apple-touch-icon.png": "image/png",
+    "icon-192.png": "image/png",
+    "icon-512.png": "image/png",
+    "logo-mark-64.png": "image/png",
+    "logo-mark-128.png": "image/png",
+    "site.webmanifest": "application/manifest+json",
+}
+
 BUILD_COMING_SOON = """<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>How LaunchWitness was built</title>
+<title>How LaunchWitness was built</title>""" + ICON_LINKS + """
 <body style="font-family:system-ui;max-width:560px;margin:15vh auto;padding:0 16px;color:#1f2937;line-height:1.5">
 <h1>How this was built: coming soon</h1>
 <p>LaunchWitness was built in a series of sessions with Claude Code. The full replay of those sessions will appear
@@ -148,6 +162,9 @@ def create_app(*, frontend_dist: Path = FRONTEND_DIST, replay_page: Path = REPLA
         page = seller_routes.seller_page(path, request, settings, session)
         if page is not None:
             return page
+        if path in BRAND_FILES and (frontend_dist / path).is_file():
+            return FileResponse(frontend_dist / path, media_type=BRAND_FILES[path],
+                                headers={"Cache-Control": "public, max-age=86400"})
         if path.rstrip("/") == "build":
             if replay_page.is_file():
                 return FileResponse(replay_page, media_type="text/html")

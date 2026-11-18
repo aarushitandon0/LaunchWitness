@@ -23,6 +23,7 @@ from app.db import get_session
 from app.models import AddressCheck, Business, CheckRun, ReportShare, utcnow
 from app.routers.report import OWNER_RUNS, run_out
 from app.safety.access import ActorDep, require_business_access, sha, visitor_id
+from app.sites.brand import ICON_LINKS
 
 router = APIRouter(tags=["proof"])
 
@@ -91,7 +92,7 @@ def revoke_all(session: Session, business_id: int) -> int:
 
 
 GONE = ("<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>"
-        "<title>Report not available</title><body style='font-family:system-ui;max-width:36rem;margin:3rem auto;"
+        "<title>Report not available</title>" + ICON_LINKS + "<body style='font-family:system-ui;max-width:36rem;margin:3rem auto;"
         "padding:0 1rem'><h1>This report isn't available</h1><p>The link may have been turned off by the shop owner.</p>")
 
 
@@ -214,6 +215,7 @@ def render_shared(b: Business, run: dict | None, summary: dict, receipt: str = "
     stale = "<p style='color:#888'>These results are more than a day old.</p>" if summary.get("stale") else ""
     return ("<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport content='width=device-width,"
             "initial-scale=1'><meta name=robots content=noindex><title>Launch proof · " + escape(b.name) + "</title>"
+            + ICON_LINKS +
             "<body style='font-family:system-ui,Arial,sans-serif;max-width:40rem;margin:2rem auto;padding:0 1rem;"
             "line-height:1.5;color:#1f2937'><p style='color:#6b7280'>LaunchWitness launch proof</p><h1>"
             + escape(b.name) + "</h1>" + label + f"<p><strong>{escape(head)}</strong>"
