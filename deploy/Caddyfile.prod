@@ -54,6 +54,13 @@
 	import app
 }
 
+# www (the owner's CNAME to @): its own certificate, then a permanent redirect to the app. Never a shop
+# ("www" is a reserved shop name, so /internal/tls-ask would refuse it in the on-demand block below).
+www.{$APP_DOMAIN} {
+	header Strict-Transport-Security "max-age=31536000"
+	redir https://{$APP_DOMAIN}{uri} permanent
+}
+
 # Shops: <slug>.{$APP_DOMAIN}. One A record per live shop (no wildcard), certificate on first visit.
 https:// {
 	tls {

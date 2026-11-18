@@ -45,6 +45,20 @@ else
   APP_DOMAIN="$(envval APP_DOMAIN)"
   SERVER_IP="$(envval SERVER_IP)"
   CURL=(curl -sS --max-time 20)
+  # STAGING_OK=1: Caddy is still on Let's Encrypt STAGING (docs/NEXT_SESSION_VPS.md step 5). Accept that
+  # certificate ONLY after checking that the one served for the app domain really is a staging one for that
+  # name; everything else is checked as usual. Never set this once the real CA is in use.
+  if [ "${STAGING_OK:-}" = 1 ]; then
+    stg="$(echo | openssl s_client -connect "$APP_DOMAIN:443" -servername "$APP_DOMAIN" 2>/dev/null \
+      | openssl x509 -noout -issuer -subject 2>/dev/null)"
+    # OpenSSL 3.0 prints "O = Let's Encrypt, CN = (STAGING) ...", 3.2+ prints "O=Let's Encrypt, CN=(STAGING) ...".
+    if echo "$stg" | grep -q "O *= *Let's Encrypt, CN *= *(STAGING)" && echo "$stg" | grep -q "CN *= *$APP_DOMAIN\$"; then
+      echo "WARN: STAGING_OK=1: accepting the Let's Encrypt STAGING certificate for $APP_DOMAIN (not trusted by browsers)"
+      CURL+=(-k)
+    else
+      echo "FAIL: STAGING_OK=1 but $APP_DOMAIN doesn't serve a Let's Encrypt staging certificate for itself"; exit 1
+    fi
+  fi
 fi
 BASE="https://$APP_DOMAIN"
 echo "Stack check for $BASE (server $SERVER_IP)$($LOCAL && echo ', LOCAL stack')"

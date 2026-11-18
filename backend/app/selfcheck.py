@@ -62,11 +62,39 @@ def database_writable(settings: Settings) -> bool:
         return False
 
 
+def comment_settings(settings: Settings) -> list[str]:
+    """Names (never values) of settings whose value is a comment: `NAME=   # note` in .env reaches the app as
+    '# note' when nothing precedes the # (Docker's env-file reader keeps it)."""
+    names = []
+    for name in type(settings).model_fields:
+        v = getattr(settings, name, None)
+        if hasattr(v, "get_secret_value"):
+            v = v.get_secret_value()
+        if isinstance(v, str) and v.lstrip().startswith("#"):
+            names.append(name.upper())
+    return names
+
+
+def origin_valid(settings: Settings) -> bool:
+    """The CSRF origin must be scheme://host, or every sign-in and form is refused as 'out of date'."""
+    from urllib.parse import urlsplit
+
+    u = urlsplit(settings.origin)
+    return u.scheme in ("http", "https") and bool(u.netloc)
+
+
 def warnings(settings: Settings, today: date | None = None) -> list[Warning_]:
     from app.safety.access import admin_token_enabled
 
     out: list[Warning_] = []
     add = lambda code, text, public=False: out.append(Warning_(code, text, public))  # noqa: E731
+    commented = comment_settings(settings)
+    if commented:
+        add("setting_is_a_comment", f"These settings hold a comment instead of a value: {', '.join(commented)}. "
+            "In .env put the comment on its own line, or leave the value truly empty.")
+    if not origin_valid(settings):
+        add("app_origin_invalid", "APP_ORIGIN / APP_BASE_URL isn't scheme://host: every sign-in and form will be "
+            "refused as 'out of date'.")
     if not settings.admin_email.strip():
         add("admin_email_unset", "ADMIN_EMAIL is not set: nobody can open the team page.")
     if not admin_token_enabled(settings):

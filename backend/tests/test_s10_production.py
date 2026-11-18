@@ -179,6 +179,31 @@ def test_selfcheck_names_each_wrong_setting(make_settings):
     assert "smtp_not_configured" in codes(make_settings(dev_mode=False, smtp_password=""))
 
 
+def test_selfcheck_flags_a_comment_read_as_a_value(make_settings):
+    """VPS day (S17): `APP_ORIGIN=   # comment` in .env reached the app as the comment itself (Docker keeps it
+    when nothing precedes the #). The origin became '://' and every sign-in was refused as 'out of date'."""
+    s = make_settings(app_origin="# scheme://host of the app for CSRF checks", smtp_password="# mailbox password")
+    found = {w.code: w.text for w in __import__("app.selfcheck", fromlist=["warnings"]).warnings(s)}
+    assert "app_origin_invalid" in found
+    assert "setting_is_a_comment" in found
+    assert "APP_ORIGIN" in found["setting_is_a_comment"] and "SMTP_PASSWORD" in found["setting_is_a_comment"]
+    assert "mailbox password" not in " ".join(found.values())  # names only, never the value
+    assert "app_origin_invalid" in codes(make_settings(app_origin="launchwitness.com"))
+    assert "app_origin_invalid" not in codes(make_settings(dev_mode=False, app_origin="",
+                                                           app_base_url="https://launchwitness.com"))
+    assert "app_origin_invalid" not in codes(make_settings(dev_mode=False, app_origin="https://launchwitness.com",
+                                                           app_base_url="https://launchwitness.com"))
+
+
+def test_env_example_has_no_empty_value_followed_by_a_comment():
+    import re
+    from pathlib import Path
+
+    text = (Path(__file__).resolve().parents[2] / ".env.example").read_text(encoding="utf-8")
+    bad = [line.split("=")[0] for line in text.splitlines() if re.match(r"^[A-Z_]+=\s+#", line)]
+    assert bad == [], f"put these comments on their own line (Docker reads them as the value): {bad}"
+
+
 def test_selfcheck_never_contains_a_secret(make_settings):
     from app.selfcheck import warnings
 
