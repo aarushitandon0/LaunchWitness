@@ -128,7 +128,7 @@
       {% if terms_text %}<p>{{ terms_text }}</p>{% endif %}
       {% if demo %}<p class="hint" style="margin-top:6px">On a real shop you'll see the UPI details after ordering, with the exact amount, never on this page.</p>
       {% elif p.payment_terms != "on_delivery" and p.upi_id %}<p class="hint" style="margin-top:6px">After you order, you'll get a pay link and QR code for the exact amount. They are shown only after you order, never on this page.</p>{% endif %}
-      {% if p.payment_terms == "on_delivery" and p.upi_id %}<p class="hint" style="margin-top:6px">If you want to pay by UPI, the UPI link and QR code appear after you order.</p>{% endif %}
+      {% if p.payment_terms == "on_delivery" and p.upi_id %}<p class="hint" style="margin-top:6px">If you'd rather pay by UPI, ask the shop on WhatsApp for its UPI details.</p>{% endif %}
     </div>{% endif %}
     {% if cancel_text %}<div class="tile" id="cancel">
       <h3>Cancellations</h3>
@@ -355,7 +355,7 @@
     <div class="paybox" id="paybox">
       {% if pay.now %}
       <p><b>Pay now: {{ pay.now | inr }}</b>{% if pay.later %} <span class="hint">(advance of {{ order.total_inr | inr }})</span>{% endif %}</p>
-      {% elif pay.uri %}<p><b>Prefer to pay by UPI? {{ pay.upi_amount | inr }}</b></p>{% endif %}
+      {% endif %}
       {% if pay.uri %}<div class="pay">
         {{ pay.qr }}
         <div>
@@ -372,8 +372,8 @@
         {{ claim_form() }}{% endif %}
       </div>{% endif %}
       {% elif demo %}<p class="hint">On a real shop, the UPI link and QR code for the exact amount appear here after you order, and a form to tell the shop you paid.</p>{% endif %}
-      {% if pay.later and not (pay.uri and not pay.now) %}<p>{% if pay.now %}Still to pay{% else %}Nothing to pay now. To pay{% endif %}: <b>{{ pay.later | inr }}</b> when you {{ "receive" if pay.when == "delivery" else "collect" }} your order.{% if p.accepts_cash %} Cash is fine.{% endif %}</p>
-      {% elif pay.later %}<p class="hint">Or pay <b>{{ pay.later | inr }}</b> when you {{ "receive" if pay.when == "delivery" else "collect" }} your order.{% if p.accepts_cash %} Cash is fine.{% endif %}</p>{% endif %}
+      {% if pay.later %}<p>{% if pay.now %}Still to pay{% else %}Nothing to pay now. To pay{% endif %}: <b>{{ pay.later | inr }}</b> when you {{ "receive" if pay.when == "delivery" else "collect" }} your order.{% if p.accepts_cash %} Cash is fine.{% endif %}</p>
+      {% endif %}
     </div>
     {% else %}<p class="hint">The final amount{% if p.delivery_available %} (for example delivery){% endif %} is confirmed by the shop.</p>{% endif %}
     {% if order.status_url %}<p class="hint" id="status-link">Keep this page: <a href="{{ order.status_url }}">your order's own page</a> (anyone with the link can see it, so don't share it). {% if order.status_label %}The shop's update: <b>{{ order.status_label }}</b>.{% endif %}</p>{% endif %}

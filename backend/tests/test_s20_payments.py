@@ -126,16 +126,6 @@ def test_live_contact_rule_still_applies_after_ordering(client, engine):
         assert "someone.else@ybl" not in h and "Someone Else" not in h and f"pa={UPI}" in h.replace("&amp;", "&")
 
 
-def test_pay_on_delivery_can_still_pay_by_upi_for_the_whole_amount(client, engine):
-    live_shop(client, engine)
-    cur = client.get("/api/businesses").json()[0]
-    prof = client.get(f"/api/businesses/{cur['id']}").json()["profile"]
-    client.put(f"/api/businesses/{cur['id']}", json={"profile": {**prof, "payment_terms": "on_delivery"},
-                                                       "subdomain": client.get(f"/api/businesses/{cur['id']}").json()["subdomain"]})
-    html, _ = place(client)
-    assert "Prefer to pay by UPI" in html and "upi://pay" in html.replace("&amp;", "&")
-
-
 def test_test_orders_never_show_upi_or_the_form(client, engine):
     from app.sites.orders import order_view
 

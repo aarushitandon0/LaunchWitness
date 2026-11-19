@@ -168,9 +168,8 @@ def pay_view(profile: Profile, order: dict) -> dict | None:
     if not order.get("payment_terms"):
         return None
     now, later = order.get("pay_now_inr", 0), order.get("pay_later_inr", 0)
-    # S20: the UPI details exist only here, after a real order. A test order (the checker's) never gets them. With "pay on
-    # delivery / pickup" the customer may still choose to pay the whole amount by UPI now.
-    amount = now or (later if order.get("payment_terms") == "on_delivery" else 0)
+    # S20: the UPI details exist only here, after a real order. A test order (the checker's) never gets them.
+    amount = now
     uri = ful.upi_order_uri(profile, amount, order.get("ref", "")) if amount and order.get("ref") and not order.get("is_test") else None
     return {"now": now, "later": later, "uri": uri, "upi_amount": amount, "qr": upi_qr_svg(uri) if uri else None,
             "when": "delivery" if order.get("fulfilment") == "delivery" else "pickup"}

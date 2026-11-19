@@ -49,7 +49,7 @@ def test_every_gallery_seller_renders_cleanly(path):
     for i, item in enumerate(p.products):  # every item appears exactly once, with its own quantity box
         assert html.count(f'name="qty_{i}"') == 1
     assert ("WhatsApp" in html) == bool(p.whatsapp or p.phone)
-    assert ('id="pay"' in html) == bool(p.upi_id)
+    assert 'id="pay"' not in html and "upi://" not in html  # S20: UPI details only after an order
 
 
 def test_template_has_nothing_specific_to_one_seller_or_trade():
@@ -115,6 +115,10 @@ def test_area_not_repeated_in_header_when_tagline_says_it():
 def test_upi_display_name_and_fssai_shown_without_verified_label():
     p = base(upi_id="shop@okaxis", upi_display_name="TEST SHOP", fssai_number="12345678901234")
     html = render_site(p)
+    assert "TEST SHOP" not in html and "shop@okaxis" not in html  # S20: not on the shop page
+    order = {"customer_name": "A", "customer_phone": "1", "items": [], "total_inr": 500, "ref": "LW-ABCDEFGH",
+             "payment_terms": "upfront", "pay_now_inr": 500, "pay_later_inr": 0, "status_url": "/order/" + "x" * 30}
+    html = render_site(p, page="thanks", order=order)  # ...but on the thank-you page
     assert "Your UPI app should show: <strong>TEST SHOP</strong>" in html
     assert "FSSAI licence no. 12345678901234" in html.split("<footer>")[1]
     assert "verified" not in html.lower()
