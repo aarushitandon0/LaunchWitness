@@ -106,3 +106,31 @@ def test_shop_host_answers_favicon_with_204_and_the_app_host_does_not(client, en
     assert client.get("/favicon.ico").status_code != 204  # the app's own icon is untouched
     assert client.get("/favicon.ico", headers={"host": "nobody-here.localhost"}).status_code == 404  # no such shop
     assert client.get("/favicon.icox", headers=HOST).status_code == 404  # exactly that one path
+
+
+# ---------- 8. the signature is clearly visible in a strip where no text sits ----------
+
+def test_signature_band_is_under_the_hero_in_every_theme_with_no_text_in_it():
+    import re
+    from pathlib import Path
+
+    from app.sites import motifs
+    from app.sites.render import render_site
+    from app.sites.themes import THEMES
+    from tests.test_s20_signature import profile
+
+    css = (Path(__file__).resolve().parents[1] / "app" / "sites" / "templates" / "css" / "fx.css").read_text()
+    band_alpha = float(re.search(r"\.motif-band \{[^}]*opacity: (\.\d+)", css).group(1))
+    hero_alpha = float(re.search(r"\.motif-wrap \{[^}]*opacity: (\.\d+)", css).group(1))
+    assert 0.2 <= band_alpha <= 0.3  # clearly visible...
+    assert hero_alpha <= 0.08  # ...while the layer behind the hero text stays faint (AA: test_s20_signature)
+    for key in THEMES:
+        html = render_site(profile(theme=key), shop="s")
+        m = re.search(r'</section>\s*<div class="motif-band" data-motif="(\w+)" aria-hidden="true">(<svg.*?</svg>)</div>', html, re.S)
+        assert m, key  # directly after the hero section
+        assert m.group(1) in motifs.MOTIFS[key]
+        assert re.sub(r"<[^>]+>", "", m.group(2)).strip() == ""  # drawings only: not one character of text in the strip
+        ops = [float(x) for x in re.findall(r'<g [^>]*\bopacity="([\d.]+)"', m.group(2))]
+        assert len(ops) == motifs.BAND_ITEMS and min(ops) >= 0.85
+        for page in ("privacy",):
+            assert "motif-band" not in render_site(profile(theme=key), page=page).split("</style>")[-1]

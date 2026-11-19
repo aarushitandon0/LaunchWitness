@@ -3,6 +3,12 @@
   .hero { position: relative; isolation: isolate; }
   .motif-wrap { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; color: var(--accent); opacity: .08; contain: paint; }
   .motif { position: absolute; left: -3%; top: -3%; width: 106%; height: 106%; }
+  /* S20B: the clearly visible part of the signature: a strip under the hero with NO text in it (text never sits on it, so
+     it can be strong); faded at both ends. The layer behind the hero text above stays faint (.08, the AA test). */
+  .motif-band { height: 56px; margin: 18px 0 2px; color: var(--accent); opacity: .3; overflow: hidden; pointer-events: none;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
+  .motif-band .band { display: block; width: 100%; height: 100%; }
+  @media (min-width: 900px) { .motif-band { height: 72px; margin-top: 30px; } }
   .motif-thumb { display: block; width: 100%; height: auto; color: var(--accent); }
   @keyframes lw-drift { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(-1.6%, 1.8%, 0); } }
   @keyframes lw-sway { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(1.4deg); } }

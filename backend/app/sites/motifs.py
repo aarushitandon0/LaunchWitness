@@ -160,6 +160,25 @@ def svg_for(motif: str, arrangement: str, name: str, *, classes: str = "motif") 
                   f'focusable="false" fill="currentColor">{"".join(parts)}</svg>')
 
 
+BAND_ITEMS = 16
+
+
+def band_svg(motif: str, name: str) -> Markup:
+    """S20B: the shop's signature as a decorative strip under the hero, where no text ever sits, so it can be clearly
+    visible (see `.motif-band` in css/fx.css). One row of the shop's own drawings, seeded from its name. Numbers only."""
+    rng = _Rng(seed_of(f"{name}|{motif}|band-strip"))
+    parts = []
+    for i in range(BAND_ITEMS):
+        x = (i + 0.5) * 960 / BAND_ITEMS + rng.between(-8, 8)
+        y = 36 + rng.between(-9, 9)
+        rot, scale, k = rng.between(-35, 35), rng.between(1.0, 1.3), rng.next()
+        op = _f(0.85 + 0.15 * rng.next())  # with the strip at .3: about .26 to .30 of the accent colour
+        parts.append(f'<g transform="translate({_f(x)} {_f(y)}) rotate({_f(rot)}) scale({_f(scale)})" opacity="{op}">'
+                     f'{_shape(motif, k)}</g>')
+    return Markup('<svg class="band" viewBox="0 0 960 72" preserveAspectRatio="xMidYMid slice" aria-hidden="true" '
+                  f'focusable="false" fill="currentColor">{"".join(parts)}</svg>')
+
+
 def thumbnails(theme_key: str, name: str, arrangement: str) -> list[dict]:
     """For the look picker: each of the theme's motifs drawn small, with this shop's own name as the seed."""
     return [{"key": m, "label": LABELS[m], "svg": str(svg_for(m, arrangement, name, classes="motif-thumb"))}

@@ -224,6 +224,7 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
         art_variant=art_variant,
         motion=motifs.MOTION[art_variant],
         motif_svg=motifs.svg_for(motif, art_variant, profile.name),
+        band_svg=motifs.band_svg(motif, profile.name),
         font_base="/shop-assets/fonts/",
         headline=headline,
         lede=lede,

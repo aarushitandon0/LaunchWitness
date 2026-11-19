@@ -194,6 +194,7 @@
       {%- endif -%}
     </div>
   </section>
+  <div class="motif-band" data-motif="{{ motif }}" aria-hidden="true">{{ band_svg }}</div>
 
   {% if rest_photos %}
   <ul class="gallery n{{ rest_photos | length }}" aria-label="Photos">{% for ph in rest_photos %}
