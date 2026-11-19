@@ -329,6 +329,11 @@ def existing_order(session: Session, business: Business, token: str) -> Order | 
     return session.exec(select(Order).where(Order.business_id == business.id, Order.client_token == token)).first()
 
 
+def first_name(full: str) -> str:
+    parts = (full or "").split()
+    return parts[0] if parts else ""
+
+
 def new_status_token() -> tuple[str, str]:
     """(raw, stored): the raw token goes only into the customer's link; the database keeps its SHA-256, like every
     other token (S20B). A leaked database therefore opens no order page."""
@@ -346,7 +351,8 @@ def order_view(order: Order, claim=None, status_token: str = "") -> dict:
     return {"is_test": order.is_test, "status_url": f"/order/{status_token}" if link else "",
             "status_label": STATUS_LABELS.get(order.status, "") if link else "", "status": order.status,
             "claim": {"last4": claim.utr[-4:], "has_shot": bool(claim.screenshot)} if claim is not None else None,
-            "customer_name": order.customer_name, "customer_phone": order.customer_phone, "note": order.note,
+            # S20B: the first name only (the page's link can be forwarded); the phone is never on the page
+            "customer_name": first_name(order.customer_name), "note": order.note,
             "items": json.loads(order.items_json), "total_inr": order.total_inr, "ref": order.ref,
             "fulfilment": order.fulfilment, "delivery_pin": order.delivery_pin, "wanted_date": order.wanted_date,
             "time_slot": order.time_slot, "fee_inr": order.fee_inr, "payment_terms": order.payment_terms,

@@ -45,3 +45,16 @@ def test_a_resent_form_issues_a_fresh_link_and_the_old_one_stops(client, engine)
     assert first != second
     assert client.get(f"/order/{second}", headers=HOST).status_code == 200
     assert client.get(f"/order/{first}", headers=HOST).status_code == 404
+
+
+# ---------- 2. first name only ----------
+
+def test_thank_you_and_status_page_show_the_first_name_only(client, engine):
+    live_shop(client, engine)
+    html, tok = place(client, customer_name="Riya Sharma Kapoor", customer_phone="91234 00077")
+    page = client.get(f"/order/{tok}", headers=HOST).text
+    for h in (html, page):
+        assert "<h1>Thank you, Riya!</h1>" in h
+        assert "Sharma" not in h and "Kapoor" not in h
+        assert "00077" not in h and "9123400077" not in h  # the phone was never on the page
+    assert real_order(engine).customer_name == "Riya Sharma Kapoor"  # the shop still has the full name
