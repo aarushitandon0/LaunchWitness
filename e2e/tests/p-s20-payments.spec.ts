@@ -79,10 +79,14 @@ test("private UPI -> order -> thank-you shows it -> says paid with UTR + screens
   await expect(card.locator(".order-pay")).not.toContainText(/^Paid|Fully paid/);
   const shot = card.getByRole("link", { name: "View screenshot" });
   await expect(shot).toBeVisible();
-  const img = await page.request.get((await shot.getAttribute("href"))!);
-  expect(img.status()).toBe(200);
-  expect(img.headers()["content-type"]).toBe("image/webp");
-  expect(img.headers()["cache-control"]).toContain("no-store");
+  // fetched from the page itself (the owner's own cookie; Node can't resolve *.localhost on every OS)
+  const img = await page.evaluate(async (href) => {
+    const r = await fetch(href, { credentials: "same-origin" });
+    return { status: r.status, type: r.headers.get("content-type"), cache: r.headers.get("cache-control") || "" };
+  }, (await shot.getAttribute("href"))!);
+  expect(img.status).toBe(200);
+  expect(img.type).toBe("image/webp");
+  expect(img.cache).toContain("no-store");
   await card.getByRole("button", { name: "Mark confirmed" }).click();
   await expect(card.getByRole("button", { name: /received|Paid/ }).first()).toBeVisible();
   await card.getByRole("button", { name: /received|Paid/ }).first().click();
