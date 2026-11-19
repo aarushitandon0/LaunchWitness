@@ -5,6 +5,7 @@
  *  "Something breaks" plays the real monitor sequence.
  *  Every sentence under "If it breaks here" and in the play-through is pinned to the backend by
  *  backend/tests/test_s12_landing_copy.py. Animations use transform and opacity only; reduced motion gets the end state. */
+import { useInView } from "framer-motion";
 import { useEffect, useId, useRef, useState } from "react";
 import { useCalm } from "./motion";
 
@@ -105,6 +106,9 @@ export function HopTrack() {
   const timers = useRef<number[]>([]);
   const panelId = useId();
   const n = HOP_INFO.length;
+  // S19: when the section first scrolls into view, a glow travels hop 01 → 06 (looks only: it never marks a hop done)
+  const trackRef = useRef<HTMLDivElement>(null);
+  const seen = useInView(trackRef, { once: true, amount: 0.6 });
 
   useEffect(() => () => timers.current.forEach(window.clearTimeout), []);
 
@@ -134,7 +138,7 @@ export function HopTrack() {
           Example: the times are made up. On your report, every time is a real saved one.
         </span>
       </div>
-      <div className="hoptrack-track" style={{ ["--p" as string]: p }} data-sent={reached >= 0 ? "1" : "0"}
+      <div ref={trackRef} className="hoptrack-track" data-pulse={seen && !calm ? "1" : "0"} style={{ ["--p" as string]: p }} data-sent={reached >= 0 ? "1" : "0"}
         data-arrived={reached === n - 1 && !playing ? "1" : "0"}>
         <div className="hoptrack-line" aria-hidden>
           <span className="hoptrack-fill" />
@@ -142,11 +146,14 @@ export function HopTrack() {
         <div className="hoptrack-runner" aria-hidden>
           <span className="hoptrack-dot" />
         </div>
+        <div className="hoptrack-pulse" aria-hidden>
+          <span />
+        </div>
         <ol className="hoptrack-hops" aria-label="The six hops of a test order">
           {HOP_INFO.map((h, i) => {
             const done = i <= reached;
             return (
-              <li key={h.name} className={`hoptrack-hop${done ? " done" : ""}${open === i ? " open" : ""}`}>
+              <li key={h.name} style={{ ["--i" as string]: i }} className={`hoptrack-hop${done ? " done" : ""}${open === i ? " open" : ""}`}>
                 <button
                   type="button"
                   className="hoptrack-node"

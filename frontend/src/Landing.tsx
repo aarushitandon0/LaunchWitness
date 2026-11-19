@@ -1,5 +1,10 @@
-import { motion, MotionValue, useScroll, useSpring, useTransform } from "framer-motion";
+import { motion, MotionValue, useInView, useMotionValue, useScroll, useSpring, useTransform } from "framer-motion";
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
+import "./landing/landing-motion.css";
+import { DecodeText, WordFade } from "./landing/DecodeText";
+import { FlowLines } from "./landing/FlowLines";
+import { PanelCap } from "./landing/PanelCap";
+import { PromiseBeam } from "./landing/PromiseBeam";
 import { AddressResult, api, ApiError } from "./api";
 import { AddressFindings } from "./Findings";
 import { HopTrack, WatchDay } from "./LandingProof";
@@ -138,6 +143,28 @@ export default function Landing() {
   const scale = useTransform(p, [0, 1], [1, calm ? 1 : 0.88]);
   const y = useTransform(p, [0, 1], [0, calm ? 0 : -36]);
   const dim = useTransform(p, [0, 1], [0, calm ? 0 : 0.55]);
+  // the cream card rounds a little more as the dark panel slides over it (one small element, scroll-linked)
+  const r0 = typeof window === "undefined" ? 40 : Math.min(40, Math.max(24, window.innerWidth * 0.03));
+  const radius = useTransform(p, [0, 1], [r0, calm ? r0 : r0 + 22]);
+  // pointer tilt for the stack: desktop with a real mouse only, max 6 degrees, eased back to rest
+  const tiltX = useMotionValue(0);
+  const tiltY = useMotionValue(0);
+  const sx = useSpring(tiltX, { stiffness: 90, damping: 18, mass: 0.6 });
+  const sy = useSpring(tiltY, { stiffness: 90, damping: 18, mass: 0.6 });
+  const fine = useRef(false);
+  useEffect(() => {
+    fine.current = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  }, []);
+  const onMove = (e: React.PointerEvent<HTMLElement>) => {
+    if (calm || !fine.current || e.pointerType !== "mouse") return;
+    const b = e.currentTarget.getBoundingClientRect();
+    tiltY.set(((e.clientX - b.left) / b.width - 0.5) * 12);
+    tiltX.set(-((e.clientY - b.top) / b.height - 0.5) * 12);
+  };
+  const onLeave = () => {
+    tiltX.set(0);
+    tiltY.set(0);
+  };
   useEffect(() => {
     const h = window.location.hash;
     if (h.length > 1 && !h.startsWith("#/")) {
@@ -149,7 +176,8 @@ export default function Landing() {
   return (
     <div className="landing">
       <div className="stack">
-        <motion.section className="hero-card" style={{ scale, y }} aria-labelledby="hero-title">
+        <motion.section className="hero-card" style={{ scale, y, borderRadius: radius }} aria-labelledby="hero-title" onPointerMove={onMove} onPointerLeave={onLeave}>
+          <FlowLines />
           <div className="hero-inner">
             <div className="hero-head">
               <motion.p
@@ -163,17 +191,23 @@ export default function Landing() {
               <h1 className="display" id="hero-title">
                 <Line i={0}>Is your shop</Line>
                 <Line i={1}>
-                  <span className="inline-icon" aria-hidden>
+                  <motion.span
+                    className="inline-icon"
+                    aria-hidden
+                    initial={calm ? false : { scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: "spring", stiffness: 260, damping: 14, delay: 2.1 }}
+                  >
                     <svg viewBox="0 0 24 24">
                       <path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="var(--accent-ink)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                  </span>
+                  </motion.span>
                   actually ready
                 </Line>
                 <Line i={2}>for customers?</Line>
               </h1>
             </div>
-            <HeroShape progress={p} />
+            <HeroShape progress={p} tiltX={sx} tiltY={sy} />
             <motion.div
               className="hero-copy"
               initial={calm ? false : { opacity: 0, y: 12 }}
@@ -181,8 +215,10 @@ export default function Landing() {
               transition={{ duration: 0.7, delay: 0.45, ease: EASE }}
             >
               <p>
-                Describe your business. LaunchWitness puts it online on GoDaddy, proves a real order reaches you, fixes
-                what breaks, and keeps checking.
+                <WordFade now delay={1.35}>
+                  Describe your business. LaunchWitness puts it online on GoDaddy, proves a real order reaches you, fixes
+                  what breaks, and keeps checking.
+                </WordFade>
               </p>
               <div className="hero-meta">
                 <a className="btn btn-primary" href="#/new">
@@ -216,6 +252,7 @@ export default function Landing() {
       </div>
 
       <section className="dark dark-cont on-dark" id="proof" aria-labelledby="proof-title">
+        <PanelCap />
         <div className="wrap">
           <SectionHead id="proof-title" title="How the proof works" label="/ one real test order, hop by hop">
             Before we call your shop ready, a real test order travels the same path a customer's would. Each hop is saved
@@ -226,6 +263,7 @@ export default function Landing() {
       </section>
 
       <section className="dark dark-cont on-dark" id="watch" aria-labelledby="watch-title">
+        <PanelCap />
         <div className="wrap">
           <SectionHead id="watch-title" title="We keep watching after launch" label="/ not a one-off check">
             Launch day isn't the end. For every live shop, we keep checking on a schedule, fix what we safely can, and tell
@@ -264,6 +302,7 @@ export default function Landing() {
       </section>
 
       <section className="dark dark-cont on-dark" aria-labelledby="pieces-title">
+        <PanelCap />
         <div className="wrap">
           <SectionHead id="pieces-title" title="Built on GoDaddy" label="/ the pieces we set up for you">
             We do the technical parts on GoDaddy for you, and check each one before we call it done.
@@ -271,14 +310,7 @@ export default function Landing() {
           <Marquee />
           <div style={{ height: "clamp(3rem, 7vw, 6rem)" }} />
           <SectionHead id="promises-title" title="Our promises" label="/ safety first" />
-          <ul className="promise-grid">
-            {PROMISES.map(([title, text], i) => (
-              <Reveal as="li" className="promise" key={title} delay={i * 0.08}>
-                <div className="title">{title}</div>
-                <p>{text}</p>
-              </Reveal>
-            ))}
-          </ul>
+          <PromiseBeam items={PROMISES} />
         </div>
       </section>
 
@@ -303,12 +335,14 @@ export default function Landing() {
           <Reveal>
             <p className="eyebrow">Security &amp; privacy</p>
             <h2 id="security-title">Your shop is yours alone.</h2>
-            <ul className="security-list">
-              <li>No passwords: you sign in with a link we email you.</li>
-              <li>Only you can open your shop's details, orders and reports. Anyone else just gets “not found”.</li>
-              <li>Nothing is bought and no setting changes without your approval, and settings are backed up first.</li>
-              <li>We never ask for Aadhaar, PAN, bank or card numbers, or your home address.</li>
-            </ul>
+            <SecurityList
+              items={[
+                "No passwords: you sign in with a link we email you.",
+                "Only you can open your shop's details, orders and reports. Anyone else just gets “not found”.",
+                "Nothing is bought and no setting changes without your approval, and settings are backed up first.",
+                "We never ask for Aadhaar, PAN, bank or card numbers, or your home address.",
+              ]}
+            />
             <p className="small">
               Read our <a href="#/privacy">Privacy page</a> and <a href="#/terms">Terms</a>.
             </p>
@@ -364,34 +398,31 @@ export default function Landing() {
   );
 }
 
-/** One headline line that rises out of a mask on first load. */
+/** One headline line, decoded letter by letter on first load. Non-text children (the lime check chip) stay as they are. */
 function Line({ i, children }: { i: number; children: ReactNode }) {
-  const calm = useCalm();
+  const parts = Array.isArray(children) ? children : [children];
   return (
-    <span className="line" style={{ overflow: "hidden", paddingBottom: "0.06em" }}>
-      <motion.span
-        style={{ display: "inline-block" }}
-        initial={calm ? false : { y: "105%" }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.9, delay: 0.1 + i * 0.09, ease: EASE }}
-      >
-        {children}
-      </motion.span>
+    <span className="line" style={{ paddingBottom: "0.06em" }}>
+      {parts.map((c, k) =>
+        typeof c === "string" ? <DecodeText key={k} now text={c.trim()} delay={250 + i * 220} ms={900} /> : c,
+      )}
     </span>
   );
 }
 
-/** Fades content up when it scrolls into view, and back out when it leaves (so scrolling up reverses it). */
+/** Fades content up when it scrolls into view. Plays once (S19); `repeat` keeps the older behaviour of reversing on the way out. */
 function Reveal({
   children,
   delay = 0,
   className,
   as = "div",
+  repeat = false,
 }: {
   children: ReactNode;
   delay?: number;
   className?: string;
   as?: "div" | "li";
+  repeat?: boolean;
 }) {
   const calm = useCalm();
   const Tag = as === "li" ? motion.li : motion.div;
@@ -400,7 +431,7 @@ function Reveal({
       className={className}
       initial={calm ? false : { opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: false, amount: 0.25 }}
+      viewport={{ once: !repeat, amount: 0.25 }}
       transition={{ duration: 0.7, delay, ease: EASE }}
     >
       {children}
@@ -413,22 +444,22 @@ function SectionHead({ id, title, label, children }: { id: string; title: string
   return (
     <div className="section-head">
       <div className="meta">
-        <Reveal>
-          <h2 id={id}>{title}</h2>
-        </Reveal>
+        <h2 id={id}>
+          <DecodeText text={title} />
+        </h2>
         <span className="label">{label}</span>
       </div>
       <motion.div
         className="rule"
         initial={calm ? false : { scaleX: 0 }}
         whileInView={{ scaleX: 1 }}
-        viewport={{ once: false, amount: 1 }}
+        viewport={{ once: true, amount: 1 }}
         transition={{ duration: 1.1, ease: EASE }}
       />
       {children && (
-        <Reveal delay={0.1}>
-          <p>{children}</p>
-        </Reveal>
+        <p>
+          <WordFade delay={0.5}>{children}</WordFade>
+        </p>
       )}
     </div>
   );
@@ -444,7 +475,7 @@ function Steps() {
   return (
     <ol className="steps">
       {STEPS.map((s, i) => (
-        <Reveal as="li" key={s.title} delay={i * 0.07} className={`step-li${active === i ? " active" : ""}`}>
+        <Reveal as="li" repeat key={s.title} delay={i * 0.07} className={`step-li${active === i ? " active" : ""}`}>
           <button
             type="button"
             className={`step${active === i ? " active" : ""}`}
@@ -507,47 +538,81 @@ const LAYERS = [
 const BASE_Y = 340; // centre of the lowest layer
 const STEP = 42; // gap between layers at rest
 
-function HeroShape({ progress }: { progress: MotionValue<number> }) {
+function HeroShape({ progress, tiltX, tiltY }: { progress: MotionValue<number>; tiltX: MotionValue<number>; tiltY: MotionValue<number> }) {
   const calm = useCalm();
   // One scroll value drives everything; each layer reads it through a cheap linear map.
   const spread = useTransform(progress, [0, 1], [0, calm ? 0 : 1]);
-  const ys = LAYERS.map((_, i) => useTransform(spread, (v) => -v * i * 22)); // eslint-disable-line react-hooks/rules-of-hooks
-  const ringY = useTransform(spread, (v) => -v * 150);
+  const ys = LAYERS.map((_, i) => useTransform(spread, (v) => -v * i * 28)); // eslint-disable-line react-hooks/rules-of-hooks
+  const ringY = useTransform(spread, (v) => -v * 170);
   const tilt = useTransform(spread, (v) => -v * 6);
+  const last = LAYERS.length - 1;
   return (
-    <motion.div
-      className="hero-shape"
-      aria-hidden
-      initial={calm ? false : { opacity: 0, y: 30, scale: 0.96 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 1.2, delay: 0.2, ease: EASE }}
-    >
-      <motion.div className="shape-rot" style={{ rotate: tilt }}>
-        <svg className="shape-layer" viewBox="0 0 400 460">
-          <Defs />
-          <ellipse cx="200" cy="420" rx="168" ry="30" fill="url(#lw-g-shadow)" />
-        </svg>
-        {LAYERS.map((l, i) => (
-          <motion.div key={i} className="shape-layer" style={{ y: ys[i] }}>
-            <div className={calm ? "shape-layer" : "shape-layer breathe"} style={{ animationDelay: `${-i * 0.45}s` }}>
-              <svg viewBox="0 0 400 460">
-                <Pebble cy={BASE_Y - i * STEP} fill={l.fill} side={l.side} size={1 - i * 0.035} />
-                {i === LAYERS.length - 1 && <Seal cy={BASE_Y - i * STEP} />}
-              </svg>
-            </div>
+    <div className="hero-shape" aria-hidden>
+      <motion.div className="shape-tilt" style={{ rotateX: tiltX, rotateY: tiltY, transformPerspective: 900 }}>
+        <motion.div className="shape-rot" style={{ rotate: tilt }}>
+          <svg className="shape-layer" viewBox="0 0 400 460">
+            <Defs />
+            <motion.ellipse
+              cx="200"
+              cy="420"
+              rx="168"
+              ry="30"
+              fill="url(#lw-g-shadow)"
+              initial={calm ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1.2, delay: 0.3, ease: EASE }}
+            />
+          </svg>
+          {LAYERS.map((l, i) => (
+            <motion.div key={i} className="shape-layer" style={{ y: ys[i] }}>
+              {/* the layers drop in one by one, bottom to top; the white plate lands last */}
+              <motion.div
+                className="shape-layer"
+                initial={calm ? false : { y: 190, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 120, damping: 17, mass: 0.9, delay: 0.35 + i * 0.16, opacity: { duration: 0.35, delay: 0.35 + i * 0.16 } }}
+              >
+                <div className={calm ? "shape-layer" : "shape-layer breathe"} style={{ animationDelay: `${-i * 0.45}s` }}>
+                  <svg viewBox="0 0 400 460">
+                    <Pebble cy={BASE_Y - i * STEP} fill={l.fill} side={l.side} size={1 - i * 0.035} />
+                    {i === last && <Seal cy={BASE_Y - i * STEP} calm={calm} />}
+                  </svg>
+                </div>
+              </motion.div>
+            </motion.div>
+          ))}
+          <motion.div className="shape-layer" style={{ y: ringY }}>
+            <motion.div
+              className="shape-layer"
+              initial={calm ? false : { opacity: 0, y: -24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.9, delay: 1.5, ease: EASE }}
+            >
+              <div className={calm ? "shape-layer" : "shape-layer ring-sway"}>
+                <svg viewBox="0 0 400 460">
+                  <path id="lw-ring-path" d="M78 40 a122 26 0 1 0 244 0 a122 26 0 1 0 -244 0" fill="none" />
+                  <ellipse cx="200" cy="40" rx="122" ry="26" fill="none" stroke="url(#lw-g-ring)" strokeWidth="3" />
+                  {/* the lime ball circles the ring; it grows a little on the near side and shrinks on the far side */}
+                  <circle r="20" fill="url(#lw-g-ball)" transform={calm ? "translate(312 30)" : undefined}>
+                    {!calm && (
+                      <>
+                        <animateMotion dur="14s" repeatCount="indefinite" rotate="0">
+                          <mpath href="#lw-ring-path" />
+                        </animateMotion>
+                        <animateTransform attributeName="transform" type="scale" additive="sum" values="1;0.8;1" dur="14s" repeatCount="indefinite" />
+                      </>
+                    )}
+                  </circle>
+                  <g className={calm ? undefined : "dot-drift"}>
+                    <circle cx="90" cy="50" r="9" fill="url(#lw-g-ball2)" />
+                  </g>
+                </svg>
+              </div>
+            </motion.div>
           </motion.div>
-        ))}
-        <motion.div className="shape-layer" style={{ y: ringY }}>
-          <div className={calm ? "shape-layer" : "shape-layer orbit"}>
-            <svg viewBox="0 0 400 460">
-              <ellipse cx="200" cy="40" rx="122" ry="26" fill="none" stroke="url(#lw-g-ring)" strokeWidth="3" />
-              <circle cx="312" cy="30" r="20" fill="url(#lw-g-ball)" />
-              <circle cx="90" cy="50" r="9" fill="url(#lw-g-ball2)" />
-            </svg>
-          </div>
         </motion.div>
       </motion.div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -578,11 +643,32 @@ function Pebble({ cy, fill, side, size }: { cy: number; fill: string; side: stri
   );
 }
 
-function Seal({ cy }: { cy: number }) {
+function Seal({ cy, calm }: { cy: number; calm: boolean }) {
+  // the dark seal fades in as the white plate lands, then the lime check draws itself
+  const d = 0.35 + (LAYERS.length - 1) * 0.16;
   return (
     <g>
-      <ellipse cx="200" cy={cy} rx="42" ry="24" fill="#161614" />
-      <path d={`M183 ${cy + 1} q6 4 11 7 q10 -8 22 -15`} fill="none" stroke="#dcf06a" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+      <motion.ellipse
+        cx="200"
+        cy={cy}
+        rx="42"
+        ry="24"
+        fill="#161614"
+        initial={calm ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3, delay: d + 0.35 }}
+      />
+      <motion.path
+        d={`M183 ${cy + 1} q6 4 11 7 q10 -8 22 -15`}
+        fill="none"
+        stroke="#dcf06a"
+        strokeWidth="5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        initial={calm ? false : { pathLength: 0 }}
+        animate={{ pathLength: 1 }}
+        transition={{ duration: 0.55, delay: d + 0.6, ease: EASE }}
+      />
     </g>
   );
 }
@@ -621,6 +707,24 @@ function Defs() {
         <stop offset="1" stopColor="rgba(60,40,10,0)" />
       </radialGradient>
     </defs>
+  );
+}
+
+/** The four security lines; each tick draws itself, one after another, when the list scrolls into view. */
+function SecurityList({ items }: { items: string[] }) {
+  const ref = useRef<HTMLUListElement>(null);
+  const seen = useInView(ref, { once: true, amount: 0.4 });
+  return (
+    <ul className="security-list" ref={ref} data-in={seen ? "1" : "0"}>
+      {items.map((t, i) => (
+        <li key={i} style={{ ["--i" as string]: i }}>
+          <svg className="sec-tick" viewBox="0 0 24 24" aria-hidden>
+            <path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span>{t}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -703,7 +807,7 @@ function CheckAnyAddress() {
   }
 
   return (
-    <div className="card check-card">
+    <div className={`card check-card${busy ? " is-busy" : ""}`}>
       <form className="check-form" onSubmit={submit}>
         <label className="field">
           <span>Web address</span>
@@ -723,7 +827,7 @@ function CheckAnyAddress() {
       </form>
       {error && <ErrorBox error={error} />}
       {result && (
-        <>
+        <div className="check-result">
           <p className="muted">
             Read-only results for <strong>{result.address}</strong>:
           </p>
@@ -738,7 +842,7 @@ function CheckAnyAddress() {
               Start
             </a>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
