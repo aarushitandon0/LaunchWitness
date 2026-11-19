@@ -219,6 +219,15 @@ export function MyShopsPage() {
                 )}
                 <br />
                 <span className="muted">{shopState(b)}</span>
+                {b.confirm_new?.length > 0 && (
+                  <>
+                    <br />
+                    <a className="renewal-note renewal-soon" href={`#/b/${b.id}`}>
+                      Please confirm your new {b.confirm_new.map((w) => (w === "upi" ? "UPI" : "WhatsApp number")).join(" and ")}.
+                      Customers still see the old one until you do.
+                    </a>
+                  </>
+                )}
                 {b.renewal && (
                   <>
                     <br />

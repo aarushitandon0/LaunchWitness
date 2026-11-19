@@ -99,7 +99,9 @@ def seller_for_request(request: Request, settings: Settings, session: Session) -
         if subdomain_label(normalize_host(host), settings) is not None:
             raise HTTPException(status_code=404, detail="site not set up")
         return None
-    return b, Profile.model_validate_json(b.profile_json)
+    from app.sites.live_contact import public_profile
+
+    return b, public_profile(b)  # S19D: never an unconfirmed WhatsApp / UPI to customers
 
 
 def seller_page(path: str, request: Request, settings: Settings, session: Session) -> HTMLResponse | None:

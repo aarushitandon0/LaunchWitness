@@ -125,7 +125,8 @@ export type Business = {
   practice: boolean;
   theme: ThemeChoice;
   public: boolean; // false = only the owner sees it (preview)
-  live_url: string | null; // S19D: a real launched shop's public address (also when paused); null = preview only
+  live_url: string | null;
+  confirm_new: ("whatsapp" | "upi")[]; // S19D: changed on a live shop; customers see the old one until she confirms // S19D: a real launched shop's public address (also when paused); null = preview only
   guest: boolean; // made without signing in: practice only, removed after 24 hours
   paused: boolean;
   review: string; // "" | "ok" | "held" | "cleared"

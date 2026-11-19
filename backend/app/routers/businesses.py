@@ -28,7 +28,7 @@ from app.safety.access import (
     user_describes_today,
     visitor_id,
 )
-from app.sites import themes
+from app.sites import live_contact, themes
 from app.sites.hosts import is_public, site_url, slug_problem
 from app.sites.orders import STATUS_LABELS, STATUS_STEPS, can_move, customer_whatsapp_link, tel_link
 from app.sites.render import render_site, upi_qr_svg, upi_uri
@@ -82,6 +82,7 @@ def business_out(b: Business, settings: Settings, session: Session | None = None
         "practice": b.practice,
         "public": is_public(b) and not b.paused,  # false = only the owner sees it, through the preview
         "live_url": live_url(session, settings, b),  # S19D: "View shop" on My shops; None = practice/draft (preview only)
+        "confirm_new": live_contact.waiting(b),  # S19D: "whatsapp"/"upi" changed on a live shop; customers see the old one
         "owner_email": owners[0] if owners else "",  # the sign-in address orders and alerts go to
         "profile": json.loads(b.profile_json),
         "theme": theme_out(b),
@@ -379,6 +380,7 @@ def update_business(body: ProfileUpdate, actor: ActorDep, b: Annotated[Business,
     if problem := ful.areas_error(body.profile.delivery_areas) if body.profile.selling_mode.endswith("local") else None:
         raise HTTPException(status_code=422, detail=problem)
     old_sub = b.subdomain
+    kept = live_contact.keep_confirmed(b, Profile.model_validate_json(b.profile_json), body.profile)
     reset = reset_confirmations(b, body.profile)
     from app import photos
 
@@ -400,7 +402,8 @@ def update_business(body: ProfileUpdate, actor: ActorDep, b: Annotated[Business,
                      detail=f"{old_look[0].key}/{old_look[1].key} -> {new_look[0].key}/{new_look[1].key}")
     for what in reset:
         audit.record(session, actor="system", action="confirmation_reset", target=f"business:{b.id}", result="ok",
-                     business_id=b.id, user_id=actor.user_id, detail=f"{what} changed: please check it again")
+                     business_id=b.id, user_id=actor.user_id, detail=f"{what} changed: please check it again"
+                     + (" (customers still see the confirmed one)" if kept else ""))
     return business_out(b, settings, session)
 
 
@@ -468,12 +471,14 @@ def confirm(body: Confirmation, actor: ActorDep, b: Annotated[Business, Depends(
         if not profile.whatsapp:
             raise HTTPException(status_code=422, detail="Please add your WhatsApp number and save first.")
         b.wa_confirmed, b.wa_confirmed_at = profile.whatsapp, now
+        live_contact.confirmed(b, live_contact.WA)  # S19D: customers see the new number from now on
         detail = "WhatsApp number confirmed by the owner (opens her chat)"
     elif body.what == "upi":
         if not (profile.upi_id and profile.upi_display_name.strip()):
             raise HTTPException(status_code=422,
                                 detail="Please add your UPI ID and the name your UPI app shows, and save first.")
         b.upi_confirmed, b.upi_confirmed_at = golive.upi_key(profile), now
+        live_contact.confirmed(b, live_contact.UPI)
         detail = "UPI name test: the owner saw the expected name in her own UPI app"
     else:
         if not (body.own_goods and body.terms):
