@@ -4,6 +4,18 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
+**Session 19B (Nov 19, Opus, laptop): test emails only when she asks, clearly marked TEST; everything re-checked and deployed.**
+Launch / "Run checks now" / "Describe the problem" send the test order to the shop's order address; monitoring sends it to
+LaunchWitness's own check mailbox (hello@), labelled as such, with no "Yes, I got it" link. Every test email starts
+`TEST, not a real order:` with a grey banner and no customer links; real order emails unchanged. 19A (landing motion) was
+already merged by the owner and deployed. VPS on the final `main`. **Next: demo video, submission.**
+
+Decisions (S19B): a daily test missing from OUR mailbox is "couldn't check" (our side), never an alert to the seller; monitoring
+tests go to hello@ only, even for team-run shops (one recipient), so the daily proof is always labelled "check mailbox"; the test
+email drops the cancellation line, the Orders link and the pickup instruction (nothing to act on); the test order's note no longer
+says "launch check"; `scripts/admin_check_shop.py` runs a manual or daily round from the CLI inside the container (audited
+`admin (cli)`), because the check routes need a signed-in cookie, not `ADMIN_TOKEN`.
+
 **Session 17 (Nov 18-19, Opus, laptop): LIVE. The first real shop is launched and proven.** Logo + favicon + app icons; one branded
 email layout; demo shop https://meeras-eggless-bakes.launchwitness.com launched for real (7/7 checks, real Let's Encrypt cert, test order
 found over IMAP); shared report https://launchwitness.com/r/GsZj7gOAoCydSauqdNpoaWksKHVW-HSz (chain intact); nightly backups + restore

@@ -1,4 +1,33 @@
-# State for the next session (written 2026-11-19 IST, end of Session 17)
+# State for the next session (written 2026-11-19 IST, end of Session 19B)
+
+## Session 19B (Opus, 2026-11-19, laptop): test emails only when she asks + full re-check, deployed
+
+**What's live:** `main` = VPS (final commit in git). https://launchwitness.com with the 19A landing; demo shop
+https://meeras-eggless-bakes.launchwitness.com; shared report https://launchwitness.com/r/GsZj7gOAoCydSauqdNpoaWksKHVW-HSz
+(7 of 7, `/verify` intact, 194 rows after this session's runs 75 (manual) and 76 (daily)).
+
+**The rule (code):** `orders.test_audience(trigger)`: `monitor_*` -> "check" (hello@ only, no confirm link, `TestTicket.audience`),
+otherwise "" (the shop's order address). `checker.seen_text/missing_text` + `proof.CHECK_MAILBOX` label the result and the `imap_seen`
+evidence; `report.run_out` titles it "A test order reached LaunchWitness's check mailbox". A check-mailbox test that never arrives is
+`unfinished` (no alert). Subject/banner: `orders.TEST_SUBJECT`, `orders.TEST_BANNER`, `layout._test_banner` (grey `#ecebe7`).
+The owner's report still shows only launch/manual runs (`OWNER_RUNS`), so monitoring never changes the headline.
+
+**Ran:** backend 1361 passed, 3 skipped; `test_s13_scale.py` timing tests fail on this laptop identically on unchanged HEAD (known);
+strict live-fixture gate: the 12 known Reader placeholders (unchanged since S16); ruff, tsc, build (JS 427.39 kB / 133.28 gz vs 420.24 /
+130.76 before 19A); Docker prod-like stack + `check_m1.sh --local` all PASS; e2e 32/32 Docker, 31 + 1 skipped dev server;
+`scripts/s19b_landing_check.js` 56/56 local and live (screenshots `docs/screenshots/s19/laptop/`, `.../live/`); scroll trace 390 px:
+avg 17.8 ms, p95 33.2 ms, 0 frames > 50 ms, CLS 0.0006; secret scan clean; VPS `check_m1.sh` all PASS; tls-ask 404 from outside.
+Live: manual run 7/7 (subject `TEST, not a real order: Meera's Eggless Bakes (LW-...) [code]`, banner, no customer links); daily run
+8/8, test to hello@ only, labelled check mailbox. One sign-in email sent to ADMIN_EMAIL. Backup
+`launchwitness-20261119-133543.db` -> `C:\Users\Aarushi\Downloads\lw-backups\`.
+
+**Run a check from the CLI (VPS):** copy `scripts/admin_check_shop.py` to the VPS (or `git pull`), then
+`lwc exec -T app python - meeras-eggless-bakes manual|daily < scripts/admin_check_shop.py`.
+
+**Left:** demo video, submission. Owner: confirm the sign-in email landed in the Inbox; optionally tap "Yes, I got it" in a
+launch/"Run checks now" test email for the "Checked by you" row.
+
+# (Session 17, earlier)
 
 ## Session 17 (Opus, 2026-11-18/19, laptop): brand, branded email, the first REAL shop launched, backups, deploy key
 

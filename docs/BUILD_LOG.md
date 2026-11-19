@@ -316,3 +316,34 @@ One entry per Claude Code session, newest last. This is what judges read to unde
   container only; asked for the longer wait + header scan; the restore test goes into a temp folder, not over the local stack.
 - Result: shop live with a real certificate, 7/7 checks, the shared report verifies (intact); backend 1355 passed; secret scan clean.
 - Next: demo video, README, brief PDF, submission.
+
+### Session 19A — 2026-11-19 — Landing page motion pass (Opus, Claude Code on the web)
+- Goal: make the landing page feel alive without changing its copy, colours, routes, ids or test ids.
+- Asked Claude to: add motion to the landing only, on a PR, with before/after screenshots, a frame-time trace and a reduced-motion path.
+- Claude built: `frontend/src/landing/*` (flow lines, promise beam, panel caps, motion CSS), hero assembly, proof pulse, check-address scan,
+  security ticks; `scripts/shoot_s19.js`, `scripts/s19_verify.js`; notes in `docs/S19_LANDING.md`.
+- I changed / rejected: reviewed the screenshots, merged it myself, then removed the headline letter-decode and the word-by-word fade
+  (too busy) and fixed the security list layout (`a7b307e`).
+- Result: landing only (the diff touches no routing, `api.ts`, backend or deploy files); deployed to the VPS the same day.
+- Next: 19B re-checks everything on the laptop.
+
+### Session 19B — 2026-11-19 — Test emails that never feel like fake orders, and a full re-check (Opus, laptop)
+- Goal: a seller only gets a test email when she asked for one, and a test can never be mistaken for an order; then re-check
+  everything, deploy and prove it live.
+- Asked Claude to: audit every path that sends a test order, implement the rule, label test emails, keep the proof chain honest,
+  merge 19A (already merged by me), run every check, deploy, and prove it on the live demo shop.
+- What the audit found: the daily run and its re-check emailed a test order to the seller every day, and every test email used the
+  new-order template ("[TEST] New order ... from LaunchWitness test", call and WhatsApp links to a fake number). Test orders were
+  already hidden from Orders, the "new" count and capacity, and alerts were already once per problem.
+- Claude built: `TestTicket.audience` ("check" for monitoring); `orders.test_audience` / `test_recipients`; monitoring tests go to
+  hello@ only, with no "Yes, I got it" link (a tap there would wrongly prove her inbox); the result and the `imap_seen` evidence say
+  "LaunchWitness's check mailbox"; a daily test missing from our own mailbox counts as "couldn't check" (our side, no alert to her);
+  subject `TEST, not a real order: <shop> (<ref>) [<code>]`, a grey banner in the email layout, no customer links, no Orders link;
+  real order emails unchanged. Landing/README/SPEC wording, judge Q&A, `tests/test_s19b_test_emails.py` (12 tests),
+  `scripts/s19b_landing_check.js`, `scripts/admin_check_shop.py`.
+- I changed / rejected: (owner review pending at the time of writing.)
+- Result: backend 1361 passed and the invariants test updated for the new rule (the S13 timing tests fail the same way on unchanged
+  `HEAD`); e2e 32/32 on Docker, 31 + 1 skipped on the dev server; landing 56/56 checks locally and live; `check_m1` all PASS on the
+  local stack and on the VPS; live demo shop: manual check 7/7 with the new subject and banner, daily round 8/8 labelled as our
+  check mailbox; chain intact; secret scan clean.
+- Next: record the demo video; submit.
