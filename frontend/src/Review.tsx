@@ -56,7 +56,21 @@ const FIELDS: { key: TextKey; label: string; hint?: string; long?: boolean }[] =
   },
 ];
 
-const emptyProduct = (category: string): Product => ({
+/** S19D: the "New" badge lasts this many days from the day she ticks it (the server enforces the same limit). */
+const NEW_BADGE_DAYS = 15;
+
+/** A date in India time, as YYYY-MM-DD, `days` from today. */
+function istDate(days = 0): string {
+  const ist = new Date(Date.now() + 5.5 * 3600_000 + days * 86_400_000);
+  return ist.toISOString().slice(0, 10);
+}
+
+const isNew = (p: Product) => !!p.new_until && p.new_until >= istDate();
+
+const niceDate = (iso: string) =>
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "long", timeZone: "UTC" });
+
+const emptyProduct = (category: string, markNew = false): Product => ({
   name: "",
   price_inr: 0,
   description: "",
@@ -64,6 +78,7 @@ const emptyProduct = (category: string): Product => ({
   addon: false,
   price_from: false,
   food_mark: "",
+  new_until: markNew ? istDate(NEW_BADGE_DAYS) : "", // items added after launch show as New by default
 });
 
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -532,6 +547,11 @@ export default function Review({ id }: { id: number }) {
       <h2>Menu and prices</h2>
       <p className="muted">Items with the same group are shown together on your site.</p>
       <section className="card products">
+        <datalist id="lw-groups">
+          {[...new Set(profile.products.map((p) => p.category).filter(Boolean))].map((c) => (
+            <option key={c} value={c} />
+          ))}
+        </datalist>
         {profile.products.map((p, i) => (
           <div className="product" key={i}>
             <label className="field grow">
@@ -550,7 +570,7 @@ export default function Review({ id }: { id: number }) {
             </label>
             <label className="field">
               <span>Group</span>
-              <input value={p.category} onChange={(e) => updateProduct(i, { category: e.target.value })} />
+              <input list="lw-groups" value={p.category} onChange={(e) => updateProduct(i, { category: e.target.value })} />
             </label>
             <label className="field grow">
               <span>Short description</span>
@@ -575,6 +595,17 @@ export default function Review({ id }: { id: number }) {
               <input type="checkbox" checked={p.price_from} onChange={(e) => updateProduct(i, { price_from: e.target.checked })} />
               <span>Starting price (“from ₹…”)</span>
             </label>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={isNew(p)}
+                onChange={(e) => updateProduct(i, { new_until: e.target.checked ? istDate(NEW_BADGE_DAYS) : "" })}
+              />
+              <span>
+                Show as New on my shop
+                {isNew(p) && <small className="muted"> (until {niceDate(p.new_until!)})</small>}
+              </span>
+            </label>
             <button
               type="button"
               className="btn btn-ghost remove"
@@ -589,7 +620,12 @@ export default function Review({ id }: { id: number }) {
           type="button"
           className="btn btn-ghost"
           onClick={() =>
-            update({ products: [...profile.products, emptyProduct(profile.products[profile.products.length - 1]?.category ?? "Menu")] })
+            update({
+              products: [
+                ...profile.products,
+                emptyProduct(profile.products[profile.products.length - 1]?.category ?? "Menu", biz.status === "live"),
+              ],
+            })
           }
         >
           + Add an item
@@ -624,7 +660,7 @@ export default function Review({ id }: { id: number }) {
       {saveError && <ErrorBox error={saveError} />}
       <div className="actions">
         <button className="btn btn-primary" type="submit" disabled={saving}>
-          {saving ? "Saving…" : "Save"}
+          {saving ? "Saving…" : biz.status === "live" ? "Save changes" : "Save"}
         </button>
         <ShopLink businessId={id} siteUrl={biz.site_url} isPublic={biz.public} label="View my shop" />
         {!dirty && biz.status !== "live" && (
@@ -637,7 +673,11 @@ export default function Review({ id }: { id: number }) {
             See your launch report →
           </a>
         )}
-        {savedAt && !dirty && <span className="saved">✅ Saved. Your website is up to date.</span>}
+        {savedAt && !dirty && (
+          <span className="saved" role="status">
+            {biz.status === "live" ? "✅ Your shop is updated." : "✅ Saved. Your website is up to date."}
+          </span>
+        )}
         {dirty && <span className="muted">You have unsaved changes.</span>}
       </div>
 

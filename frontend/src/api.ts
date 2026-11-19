@@ -6,6 +6,7 @@ export type Product = {
   addon: boolean; // an extra on top of another item
   price_from: boolean; // shown as "from ₹X"
   food_mark: "" | "veg" | "egg" | "nonveg"; // the Reader may suggest it; she confirms it
+  new_until?: string; // S19D: "YYYY-MM-DD" while shown as New (the server keeps at most 15 days ahead)
 };
 
 export type Profile = {

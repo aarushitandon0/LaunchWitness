@@ -212,6 +212,12 @@
   .fm-egg .fm-box { color: #8a3b12; }
   .fm-egg .fm-box i { background: #fff; box-shadow: inset 0 0 0 2px #b45309; }
   .fm-row { margin-top: 3px; }
+  /* S19D: "New" badge (the word, not colour alone; accent / accent-ink is the AA pair the buttons use) */
+  .new-badge { display: inline-block; vertical-align: 2px; margin-left: 4px; padding: 1px 8px; border-radius: 999px; background: var(--accent);
+    color: var(--accent-ink); font: 700 11px/1.6 var(--sans); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+  .new-strip { margin: 10px 0 0; padding: 8px 12px; border-radius: 10px; background: var(--paper); border: 1px solid var(--line2);
+    color: var(--ink); font-size: 14px; font-weight: 600; }
+  .new-strip .new-badge { margin: 0 6px 0 0; }
   .fm-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; }
   .break-note { margin: 12px 0; padding: 12px 16px; border-radius: var(--radius-sm); background: var(--accent-tint); color: var(--ink); border: 1.5px solid var(--accent); }
   .panel .break-note { margin: 12px 0 0; font-size: 14.5px; }

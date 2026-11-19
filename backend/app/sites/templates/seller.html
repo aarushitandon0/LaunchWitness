@@ -54,7 +54,7 @@
   {% if theme.menu == "cards" %}{% if ph %}<div class="thumb"><img src="{{ ph.small }}" width="{{ ph.small_w }}" height="{{ ph.small_h }}" alt="{{ ph.alt }}" loading="lazy" decoding="async"></div>{% else %}<div class="thumb art-tile"><svg class="art" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false" style="transform:rotate({{ (i % 4) * 90 }}deg) scale(1.7) translate({{ (i % 3) * 6 - 6 }}px,{{ (i % 5) * 4 - 8 }}px)"><use href="#lw-art"/></svg><b aria-hidden="true">{{ item.name[:1] | upper }}</b></div>{% endif %}
   {% elif ph %}<img class="item-photo" src="{{ ph.small }}" width="{{ ph.small_w }}" height="{{ ph.small_h }}" alt="{{ ph.alt }}" loading="lazy" decoding="async">{% endif %}
   <div class="item-main">
-    <div class="nameline"><div class="name" id="n{{ i }}">{{ item.name }}</div><span class="leader" aria-hidden="true"></span></div>
+    <div class="nameline"><div class="name" id="n{{ i }}">{{ item.name }}{% if i in new_idx %} <span class="new-badge">New</span>{% endif %}</div><span class="leader" aria-hidden="true"></span></div>
     {% if item.food_mark %}<div class="fm-row">{{ food_mark(item.food_mark) }}</div>{% endif %}
     {% if item.description %}<div class="desc">{{ item.description }}</div>{% endif %}
   </div>
@@ -212,6 +212,7 @@
       <section class="section" id="menu" aria-labelledby="menu-h" style="padding-top:{{ '44px' if not theme.before else '40px' }}">
         <h2 class="section-h" id="menu-h">{{ 'Price list' if theme.menu == 'pricelist' else 'Menu' }}</h2>
         <p class="section-sub">Prices in rupees. Tap Add to build your order.</p>
+        {% if new_names %}<p class="new-strip"><span class="new-badge">New</span> New on the menu: {{ new_names | join(", ") }}</p>{% endif %}
         {% if categories | length > 1 %}
         <ul class="chips" aria-label="Jump to">{% for cat in categories %}<li><a class="chip" href="#cat-{{ loop.index0 }}">{{ cat.name }}</a></li>{% endfor %}</ul>
         {% endif %}

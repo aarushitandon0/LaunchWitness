@@ -59,12 +59,20 @@ class Product(BaseModel):
     addon: bool = False  # an extra on top of another item (shown under "Extras"; can't be ordered alone)
     price_from: bool = False  # the price is a starting price ("from ₹850")
     food_mark: str = ""  # S15: "" | veg | egg | nonveg. The Reader may suggest it; the seller confirms on Review.
+    new_until: str = Field(default="", max_length=10)  # S19D: "YYYY-MM-DD" while the seller shows it as New (app/sites/newness.py)
 
     @field_validator("food_mark", mode="before")
     @classmethod
     def _food_mark(cls, v):
         v = v.strip().lower().replace("-", "").replace(" ", "") if isinstance(v, str) else ""
         return v if v in ful.FOOD_MARKS else ""
+
+    @field_validator("new_until", mode="before")
+    @classmethod
+    def _new_until(cls, v):
+        from app.sites.newness import parse
+
+        return v if isinstance(v, str) and parse(v) is not None else ""
 
     @field_validator("price_inr", mode="before")
     @classmethod

@@ -249,6 +249,11 @@ export function MyShopsPage() {
                   previewLabel="Preview"
                   className="btn btn-ghost btn-sm"
                 />
+                {resumeLabel(b) === "Report" && (
+                  <a className="btn btn-ghost btn-sm" href={`#/b/${b.id}`}>
+                    Edit shop
+                  </a>
+                )}
                 <a className="btn btn-ghost btn-sm" href={`#/b/${b.id}/orders`}>
                   Orders
                   {!!b.new_orders && (

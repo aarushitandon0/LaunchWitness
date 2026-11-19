@@ -380,6 +380,12 @@ def update_business(body: ProfileUpdate, actor: ActorDep, b: Annotated[Business,
     if problem := ful.areas_error(body.profile.delivery_areas) if body.profile.selling_mode.endswith("local") else None:
         raise HTTPException(status_code=422, detail=problem)
     old_sub = b.subdomain
+    from app.sites import newness
+    from app.sites.fulfilment import today_ist
+
+    day = today_ist()
+    for item in body.profile.products:  # S19D: a real date, never more than NEW_BADGE_DAYS ahead
+        item.new_until = newness.clean(item.new_until, day)
     kept = live_contact.keep_confirmed(b, Profile.model_validate_json(b.profile_json), body.profile)
     reset = reset_confirmations(b, body.profile)
     from app import photos

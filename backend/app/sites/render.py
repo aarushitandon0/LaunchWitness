@@ -210,6 +210,9 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
     o = ful.offers(profile)
     shipped = bool(o["india"])
     marks = {x.food_mark for x in profile.products if x.food_mark}
+    from app.sites.newness import is_new
+
+    new_idx = [i for i, x in enumerate(profile.products) if is_new(x.new_until, day)]  # S19D: "New" badge
     take = 3 if theme.hero == "centered" else 1  # photos shown in the hero; the rest go to the strip below it
     return _env.get_template("seller.html").render(
         theme=theme,
@@ -228,6 +231,8 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
         page=page,
         categories=cats,
         extras=extras(profile.products),
+        new_idx=new_idx,
+        new_names=[profile.products[i].name for i in new_idx],
         badges=badges(profile),
         monogram=monogram(profile.name),
         show_area=bool(profile.area.strip()) and not area_is_repeated(profile),
