@@ -1,7 +1,9 @@
-import { motion, MotionValue, useInView, useMotionValue, useScroll, useSpring, useTransform } from "framer-motion";
+import { animate, motion, MotionValue, useInView, useMotionValue, useMotionValueEvent, useSpring, useTransform } from "framer-motion";
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import "./landing/landing-motion.css";
 import { FlowLines } from "./landing/FlowLines";
+import { ellipseFromLeft, followHeroPause, HERO_PAUSE, pathLoop, useLiteHero } from "./landing/heroLoops";
+import { useEdgeProgress } from "./landing/useEdgeProgress";
 import { PanelCap } from "./landing/PanelCap";
 import { PromiseBeam } from "./landing/PromiseBeam";
 import { AddressResult, api, ApiError } from "./api";
@@ -138,30 +140,81 @@ export default function Landing() {
   const calm = useCalm();
   const darkRef = useRef<HTMLElement>(null);
   // 0 → the dark section's top is at the bottom of the screen; 1 → it reached the top.
-  const { scrollYProgress } = useScroll({ target: darkRef, offset: ["start end", "start start"] });
-  const p = useSpring(scrollYProgress, { stiffness: 140, damping: 30, mass: 0.4, restDelta: 0.0005 });
+  const progress = useEdgeProgress(darkRef, 1, 0); // was useScroll offset ["start end", "start start"]
+  const p = useSpring(progress, { stiffness: 140, damping: 30, mass: 0.4, restDelta: 0.0005 });
   const scale = useTransform(p, [0, 1], [1, calm ? 1 : 0.88]);
   const y = useTransform(p, [0, 1], [0, calm ? 0 : -36]);
   const dim = useTransform(p, [0, 1], [0, calm ? 0 : 0.55]);
-  // the cream card rounds a little more as the dark panel slides over it (one small element, scroll-linked)
-  const r0 = typeof window === "undefined" ? 40 : Math.min(40, Math.max(24, window.innerWidth * 0.03));
-  const radius = useTransform(p, [0, 1], [r0, calm ? r0 : r0 + 22]);
-  // pointer tilt for the stack: desktop with a real mouse only, max 6 degrees, eased back to rest
+  // the cream card's corners round a little more (r0 → r0 + 22 px) as the dark panel slides over it. Drawn by four
+  // small corner pieces that scale (see .hero-corner), so the big card never repaints while scrolling.
+  const r0 = useRef(40);
+  useEffect(() => {
+    const f = () => (r0.current = Math.min(40, Math.max(24, window.innerWidth * 0.03))); // = --r-xl
+    f();
+    window.addEventListener("resize", f, { passive: true });
+    return () => window.removeEventListener("resize", f);
+  }, []);
+  const cornerScale = useTransform(p, (v) => (r0.current + 22 * v) / (r0.current + 22));
+  const cornerShow = useTransform(p, (v) => (!calm && v > 0.002 ? 1 : 0));
+  // while the pieces show, they draw the whole curve: the card's own radius goes to 0 (one repaint per switch), so
+  // the two curves never sit on top of each other and leave a thin seam
+  const cardRef = useRef<HTMLElement>(null);
+  useMotionValueEvent(cornerShow, "change", (v) => {
+    if (cardRef.current) cardRef.current.dataset.corners = v ? "1" : "0";
+  });
+  // the hero's loops pause while the card is off screen or fully covered by the dark panel (CSS through data-paused,
+  // Web Animations through the HERO_PAUSE event); nothing runs for a hero nobody can see
+  useEffect(() => {
+    const card = cardRef.current;
+    if (!card || calm) return;
+    let visible = true;
+    let covered = progress.get() >= 0.999;
+    let paused = false;
+    const apply = () => {
+      const now = !visible || covered;
+      if (now === paused) return;
+      paused = now;
+      card.dataset.paused = now ? "1" : "0";
+      card.dispatchEvent(new CustomEvent(HERO_PAUSE, { detail: now }));
+    };
+    const io = "IntersectionObserver" in window ? new IntersectionObserver(([e]) => ((visible = e.isIntersecting), apply())) : null;
+    io?.observe(card);
+    const off = progress.on("change", (v) => {
+      covered = v >= 0.999;
+      apply();
+    });
+    apply();
+    return () => {
+      io?.disconnect();
+      off();
+    };
+  }, [calm, progress]);
+  // pointer tilt for the stack: desktop with a real mouse only, max 6 degrees, eased back to rest.
+  // The card's box is measured when the pointer enters (and again after a scroll), never on every move.
   const tiltX = useMotionValue(0);
   const tiltY = useMotionValue(0);
   const sx = useSpring(tiltX, { stiffness: 90, damping: 18, mass: 0.6 });
   const sy = useSpring(tiltY, { stiffness: 90, damping: 18, mass: 0.6 });
   const fine = useRef(false);
+  const box = useRef<DOMRect | null>(null);
   useEffect(() => {
     fine.current = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    const stale = () => (box.current = null);
+    window.addEventListener("scroll", stale, { passive: true });
+    window.addEventListener("resize", stale, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", stale);
+      window.removeEventListener("resize", stale);
+    };
   }, []);
   const onMove = (e: React.PointerEvent<HTMLElement>) => {
     if (calm || !fine.current || e.pointerType !== "mouse") return;
-    const b = e.currentTarget.getBoundingClientRect();
+    const b = box.current ?? (box.current = e.currentTarget.getBoundingClientRect());
     tiltY.set(((e.clientX - b.left) / b.width - 0.5) * 12);
     tiltX.set(-((e.clientY - b.top) / b.height - 0.5) * 12);
   };
   const onLeave = () => {
+    box.current = null;
     tiltX.set(0);
     tiltY.set(0);
   };
@@ -176,7 +229,7 @@ export default function Landing() {
   return (
     <div className="landing">
       <div className="stack">
-        <motion.section className="hero-card" style={{ scale, y, borderRadius: radius }} aria-labelledby="hero-title" onPointerMove={onMove} onPointerLeave={onLeave}>
+        <motion.section className="hero-card" ref={cardRef} style={{ scale, y }} aria-labelledby="hero-title" onPointerMove={onMove} onPointerLeave={onLeave}>
           <FlowLines />
           <div className="hero-inner">
             <div className="hero-head">
@@ -236,6 +289,10 @@ export default function Landing() {
           <div className="scroll-cue" aria-hidden>
             Scroll <span />
           </div>
+          {!calm &&
+            ["hc-tl", "hc-tr", "hc-bl", "hc-br"].map((c) => (
+              <motion.div key={c} className={`hero-corner ${c}`} style={{ scale: cornerScale, opacity: cornerShow }} aria-hidden />
+            ))}
         </motion.section>
 
         <section className="dark on-dark" id="how" ref={darkRef} aria-labelledby="how-title">
@@ -545,47 +602,74 @@ const STEP = 42; // gap between layers at rest
 function HeroShape({ progress, tiltX, tiltY }: { progress: MotionValue<number>; tiltX: MotionValue<number>; tiltY: MotionValue<number> }) {
   const calm = useCalm();
   // One scroll value drives everything; each layer reads it through a cheap linear map.
-  const spread = useTransform(progress, [0, 1], [0, calm ? 0 : 1]);
+  const lite = useLiteHero(); // phones / low-power devices: the stack stays together while scrolling
+  const spread = useTransform(progress, [0, 1], [0, calm || lite ? 0 : 1]);
   const ys = LAYERS.map((_, i) => useTransform(spread, (v) => -v * i * 28)); // eslint-disable-line react-hooks/rules-of-hooks
+  // the layers drop in one by one, bottom to top (the white plate lands last): same spring and fade as before, kept as
+  // separate values and added to the scroll spread, so each pebble stays a single element
+  const introY = LAYERS.map(() => useMotionValue(calm ? 0 : 190)); // eslint-disable-line react-hooks/rules-of-hooks
+  const introOp = LAYERS.map(() => useMotionValue(calm ? 1 : 0)); // eslint-disable-line react-hooks/rules-of-hooks
+  const layerY = LAYERS.map((_, i) => useTransform(() => ys[i].get() + introY[i].get())); // eslint-disable-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if (calm) return;
+    const runs = LAYERS.flatMap((_, i) => [
+      animate(introY[i], 0, { type: "spring", stiffness: 120, damping: 17, mass: 0.9, delay: 0.35 + i * 0.16 }),
+      animate(introOp[i], 1, { duration: 0.35, delay: 0.35 + i * 0.16 }),
+    ]);
+    return () => runs.forEach((r) => r.stop());
+  }, [calm]); // eslint-disable-line react-hooks/exhaustive-deps
   const ringY = useTransform(spread, (v) => -v * 170);
   const tilt = useTransform(spread, (v) => -v * 6);
   const last = LAYERS.length - 1;
+  // the ring's ball and small dot are HTML in a 400x460 frame laid over the svg; its scale is measured once per resize
+  const shape = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = shape.current;
+    if (!el || calm) return;
+    const fit = () => el.clientHeight && el.style.setProperty("--sh-k", String(el.clientHeight / 460));
+    fit();
+    const ro = "ResizeObserver" in window ? new ResizeObserver(fit) : null;
+    ro?.observe(el);
+    // the ball goes round the ring in 14 s at constant speed, scaling 1 → 0.8 → 1 (as the SMIL version did)
+    const ball = el.querySelector<HTMLElement>(".ring-ball");
+    const ring = ellipseFromLeft(200, 40, 122, 26); // the ring ellipse below
+    const a = ball && pathLoop(ball, ring, { size: 40, duration: 14000, points: 120, scaleAt: (t) => 1 - 0.2 * (1 - Math.abs(2 * t - 1)) });
+    const stop = followHeroPause(el, a ? [a] : []);
+    return () => {
+      ro?.disconnect();
+      stop();
+    };
+  }, [calm]);
   return (
-    <div className="hero-shape" aria-hidden>
+    <div className="hero-shape" aria-hidden ref={shape}>
       <motion.div className="shape-tilt" style={{ rotateX: tiltX, rotateY: tiltY, transformPerspective: 900 }}>
         <motion.div className="shape-rot" style={{ rotate: tilt }}>
           <svg className="shape-layer" viewBox="0 0 400 460">
             <Defs />
-            <motion.ellipse
+            <ellipse
               cx="200"
               cy="420"
               rx="168"
               ry="30"
               fill="url(#lw-g-shadow)"
-              initial={calm ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1.2, delay: 0.3, ease: EASE }}
+              className={calm ? undefined : "sh-fade"}
+              style={calm ? undefined : ({ "--sh-dur": "1.2s", "--sh-delay": "0.3s", animationTimingFunction: "var(--ease)" } as React.CSSProperties)}
             />
           </svg>
           {LAYERS.map((l, i) => (
-            <motion.div key={i} className="shape-layer" style={{ y: ys[i] }}>
-              {/* the layers drop in one by one, bottom to top; the white plate lands last */}
-              <motion.div
-                className="shape-layer"
-                initial={calm ? false : { y: 190, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 120, damping: 17, mass: 0.9, delay: 0.35 + i * 0.16, opacity: { duration: 0.35, delay: 0.35 + i * 0.16 } }}
-              >
-                <div className={calm ? "shape-layer" : "shape-layer breathe"} style={{ animationDelay: `${-i * 0.45}s` }}>
-                  <svg viewBox="0 0 400 460">
-                    <Pebble cy={BASE_Y - i * STEP} fill={l.fill} side={l.side} size={1 - i * 0.035} />
-                    {i === last && <Seal cy={BASE_Y - i * STEP} calm={calm} />}
-                  </svg>
-                </div>
-              </motion.div>
+            // one element (one compositor layer) per pebble: scroll spread + intro drop in `transform`, breathe in `translate`
+            <motion.div
+              key={i}
+              className={calm ? "shape-layer sl-move" : "shape-layer sl-move breathe"}
+              style={{ y: layerY[i], opacity: introOp[i], animationDelay: `${-i * 0.45}s` }}
+            >
+              <svg viewBox="0 0 400 460">
+                <Pebble cy={BASE_Y - i * STEP} fill={l.fill} side={l.side} size={1 - i * 0.035} />
+                {i === last && <Seal cy={BASE_Y - i * STEP} calm={calm} />}
+              </svg>
             </motion.div>
           ))}
-          <motion.div className="shape-layer" style={{ y: ringY }}>
+          <motion.div className="shape-layer sl-move" style={{ y: ringY }}>
             <motion.div
               className="shape-layer"
               initial={calm ? false : { opacity: 0, y: -24 }}
@@ -594,23 +678,22 @@ function HeroShape({ progress, tiltX, tiltY }: { progress: MotionValue<number>; 
             >
               <div className={calm ? "shape-layer" : "shape-layer ring-sway"}>
                 <svg viewBox="0 0 400 460">
-                  <path id="lw-ring-path" d="M78 40 a122 26 0 1 0 244 0 a122 26 0 1 0 -244 0" fill="none" />
                   <ellipse cx="200" cy="40" rx="122" ry="26" fill="none" stroke="url(#lw-g-ring)" strokeWidth="3" />
-                  {/* the lime ball circles the ring; it grows a little on the near side and shrinks on the far side */}
-                  <circle r="20" fill="url(#lw-g-ball)" transform={calm ? "translate(312 30)" : undefined}>
-                    {!calm && (
-                      <>
-                        <animateMotion dur="14s" repeatCount="indefinite" rotate="0">
-                          <mpath href="#lw-ring-path" />
-                        </animateMotion>
-                        <animateTransform attributeName="transform" type="scale" additive="sum" values="1;0.8;1" dur="14s" repeatCount="indefinite" />
-                      </>
-                    )}
-                  </circle>
-                  <g className={calm ? undefined : "dot-drift"}>
-                    <circle cx="90" cy="50" r="9" fill="url(#lw-g-ball2)" />
-                  </g>
+                  {/* reduced motion: the ball and dot are drawn still, in the svg */}
+                  {calm && (
+                    <>
+                      <circle r="20" fill="url(#lw-g-ball)" transform="translate(312 30)" />
+                      <circle cx="90" cy="50" r="9" fill="url(#lw-g-ball2)" />
+                    </>
+                  )}
                 </svg>
+                {!calm && (
+                  <div className="shape-frame">
+                    {/* the lime ball circles the ring; it grows a little on the near side and shrinks on the far side */}
+                    <i className="ring-ball" />
+                    <i className="ring-dot dot-drift" />
+                  </div>
+                )}
               </div>
             </motion.div>
           </motion.div>
@@ -652,26 +735,25 @@ function Seal({ cy, calm }: { cy: number; calm: boolean }) {
   const d = 0.35 + (LAYERS.length - 1) * 0.16;
   return (
     <g>
-      <motion.ellipse
+      <ellipse
         cx="200"
         cy={cy}
         rx="42"
         ry="24"
         fill="#161614"
-        initial={calm ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3, delay: d + 0.35 }}
+        className={calm ? undefined : "sh-fade"}
+        style={calm ? undefined : ({ "--sh-delay": `${d + 0.35}s` } as React.CSSProperties)}
       />
-      <motion.path
+      <path
         d={`M183 ${cy + 1} q6 4 11 7 q10 -8 22 -15`}
+        pathLength={1}
         fill="none"
         stroke="#dcf06a"
         strokeWidth="5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        initial={calm ? false : { pathLength: 0 }}
-        animate={{ pathLength: 1 }}
-        transition={{ duration: 0.55, delay: d + 0.6, ease: EASE }}
+        className={calm ? undefined : "sh-draw"}
+        style={calm ? undefined : ({ "--sh-delay": `${d + 0.6}s` } as React.CSSProperties)}
       />
     </g>
   );

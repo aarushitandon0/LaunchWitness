@@ -347,3 +347,24 @@ One entry per Claude Code session, newest last. This is what judges read to unde
   local stack and on the VPS; live demo shop: manual check 7/7 with the new subject and banner, daily round 8/8 labelled as our
   check mailbox; chain intact; secret scan clean.
 - Next: record the demo video; submit.
+
+### Session 19C — 2026-11-19 — Landing hero performance (Opus, laptop)
+- Goal: the hero after 19A was slow and janky; make it smooth without changing its look, copy, colours or any other page.
+- Asked Claude to: measure first (Playwright + CDP traces at 1440 px and at 390 px with 4x CPU throttle), fix the causes, show
+  before/after numbers and screenshots, run every check, commit, deploy and re-check live.
+- What the measurements found (each confirmed by switching it off alone): the line drift animated `transform` with % on `<svg>`
+  elements, the small dot's drift was a CSS transform on an SVG `<g>`, and the scroll cue animated `transform-origin`, so none
+  ran on the compositor (style recalc every frame); SMIL dots and the ring ball repainted full-size SVGs every frame; the
+  card's `borderRadius` was animated on scroll (whole-card repaint per frame); two `useScroll({target})` re-measured layout on
+  every scroll event; framer called `getBBox` on three `motion.` SVG shapes at load; ~22 full-size `will-change` layers. React was
+  not a cause (0 commits during idle, scroll and mouse moves).
+- Claude built: compositor-only loops (HTML wrappers, `translate` for breathe, dots and ring ball as transform Web Animations from
+  path points computed in JS), four small scaling corner pieces instead of the animated radius, `useEdgeProgress` (scroll read once
+  per frame in framer's read phase, element measured on resize only), one pause switch for every hero loop (off screen or covered),
+  one element per pebble, lite hero on phones / low-power devices. Files: `Landing.tsx`, `landing/*`, two rules in `styles.css`.
+- Result (median of 2 runs, untraced; before -> after): desktop idle main thread 37-47% -> 2.5-2.8%, scroll 20 fps -> 97-103 fps
+  (120 Hz screen), frames > 50 ms 120-159 -> 7-11 of ~830 (no main-thread task > 25 ms during scroll; the rest are raster of the
+  dark panel coming into view); phone x4 idle 98% -> 9-13% with the hero in view and 0.1-0.2% scrolled away, scroll 9 fps -> 33-44 fps,
+  frames > 50 ms 193-197 -> 8-17, long tasks after load > 100 ms 4-6 -> 3, CLS unchanged (0.026 desktop / 0.005 phone).
+  tsc, build, landing pytest 17/17; e2e 26/32 on full Chrome, the 6 failures are the shop `/favicon.ico` 404 (not landing).
+- Next: demo video; optionally give shop pages a favicon.

@@ -286,10 +286,13 @@ input[type="checkbox"] { accent-color: var(--ink); width: 18px; height: 18px; }
 .hero-dim { position: absolute; inset: 0; background: var(--ink); pointer-events: none; opacity: 0; will-change: opacity; }
 .hero-shape { contain: layout paint; }
 .shape-rot { position: absolute; inset: 0; will-change: transform; }
-.shape-layer { position: absolute; inset: 0; will-change: transform; backface-visibility: hidden; }
+.shape-layer { position: absolute; inset: 0; }
+/* only the scroll-driven wrappers hold a layer (each pebble is one element: scroll + intro + breathe) */
+.sl-move { will-change: transform; }
 /* idle motion: transform-only keyframes, run by the compositor */
 .hero-shape .breathe { animation: breathe 5.5s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
-@keyframes breathe { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(0, -7px, 0); } }
+/* `translate`, not `transform`: the same element carries framer's scroll/intro transform */
+@keyframes breathe { 0%, 100% { translate: 0 0; } 50% { translate: 0 -7px; } }
 .hero-shape .orbit { animation: orbit 9s cubic-bezier(0.45, 0, 0.55, 1) infinite; transform-origin: 50% 9%; }
 @keyframes orbit { 0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); } 50% { transform: translate3d(0, -12px, 0) rotate(-4deg); } }
 .scroll-cue { position: absolute; right: var(--gutter); bottom: var(--s-5); font-size: var(--fs-xs); color: var(--muted); display: none; align-items: center; gap: 0.5rem; }

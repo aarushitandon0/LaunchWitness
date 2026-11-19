@@ -4,6 +4,17 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
+**Session 19C (Nov 19, Opus, laptop): landing hero performance.** The 19A hero kept the main thread busy every frame (idle
+37-47% desktop / 98% on a 4x-throttled phone; scroll 20 fps desktop, 9 fps phone). Measured with CDP traces, fixed the causes,
+same look on desktop (frozen-frame pixel diff < 0.06%). Landing files only. Numbers, method and screenshots:
+`docs/screenshots/hero-perf/` and BUILD_LOG 19C. **Next: demo video, submission.**
+
+Decisions (S19C): phones / low-power devices (< 900 px wide, <= 4 CPU cores, or Save-Data) get a lighter hero: the light-lines
+are drawn still (no drift, no glowing dots) and the stack does not spread apart on scroll; everything else (intro, breathing
+stack, ring ball, card scale/dim/corners on scroll) is unchanged. All hero loops pause while the hero is off screen or fully
+covered by the dark panel. Found, not fixed (out of scope): shop subdomains answer `/favicon.ico` with 404, which fails
+`l-s16-themes` (6 tests) when e2e runs on full Google Chrome (`LW_CHROME`); the bundled headless browser never asks for it.
+
 **Session 19B (Nov 19, Opus, laptop): test emails only when she asks, clearly marked TEST; everything re-checked and deployed.**
 Launch / "Run checks now" / "Describe the problem" send the test order to the shop's order address; monitoring sends it to
 LaunchWitness's own check mailbox (hello@), labelled as such, with no "Yes, I got it" link. Every test email starts

@@ -3,7 +3,15 @@
 
 /* ---- hero: flowing light-lines (behind everything, inside the clipped hero card) ---- */
 .flowlines { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
-.flowline { position: absolute; inset: 0; width: 100%; height: 100%; will-change: transform, opacity; }
+/* each line is an HTML wrapper (composited when animated); the svg inside never changes */
+.flowline { position: absolute; inset: 0; }
+.flowline svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+/* a 1000x560 box scaled exactly like the svg's "slice" (--fl-k is set once per resize) so the dots share its coordinates */
+.fl-frame { position: absolute; left: 50%; top: 50%; width: 1000px; height: 560px; margin: -280px 0 0 -500px; transform: scale(var(--fl-k, 1)); }
+/* moved along its line by a transform-only Web Animation (heroLoops.pathLoop) */
+.fl-dot { position: absolute; left: 0; top: 0; border-radius: 50%; will-change: transform; }
+.dc-lime { background: radial-gradient(closest-side, rgba(251, 255, 217, 0.95) 0%, rgba(220, 240, 106, 0.7) 35%, rgba(220, 240, 106, 0) 100%); }
+.dc-amber { background: radial-gradient(closest-side, rgba(255, 231, 209, 0.95) 0%, rgba(240, 154, 80, 0.65) 35%, rgba(240, 154, 80, 0) 100%); }
 .hero-inner { z-index: 1; }
 .fl-a { animation: fl-drift-a 26s var(--ease-in-out) infinite alternate; }
 .fl-b { animation: fl-drift-b 32s var(--ease-in-out) infinite alternate; }
@@ -12,15 +20,50 @@
 @keyframes fl-drift-a { from { transform: translate3d(-2%, 1.5%, 0) scale(1.02); } to { transform: translate3d(2%, -1.5%, 0) scale(1.06); } }
 @keyframes fl-drift-b { from { transform: translate3d(2%, -1%, 0) scale(1.05); } to { transform: translate3d(-2.5%, 2%, 0) scale(1.01); } }
 @keyframes fl-shimmer { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
-.flowlines[data-paused="1"] .flowline { animation-play-state: paused; }
+/* every CSS loop in the hero stops while the card is off screen or fully covered (Landing sets data-paused) */
+.hero-card[data-paused="1"] *, .hero-card[data-paused="1"] *::before, .hero-card[data-paused="1"] *::after { animation-play-state: paused !important; }
 
 /* ---- hero stack: tilt wrapper, ring and small dot motion ---- */
-.shape-tilt { position: absolute; inset: 0; will-change: transform; transform-style: preserve-3d; }
+.shape-tilt { position: absolute; inset: 0; will-change: transform; }
 .hero-shape .ring-sway { animation: ring-sway 12s ease-in-out infinite; transform-origin: 50% 9%; }
 @keyframes ring-sway { 0%, 100% { transform: rotate(-2.5deg) scaleX(1); } 50% { transform: rotate(2.5deg) scaleX(0.93); } }
+/* a 400x460 box laid over the ring svg exactly like its viewBox ("meet": height fits, centred), scaled by --sh-k (set
+   once per resize). The ball and the small dot are HTML inside it, so their loops run on the compositor. */
+.shape-frame { position: absolute; left: 50%; top: 0; width: 400px; height: 460px; margin-left: -200px; transform-origin: 200px 0; transform: scale(var(--sh-k, 1)); }
+/* moved round the ring (and scaled 1 → 0.8 → 1) by a transform-only Web Animation (heroLoops.pathLoop) */
+.ring-ball {
+  position: absolute; left: 0; top: 0; width: 40px; height: 40px; border-radius: 50%; will-change: transform;
+  background: radial-gradient(75% 75% at 35% 30%, #fbffd9 0%, #dcf06a 45%, #7f8f1f 100%);
+}
+.ring-dot {
+  position: absolute; left: 81px; top: 41px; width: 18px; height: 18px; border-radius: 50%;
+  background: radial-gradient(75% 75% at 35% 30%, #ffe7d1 0%, #e0803d 100%);
+}
 .hero-shape .dot-drift { animation: dot-drift 8s ease-in-out infinite; }
 @keyframes dot-drift { 0%, 100% { transform: translate(0, 0); } 33% { transform: translate(7px, -9px); } 66% { transform: translate(-3px, 8px); } }
-.hero-card { will-change: transform, border-radius; }
+.hero-card { will-change: transform; }
+.hero-card.hero-card[data-corners="1"] { border-radius: 0; } /* beats .with-notch .hero-card */
+.landing .hero-card { overflow: clip; overflow-clip-margin: 2px; } /* lets the corner pieces cover the card's edge pixels */
+/* the card's corners round a little more as the dark panel slides over it. Animating border-radius repainted the whole
+   card every scroll frame, so four small ink corner pieces scale instead (transform only); the card keeps its own radius. */
+.hero-corner {
+  /* each piece overhangs the card by 2px (clipped away) so its filtered outer edge never shows as a light line */
+  position: absolute; z-index: 3; width: calc(var(--hc-r) + 2px); height: calc(var(--hc-r) + 2px); pointer-events: none; opacity: 0;
+  will-change: transform, opacity; --hc-r: calc(var(--r-xl) + 22px); --hc-in: calc(var(--hc-r) - 0.75px);
+}
+.hc-tl { top: -2px; left: -2px; transform-origin: 2px 2px; background: radial-gradient(circle at 100% 100%, transparent var(--hc-in), var(--ink) var(--hc-r)); }
+.hc-tr { top: -2px; right: -2px; transform-origin: calc(100% - 2px) 2px; background: radial-gradient(circle at 0% 100%, transparent var(--hc-in), var(--ink) var(--hc-r)); }
+.hc-bl { bottom: -2px; left: -2px; transform-origin: 2px calc(100% - 2px); background: radial-gradient(circle at 100% 0%, transparent var(--hc-in), var(--ink) var(--hc-r)); }
+.hc-br { bottom: -2px; right: -2px; transform-origin: calc(100% - 2px) calc(100% - 2px); background: radial-gradient(circle at 0% 0%, transparent var(--hc-in), var(--ink) var(--hc-r)); }
+/* one-time intro of the stack's shadow and seal (plain CSS; framer measured each SVG element with getBBox on mount) */
+.sh-fade { animation: sh-fade var(--sh-dur, 0.3s) ease-out var(--sh-delay, 0s) both; }
+@keyframes sh-fade { from { opacity: 0; } to { opacity: 1; } }
+.sh-draw { stroke-dasharray: 1; stroke-dashoffset: 0; animation: sh-draw 0.55s var(--ease) var(--sh-delay, 0s) both; }
+@keyframes sh-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+/* the scroll cue's line grows from the top, then shrinks into the bottom (transform only; animating
+   transform-origin kept the main thread busy every frame) */
+.hero-card .scroll-cue span { animation-name: cue-line; }
+@keyframes cue-line { 0% { transform: translateY(0) scaleY(0); } 50% { transform: translateY(0) scaleY(1); } 100% { transform: translateY(28px) scaleY(0); } }
 
 /* ---- dark panels: rounded top edge that flattens as the panel reaches the top ---- */
 .panel-cap {
@@ -106,7 +149,8 @@
 
 /* ---- reduced motion: everything shows in its final state, nothing loops ---- */
 @media (prefers-reduced-motion: reduce) {
-  .flowline, .hero-shape .ring-sway, .hero-shape .dot-drift { animation: none !important; }
+  .flowline, .hero-shape .ring-sway, .hero-shape .dot-drift, .sh-fade, .sh-draw, .scroll-cue span { animation: none !important; }
+  .hero-corner { display: none; }
   .hoptrack-pulse { display: none; }
   [data-pulse="1"] .hoptrack-circle, .check-card.is-busy .check-form::after, .check-result .findings > li, .hoppanel-card { animation: none !important; }
   .sec-tick path { stroke-dashoffset: 0; animation: none !important; }
