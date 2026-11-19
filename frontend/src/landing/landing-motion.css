@@ -1,0 +1,129 @@
+/* S19: landing-page motion. Only transform/opacity animate (plus tiny SVG strokes). Colours are the existing tokens.
+   Every effect has a prefers-reduced-motion fallback at the bottom: final state at once, nothing loops. */
+
+/* ---- decode reveal: real text stays; a ::after layer shows the scramble ---- */
+.dt { position: relative; }
+.dt.dt-run { color: transparent; }
+.dt.dt-run::after {
+  content: attr(data-s); position: absolute; left: 0; top: 0; width: 100%; color: var(--dt-color, currentColor);
+  white-space: pre-wrap; pointer-events: none; font-variant-ligatures: none;
+}
+.dt.dt-run { --dt-color: var(--text); }
+.on-dark .dt.dt-run, .section-head .dt.dt-run { --dt-color: var(--on-ink); }
+.display .dt.dt-run { white-space: nowrap; }
+.display .dt.dt-run::after { white-space: nowrap; }
+
+/* ---- hero: flowing light-lines (behind everything, inside the clipped hero card) ---- */
+.flowlines { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.flowline { position: absolute; inset: 0; width: 100%; height: 100%; will-change: transform, opacity; }
+.hero-inner { z-index: 1; }
+.fl-a { animation: fl-drift-a 26s var(--ease-in-out) infinite alternate; }
+.fl-b { animation: fl-drift-b 32s var(--ease-in-out) infinite alternate; }
+.fl-c { animation: fl-drift-b 30s var(--ease-in-out) infinite alternate-reverse, fl-shimmer 9s ease-in-out infinite; }
+.fl-d { animation: fl-drift-a 36s var(--ease-in-out) infinite alternate-reverse, fl-shimmer 12s ease-in-out infinite -4s; }
+@keyframes fl-drift-a { from { transform: translate3d(-2%, 1.5%, 0) scale(1.02); } to { transform: translate3d(2%, -1.5%, 0) scale(1.06); } }
+@keyframes fl-drift-b { from { transform: translate3d(2%, -1%, 0) scale(1.05); } to { transform: translate3d(-2.5%, 2%, 0) scale(1.01); } }
+@keyframes fl-shimmer { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+.flowlines[data-paused="1"] .flowline { animation-play-state: paused; }
+
+/* ---- hero stack: tilt wrapper, ring and small dot motion ---- */
+.shape-tilt { position: absolute; inset: 0; will-change: transform; transform-style: preserve-3d; }
+.hero-shape .ring-sway { animation: ring-sway 12s ease-in-out infinite; transform-origin: 50% 9%; }
+@keyframes ring-sway { 0%, 100% { transform: rotate(-2.5deg) scaleX(1); } 50% { transform: rotate(2.5deg) scaleX(0.93); } }
+.hero-shape .dot-drift { animation: dot-drift 8s ease-in-out infinite; }
+@keyframes dot-drift { 0%, 100% { transform: translate(0, 0); } 33% { transform: translate(7px, -9px); } 66% { transform: translate(-3px, 8px); } }
+.hero-card { will-change: transform, border-radius; }
+
+/* ---- dark panels: rounded top edge that flattens as the panel reaches the top ---- */
+.panel-cap {
+  position: absolute; left: 0; right: 0; top: 0; height: var(--r-xl); pointer-events: none; transform-origin: 50% 0;
+  border-top: 1px solid var(--ink-line); border-radius: var(--r-xl) var(--r-xl) 0 0; will-change: transform;
+}
+.dark-cont { position: relative; }
+
+/* ---- proof: a glow travels hop 01 -> 06 when the section first appears ---- */
+.hoptrack-pulse { position: absolute; top: calc(var(--circle) / 2); left: calc(100% / 12); width: calc(100% * 10 / 12); height: 0; pointer-events: none; z-index: 2; opacity: 0; }
+.hoptrack-pulse span {
+  position: absolute; left: 0; top: 0; width: 70px; height: 70px; margin: -35px 0 0 -35px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(251, 255, 224, 0.95) 0, rgba(220, 240, 106, 0.55) 22%, rgba(220, 240, 106, 0) 68%);
+}
+[data-pulse="1"] .hoptrack-pulse { animation: hop-pulse-x 2.2s linear 0.15s 1 both; }
+@keyframes hop-pulse-x { 0% { transform: translateX(0); opacity: 0; } 8% { opacity: 1; } 92% { opacity: 1; } 100% { transform: translateX(100%); opacity: 0; } }
+[data-pulse="1"] .hoptrack-circle { animation: hop-node 0.9s var(--ease) both; animation-delay: calc(0.15s + var(--i) * 0.44s); }
+@keyframes hop-node {
+  0% { transform: scale(1); border-color: var(--ink-line); }
+  35% { transform: scale(1.14); border-color: var(--accent); }
+  100% { transform: scale(1); border-color: var(--ink-line); }
+}
+[data-pulse="1"] .hoptrack-hop.open .hoptrack-circle { animation: none; }
+.hoppanel-card { animation: hop-panel-in 0.45s var(--ease) both; }
+@keyframes hop-panel-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@media (max-width: 719px) {
+  .hoptrack-pulse { left: calc(var(--circle) / 2); width: 0; top: calc(var(--row) / 2); height: calc(100% - var(--row)); }
+  [data-pulse="1"] .hoptrack-pulse { animation-name: hop-pulse-y; }
+}
+@keyframes hop-pulse-y { 0% { transform: translateY(0); opacity: 0; } 8% { opacity: 1; } 92% { opacity: 1; } 100% { transform: translateY(100%); opacity: 0; } }
+
+/* ---- promises: list + beam ---- */
+.promise-stage { position: relative; display: grid; gap: var(--s-3); }
+.promise-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-3); }
+.promise-list .promise { transition: opacity var(--t-med) var(--ease), transform var(--t-med) var(--ease); opacity: 0.5; padding: var(--s-3) 0 var(--s-4); display: grid; gap: var(--s-2); }
+.promise-list .promise.is-active { opacity: 1; }
+.promise-list .promise .title { font-size: var(--fs-md); font-weight: var(--fw-medium); display: flex; align-items: center; gap: 0.6rem; }
+.promise-list .promise .title::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; transition: transform var(--t-med) var(--ease); }
+.promise-list .promise.is-active .title::before { transform: scale(1.5); }
+.promise-list .promise p { color: var(--on-ink-muted); margin: 0; font-size: var(--fs-sm); }
+@media (min-width: 900px) {
+  .promise-stage[data-beam="1"] { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: stretch; column-gap: var(--s-6); }
+  .promise-stage[data-beam="1"] .promise-list { grid-auto-rows: 1fr; gap: 0; }
+  .promise-stage[data-beam="1"] .promise { align-content: center; border-top: 1px solid var(--ink-line); padding: var(--s-4) 0; }
+  .promise-stage[data-beam="1"] .promise:last-child { border-bottom: 1px solid var(--ink-line); }
+  .promise-beam { position: relative; overflow: hidden; border-radius: var(--r-lg); }
+  .beam-row { position: absolute; left: 0; right: 0; top: 0; will-change: transform; }
+  .beam-line { position: absolute; left: 0; right: 30px; top: 50%; height: 2px; margin-top: -1px;
+    background: linear-gradient(90deg, rgba(220, 240, 106, 0) 0%, rgba(220, 240, 106, 0.55) 55%, var(--accent) 100%); }
+  .beam-orb { position: absolute; right: 8px; top: 50%; width: 44px; height: 44px; margin-top: -22px; border-radius: 50%;
+    background: radial-gradient(circle, #fbffd9 0, var(--accent) 28%, rgba(220, 240, 106, 0) 70%); }
+  .beam-sparks { position: absolute; right: 30px; top: 50%; width: 0; height: 0; }
+  .beam-sparks i { position: absolute; left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+}
+
+/* ---- check any address: a light scan sweeps the input bar while a check runs; result rows appear one by one ---- */
+.check-form { position: relative; overflow: hidden; }
+.check-card.is-busy .check-form::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 30%; pointer-events: none;
+  background: linear-gradient(90deg, rgba(220, 240, 106, 0), rgba(220, 240, 106, 0.55), rgba(220, 240, 106, 0));
+  animation: scan 1.3s var(--ease-in-out) infinite;
+}
+@keyframes scan { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+.check-result .findings > li { animation: row-in 0.5s var(--ease) both; }
+.check-result .findings > li:nth-child(1) { animation-delay: 0.05s; }
+.check-result .findings > li:nth-child(2) { animation-delay: 0.13s; }
+.check-result .findings > li:nth-child(3) { animation-delay: 0.21s; }
+.check-result .findings > li:nth-child(4) { animation-delay: 0.29s; }
+.check-result .findings > li:nth-child(5) { animation-delay: 0.37s; }
+.check-result .findings > li:nth-child(n + 6) { animation-delay: 0.45s; }
+@keyframes row-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ---- security ticks + lifts on hover ---- */
+.security-list li::before { content: none; }
+.security-list li { grid-template-columns: 1.4rem 1fr; gap: 0.3rem; align-items: start; }
+.sec-tick { width: 1.1rem; height: 1.1rem; color: var(--success); margin-top: 0.2em; }
+.sec-tick path { stroke-dasharray: 24; stroke-dashoffset: 24; }
+.security-list[data-in="1"] .sec-tick path { animation: draw-tick 0.5s var(--ease) both; animation-delay: calc(var(--i) * 0.14s + 0.1s); }
+@keyframes draw-tick { to { stroke-dashoffset: 0; } }
+.watch-item, .who-groups li { transition: transform var(--t-med) var(--ease), box-shadow var(--t-med) var(--ease); }
+@media (hover: hover) {
+  .watch-item:hover { transform: translateY(-4px); }
+  .who-groups li:hover { transform: translateY(-3px); }
+}
+
+/* ---- reduced motion: everything shows in its final state, nothing loops ---- */
+@media (prefers-reduced-motion: reduce) {
+  .flowline, .hero-shape .ring-sway, .hero-shape .dot-drift { animation: none !important; }
+  .hoptrack-pulse { display: none; }
+  [data-pulse="1"] .hoptrack-circle, .check-card.is-busy .check-form::after, .check-result .findings > li, .hoppanel-card { animation: none !important; }
+  .sec-tick path { stroke-dashoffset: 0; animation: none !important; }
+  .promise-list .promise { opacity: 1; }
+  .watch-item:hover, .who-groups li:hover { transform: none; }
+}
