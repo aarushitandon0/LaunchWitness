@@ -219,6 +219,14 @@ export function MyShopsPage() {
                 )}
                 <br />
                 <span className="muted">{shopState(b)}</span>
+                {b.pending_edit && (
+                  <>
+                    <br />
+                    <span className="renewal-note renewal-soon">
+                      Your latest changes are waiting for our team. Customers see the version from before.
+                    </span>
+                  </>
+                )}
                 {b.confirm_new?.length > 0 && (
                   <>
                     <br />

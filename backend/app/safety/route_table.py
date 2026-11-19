@@ -91,6 +91,8 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/admin/businesses/{business_id}/pause"): ADMIN,
     ("POST", "/api/admin/businesses/{business_id}/unpause"): ADMIN,
     ("POST", "/api/admin/businesses/{business_id}/clear-review"): ADMIN,
+    ("POST", "/api/admin/businesses/{business_id}/publish-edit"): ADMIN,
+    ("POST", "/api/admin/businesses/{business_id}/discard-edit"): ADMIN,
     ("PUT", "/api/admin/businesses/{business_id}/demo-fault"): ADMIN,
     ("DELETE", "/api/admin/practice-businesses/{business_id}"): ADMIN,
     ("GET", "/api/admin/reports"): ADMIN,

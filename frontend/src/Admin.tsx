@@ -218,6 +218,12 @@ export function AdminPage() {
                 {b.paused ? " · paused" : ""}
                 {b.review === "held" ? ` · held: ${b.review_reason}` : ""}
               </span>
+              {b.pending_edit && (
+                <>
+                  <br />
+                  <span className="warn">Edited live shop: needs a look. {b.pending_edit.reason}</span>
+                </>
+              )}
               <br />
               <span className="muted">{b.owners.join(", ") || "no owner"}</span>
             </span>
@@ -234,6 +240,19 @@ export function AdminPage() {
                 >
                   Pause
                 </button>
+              )}
+              {b.pending_edit && (
+                <>
+                  <a className="btn btn-ghost btn-sm" href={`#/b/${b.id}`}>
+                    See the edit
+                  </a>
+                  <button className="btn btn-ghost btn-sm" disabled={busy} onClick={act(() => api.admin.publishEdit(b.id))}>
+                    Publish edit
+                  </button>
+                  <button className="btn btn-ghost btn-sm" disabled={busy} onClick={act(() => api.admin.discardEdit(b.id))}>
+                    Discard edit
+                  </button>
+                </>
               )}
               {b.review === "held" && (
                 <button className="btn btn-ghost btn-sm" disabled={busy} onClick={act(() => api.admin.clearReview(b.id))}>

@@ -153,7 +153,9 @@ def businesses(admin: AdminDep, settings: Annotated[Settings, Depends(get_settin
                     "public": is_public(b) and not b.paused, "paused": b.paused, "paused_reason": b.paused_reason,
                     "review": b.review, "review_reason": b.review_reason, "guest": bool(b.guest_hash),
                     "owners": list(owners), "site_url": site_url(b.subdomain, settings) if b.subdomain else None,
-                    "created_at": iso(b.created_at)})
+                    "created_at": iso(b.created_at),
+                    # S19D: an edit to this live shop that the policy check held (the shop shows the last approved one)
+                    "pending_edit": {"reason": b.pending_reason, "at": iso(b.pending_at)} if b.pending_profile_json else None})
     return out
 
 
@@ -185,6 +187,34 @@ def unpause(business_id: int, admin: AdminDep, session: Annotated[Session, Depen
     audit.record(session, actor="admin", action="shop_unpaused", target=f"business:{b.id}", result="ok",
                  business_id=b.id, user_id=admin.user_id)
     return {"ok": True, "paused": False}
+
+
+@router.post("/businesses/{business_id}/publish-edit")
+def publish_edit(business_id: int, admin: AdminDep, session: Annotated[Session, Depends(get_session)]) -> dict:
+    """S19D: the team looked at a held edit to a live shop and it's fine: it goes up now (same save as the owner's)."""
+    from app.agents.reader import Profile
+    from app.routers.businesses import apply_profile
+
+    b = get_business(session, business_id)
+    if not b.pending_profile_json:
+        raise HTTPException(status_code=409, detail="This shop has no edit waiting.")
+    apply_profile(session, b, Profile.model_validate_json(b.pending_profile_json), actor="admin", user_id=admin.user_id,
+                  note="held edit published by the team")
+    return {"ok": True, "pending_edit": None}
+
+
+@router.post("/businesses/{business_id}/discard-edit")
+def discard_edit(business_id: int, admin: AdminDep, session: Annotated[Session, Depends(get_session)]) -> dict:
+    """S19D: the held edit is not OK: it is dropped; the shop keeps its approved version (and stays live)."""
+    b = get_business(session, business_id)
+    if not b.pending_profile_json:
+        raise HTTPException(status_code=409, detail="This shop has no edit waiting.")
+    b.pending_profile_json, b.pending_reason, b.pending_at = "", "", None
+    session.add(b)
+    session.commit()
+    audit.record(session, actor="admin", action="edit_discarded", target=f"business:{b.id}", result="ok",
+                 business_id=b.id, user_id=admin.user_id)
+    return {"ok": True, "pending_edit": None}
 
 
 @router.post("/businesses/{business_id}/clear-review")

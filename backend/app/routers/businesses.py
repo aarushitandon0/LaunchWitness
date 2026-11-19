@@ -84,7 +84,10 @@ def business_out(b: Business, settings: Settings, session: Session | None = None
         "live_url": live_url(session, settings, b),  # S19D: "View shop" on My shops; None = practice/draft (preview only)
         "confirm_new": live_contact.waiting(b),  # S19D: "whatsapp"/"upi" changed on a live shop; customers see the old one
         "owner_email": owners[0] if owners else "",  # the sign-in address orders and alerts go to
-        "profile": json.loads(b.profile_json),
+        # S19D: while an edit waits for the team she keeps working on HER version; customers see profile_json
+        "profile": json.loads(b.pending_profile_json or b.profile_json),
+        "pending_edit": {"reason": b.pending_reason, "at": b.pending_at.replace(tzinfo=None).isoformat() + "Z"
+                         if b.pending_at else None} if b.pending_profile_json else None,
         "theme": theme_out(b),
         "description": b.description,  # S17: her own words, so Describe can open with them again
         "price_list": b.price_list_text,
@@ -140,6 +143,10 @@ def set_theme(body: ThemeChoice, actor: ActorDep, b: Annotated[Business, Depends
     before = f"{themes.resolve(profile)[0].key}/{themes.resolve(profile)[1].key}"
     profile.theme, profile.accent = key, accent
     b.profile_json = profile.model_dump_json()
+    if b.pending_profile_json:  # S19D: a held edit keeps the look she just picked when the team publishes it
+        pending = Profile.model_validate_json(b.pending_profile_json)
+        pending.theme, pending.accent = key, accent
+        b.pending_profile_json = pending.model_dump_json()
     session.add(b)
     session.commit()
     session.refresh(b)
@@ -365,7 +372,8 @@ class ProfileUpdate(BaseModel):
 @router.put("/businesses/{business_id}")
 def update_business(body: ProfileUpdate, actor: ActorDep, b: Annotated[Business, Depends(require_business_access)],
                     settings: Annotated[Settings, Depends(get_settings)],
-                    session: Annotated[Session, Depends(get_session)]) -> dict:
+                    session: Annotated[Session, Depends(get_session)],
+                    claude: Annotated[Claude, Depends(get_claude)]) -> dict:
     sub = body.subdomain.strip().lower()
     problem = slug_problem(sub) if sub != b.subdomain else None
     if problem:
@@ -386,31 +394,73 @@ def update_business(body: ProfileUpdate, actor: ActorDep, b: Annotated[Business,
     day = today_ist()
     for item in body.profile.products:  # S19D: a real date, never more than NEW_BADGE_DAYS ahead
         item.new_until = newness.clean(item.new_until, day)
-    kept = live_contact.keep_confirmed(b, Profile.model_validate_json(b.profile_json), body.profile)
-    reset = reset_confirmations(b, body.profile)
+    b.subdomain = sub
+    held = edit_hold(b, body.profile, settings, claude)
+    if held is not None:  # S19D: the live shop keeps its approved version; this edit waits for the team
+        b.pending_profile_json, b.pending_reason, b.pending_at = body.profile.model_dump_json(), held.reason, utcnow()
+        session.add(b)
+        session.commit()
+        session.refresh(b)
+        audit.record(session, actor="policy", action="edit_held", target=f"business:{b.id}", result="held",
+                     business_id=b.id, user_id=actor.user_id,
+                     detail=f"by {held.by}: {held.reason} (fields: {', '.join(changed_fields(b, body.profile)) or 'none'})"[:300])
+        return business_out(b, settings, session)
+    apply_profile(session, b, body.profile, actor="owner", user_id=actor.user_id,
+                  note=f"subdomain {old_sub} -> {sub}" if old_sub != sub else "")
+    return business_out(b, settings, session)
+
+
+def changed_fields(b: Business, new: Profile) -> list[str]:
+    """Which profile fields an edit changes (names only: never the values, so no customer or contact data in the log)."""
+    old = json.loads(b.profile_json or "{}")
+    return sorted(k for k, v in new.model_dump().items() if old.get(k) != v)
+
+
+def edit_hold(b: Business, new: Profile, settings: Settings, claude: Claude):
+    """S19D: a real live shop's edited words go through the go-live policy check again. Returns the Verdict when the
+    edit must wait for the team, else None. Fails closed (Claude unavailable -> held), like the launch check; on a real
+    server running saved Claude answers every text edit waits for the team (the saved answer would always say OK)."""
+    from app.agents.policy import Verdict, policy_check, shop_text
+    from app.selfcheck import fixture_on_real_server
+
+    if not live_contact.is_real_live(b):
+        return None
+    if shop_text(Profile.model_validate_json(b.profile_json)) == shop_text(new):
+        return None  # no words changed (prices, photos, hours, the New badge...): nothing to check
+    if fixture_on_real_server(settings):
+        return Verdict(False, "Our team looks at changes to a live shop's words before they go up.", by="fixture")
+    verdict = policy_check(claude, new)
+    return None if verdict.ok else verdict
+
+
+def apply_profile(session: Session, b: Business, new: Profile, actor: str, user_id: int | None, note: str = "") -> None:
+    """Save a profile as the shop's own (the owner's save, or the team publishing a held edit), with every follow-up:
+    photos follow renamed items, confirmed WhatsApp/UPI kept for customers, confirmations reset, audit rows."""
     from app import photos
 
-    photos.follow_items(session, b.id, [p.name for p in Profile.model_validate_json(b.profile_json).products],
-                        [p.name for p in body.profile.products])
-    old_look = themes.resolve(Profile.model_validate_json(b.profile_json))
-    new_look = themes.resolve(body.profile)
-    b.name = body.profile.name
-    b.profile_json = body.profile.model_dump_json()
-    b.subdomain = sub
+    old = Profile.model_validate_json(b.profile_json)
+    fields = changed_fields(b, new)
+    kept = live_contact.keep_confirmed(b, old, new)
+    reset = reset_confirmations(b, new)
+    photos.follow_items(session, b.id, [p.name for p in old.products], [p.name for p in new.products])
+    old_look, new_look = themes.resolve(old), themes.resolve(new)
+    b.name = new.name
+    b.profile_json = new.model_dump_json()
+    b.pending_profile_json, b.pending_reason, b.pending_at = "", "", None
     session.add(b)
     session.commit()
     session.refresh(b)
-    audit.record(session, actor="owner", action="profile_saved", target=f"business:{b.id}", result="ok",
-                 business_id=b.id, user_id=actor.user_id, detail=f"subdomain {old_sub} -> {sub}" if old_sub != sub else "")
+    detail = "; ".join(x for x in (note, f"fields: {', '.join(fields)}" if fields else "") if x)
+    audit.record(session, actor=actor, action="profile_saved", target=f"business:{b.id}", result="ok",
+                 business_id=b.id, user_id=user_id, detail=detail[:300])
     if (old_look[0].key, old_look[1].key) != (new_look[0].key, new_look[1].key):
-        audit.record(session, actor="owner", action="theme_changed", target=f"business:{b.id}", result="ok",
-                     business_id=b.id, user_id=actor.user_id,
+        audit.record(session, actor=actor, action="theme_changed", target=f"business:{b.id}", result="ok",
+                     business_id=b.id, user_id=user_id,
                      detail=f"{old_look[0].key}/{old_look[1].key} -> {new_look[0].key}/{new_look[1].key}")
     for what in reset:
         audit.record(session, actor="system", action="confirmation_reset", target=f"business:{b.id}", result="ok",
-                     business_id=b.id, user_id=actor.user_id, detail=f"{what} changed: please check it again"
+                     business_id=b.id, user_id=user_id, detail=f"{what} changed: please check it again"
                      + (" (customers still see the confirmed one)" if kept else ""))
-    return business_out(b, settings, session)
 
 
 def reset_confirmations(b: Business, new: Profile) -> list[str]:

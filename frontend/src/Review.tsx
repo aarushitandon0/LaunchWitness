@@ -657,6 +657,13 @@ export default function Review({ id }: { id: number }) {
           : <>This is a practice shop. <a href="#/signin">Sign in</a> to keep it; orders then go to your sign-in address.</>}
       </p>
 
+      {biz.pending_edit && (
+        <p className="practice" role="status">
+          Your changes are saved, and our team will look at them before they go on your shop.{" "}
+          {biz.pending_edit.reason} Your shop stays open with the version customers saw before; you don't need to do
+          anything else.
+        </p>
+      )}
       {saveError && <ErrorBox error={saveError} />}
       <div className="actions">
         <button className="btn btn-primary" type="submit" disabled={saving}>
@@ -673,7 +680,7 @@ export default function Review({ id }: { id: number }) {
             See your launch report →
           </a>
         )}
-        {savedAt && !dirty && (
+        {savedAt && !dirty && !biz.pending_edit && (
           <span className="saved" role="status">
             {biz.status === "live" ? "✅ Your shop is updated." : "✅ Saved. Your website is up to date."}
           </span>

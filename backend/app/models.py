@@ -107,6 +107,10 @@ class Business(SQLModel, table=True):
     # S19D: a LIVE shop whose owner changed her WhatsApp/UPI keeps showing customers the last CONFIRMED values
     # until she confirms the new ones: {"whatsapp": "...", "upi_id": "...", "upi_display_name": "..."} (app/sites/live_contact.py)
     live_contact_json: str = "{}"
+    # S19D: an edit to a live shop that the policy check held: saved here for the team; the shop keeps showing profile_json
+    pending_profile_json: str = ""
+    pending_reason: str = ""
+    pending_at: datetime | None = None
     own_goods_at: datetime | None = None  # "I make or sell these myself, and I'm allowed to sell them"
     terms_at: datetime | None = None  # "I accept the Terms"
     previewed_at: datetime | None = None  # first time the owner opened the private preview

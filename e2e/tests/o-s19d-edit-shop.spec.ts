@@ -59,3 +59,36 @@ test("a live shop gets a new item with a New badge", async ({ browser }) => {
     }
   }
 });
+
+test("a held edit keeps the live shop as it was until the team publishes it", async ({ browser }) => {
+  test.setTimeout(300_000);
+  const email = `${unique("heldedit")}@example.test`;
+  const seller = await newSignedIn(await browser.newContext(), email);
+  const id = await describe(seller);
+  const slug = unique("e2eheld");
+  await setAddress(seller, id, slug);
+  const admin = await newSignedIn(await browser.newContext(), ADMIN_EMAIL);
+  await approveUser(admin, email);
+  await readyForReal(seller, id);
+  await launch(seller, id, true);
+
+  const biz = await (await api(seller, "GET", `/api/businesses/${id}`)).json();
+  const r = await api(seller, "PUT", `/api/businesses/${id}`, {
+    profile: { ...biz.profile, tagline: "Cakes, and whisky bottles on order" }, subdomain: biz.subdomain,
+  });
+  expect(r.status()).toBe(200);
+  await seller.goto(`/#/b/${id}`);
+  await seller.reload();
+  await expect(seller.getByText(/our team will look at them before they go on your shop/)).toBeVisible();
+
+  const customer = await (await browser.newContext()).newPage();
+  await customer.goto(shopUrl(slug));
+  await expect(customer.locator("body")).not.toContainText("whisky");
+
+  await admin.goto("/#/admin");
+  const row = admin.locator("ul.admin-list > li").filter({ hasText: "Edited live shop: needs a look" }).filter({ hasText: email });
+  await row.getByRole("button", { name: "Publish edit" }).click();
+  await expect(row).toHaveCount(0);
+  await customer.reload();
+  await expect(customer.locator("body")).toContainText("whisky");
+});

@@ -127,6 +127,7 @@ export type Business = {
   theme: ThemeChoice;
   public: boolean; // false = only the owner sees it (preview)
   live_url: string | null;
+  pending_edit: { reason: string; at: string | null } | null; // S19D: her edit waits for the team; the shop shows the last approved one
   confirm_new: ("whatsapp" | "upi")[]; // S19D: changed on a live shop; customers see the old one until she confirms // S19D: a real launched shop's public address (also when paused); null = preview only
   guest: boolean; // made without signing in: practice only, removed after 24 hours
   paused: boolean;
@@ -177,6 +178,7 @@ export type AdminShop = {
   owners: string[];
   site_url: string | null;
   created_at: string | null;
+  pending_edit: { reason: string; at: string | null } | null; // S19D: a held edit to a live shop
 };
 
 export type ShopReportRow = {
@@ -614,6 +616,8 @@ export const api = {
     pause: (id: number, reason: string) => request<{ ok: boolean }>(`/api/admin/businesses/${id}/pause`, json({ reason })),
     unpause: (id: number) => request<{ ok: boolean }>(`/api/admin/businesses/${id}/unpause`, { method: "POST" }),
     clearReview: (id: number) => request<{ ok: boolean }>(`/api/admin/businesses/${id}/clear-review`, { method: "POST" }),
+    publishEdit: (id: number) => request<{ ok: boolean }>(`/api/admin/businesses/${id}/publish-edit`, { method: "POST" }),
+    discardEdit: (id: number) => request<{ ok: boolean }>(`/api/admin/businesses/${id}/discard-edit`, { method: "POST" }),
     reports: () => request<ShopReportRow[]>("/api/admin/reports"),
     closeReport: (id: number, reason: string) => request<{ ok: boolean }>(`/api/admin/reports/${id}/close`, json({ reason })),
     zoneFindings: () => request<ZoneFinding[]>("/api/admin/zone-findings"),
