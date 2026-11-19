@@ -78,12 +78,17 @@ def test_changed_whatsapp_stays_old_until_confirmed(client, engine):
 
 def test_both_changed_twice_keeps_the_first_confirmed_values(client, engine):
     biz = live_shop(client, engine)
+    edit(client, biz, payment_terms="upfront")  # so the thank-you page carries a UPI link
     edit(client, biz, upi_id=NEW_UPI, whatsapp=NEW_WA)
     out = edit(client, biz, upi_id="third.one@okicici", whatsapp="99999 11111")
     assert out["confirm_new"] == ["upi", "whatsapp"]
     page = shop(client)
     assert "third.one" not in page and NEW_UPI not in page and OLD_UPI not in page  # S20: not on the shop page at all
     assert wa(page, OLD_WA_DIGITS)
+    # S20B: the UPI shows only after an order, and there it is still the first confirmed one
+    thanks = order_page(client).replace("&amp;", "&")
+    assert f"upi://pay?pa={OLD_UPI}" in thanks and OLD_UPI in thanks
+    assert NEW_UPI not in thanks and "third.one" not in thanks
 
 
 def test_edit_is_audited_without_the_values(client, engine):
