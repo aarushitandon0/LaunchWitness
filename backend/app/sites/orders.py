@@ -329,11 +329,22 @@ def existing_order(session: Session, business: Business, token: str) -> Order | 
     return session.exec(select(Order).where(Order.business_id == business.id, Order.client_token == token)).first()
 
 
-def order_view(order: Order, claim=None) -> dict:
+def new_status_token() -> tuple[str, str]:
+    """(raw, stored): the raw token goes only into the customer's link; the database keeps its SHA-256, like every
+    other token (S20B). A leaked database therefore opens no order page."""
+    from app.safety.access import sha
+
+    raw = secrets.token_urlsafe(24)
+    return raw, sha(raw)
+
+
+def order_view(order: Order, claim=None, status_token: str = "") -> dict:
     """What the thank-you / status page may show. Deliberately NOT the street address: that stays with the owner.
-    S20: `status_url` (a real order's own unguessable page), the shop's own update, and only the LAST 4 digits of a claim."""
-    return {"is_test": order.is_test, "status_url": f"/order/{order.status_token}" if order.status_token else "",
-            "status_label": STATUS_LABELS.get(order.status, "") if order.status_token else "", "status": order.status,
+    S20: `status_url` (a real order's own unguessable page, built from the RAW token the caller holds: the URL path,
+    or the one just issued), the shop's own update, and only the LAST 4 digits of a claim."""
+    link = bool(status_token) and bool(order.status_token) and not order.is_test
+    return {"is_test": order.is_test, "status_url": f"/order/{status_token}" if link else "",
+            "status_label": STATUS_LABELS.get(order.status, "") if link else "", "status": order.status,
             "claim": {"last4": claim.utr[-4:], "has_shot": bool(claim.screenshot)} if claim is not None else None,
             "customer_name": order.customer_name, "customer_phone": order.customer_phone, "note": order.note,
             "items": json.loads(order.items_json), "total_inr": order.total_inr, "ref": order.ref,
@@ -344,7 +355,8 @@ def order_view(order: Order, claim=None) -> dict:
 
 def place_order(session: Session, mailer: Mailer, settings: Settings, *, business: Business, profile: Profile,
                 data: dict, is_test: bool = False, nonce: str = "", visitor: str = "", token: str = "",
-                confirm_url: str = "", channel: str = "smtp", recipients: list[str] | None = None) -> Order:
+                confirm_url: str = "", channel: str = "smtp", recipients: list[str] | None = None,
+                status_hash: str = "") -> Order:
     """Store the order, then email it to `order_recipients` through the outbox. The launch check's test order and
     a customer's order both come through here, so a passing test order proves the real path.
 
@@ -356,7 +368,7 @@ def place_order(session: Session, mailer: Mailer, settings: Settings, *, busines
                   items_json=json.dumps(data["items"], ensure_ascii=False), total_inr=data["total_inr"],
                   note=data["note"], is_test=is_test, nonce=nonce, visitor=visitor, ref=new_ref(),
                   client_token=token if TOKEN.match(token) else "", email_status="queued",
-                  status_token="" if is_test else secrets.token_urlsafe(24),
+                  status_token="" if is_test else status_hash,  # S20B: only the hash of the customer's link
                   fulfilment=data.get("fulfilment", ""), delivery_address=data.get("delivery_address", ""),
                   delivery_pin=data.get("delivery_pin", ""), wanted_date=data.get("wanted_date", ""),
                   time_slot=data.get("time_slot", ""), fee_inr=data.get("fee_inr", 0),
@@ -396,7 +408,12 @@ def accept_order_form(session: Session, settings: Settings, mailer: Mailer, *, b
     token = form.get("order_token", "")
     again = existing_order(session, business, token)
     if again is not None:  # double tap / form sent twice: show the same thank-you, make nothing new
-        return 200, render_site(profile, page="thanks", order=order_view(again, payclaims.claim_for(session, again.id)))
+        raw = ""
+        if again.status_token and not again.is_test:  # only the hash is kept, so the link is issued afresh (S20B)
+            raw, again.status_token = new_status_token()
+            session.add(again)
+            session.commit()
+        return 200, render_site(profile, page="thanks", order=order_view(again, payclaims.claim_for(session, again.id), raw))
     ticket = proof.open_ticket(session, business, form.get("lw_test", ""))  # the checker's own test order, or None
     shown = {"session": session, "business": business}
     if ticket is None and ful.on_break(profile):  # S15: refused politely here, not only in the page; the checker's test order is not
@@ -414,8 +431,9 @@ def accept_order_form(session: Session, settings: Settings, mailer: Mailer, *, b
         except TooManyOrders:
             return 429, render_site(profile, form_error=TOO_MANY, form_values=form,
                                     full_dates=full_days(**shown, profile=profile))
+        raw, hashed = new_status_token()
         order = place_order(session, mailer, settings, business=business, profile=profile, data=data, visitor=visitor,
-                            token=token, channel=channel)
+                            token=token, channel=channel, status_hash=hashed)
     else:
         # S19B: a monitoring test goes to our check mailbox and has no "Yes, I got it" link (a tap there would
         # claim her inbox got it when it didn't)
@@ -424,5 +442,6 @@ def accept_order_form(session: Session, settings: Settings, mailer: Mailer, *, b
                             nonce=ticket.nonce, visitor="", token=token, confirm_url=confirm_url, channel=channel,
                             recipients=test_recipients(session, settings, business, ticket.audience))
         proof.ticket_used(session, ticket, order)
-    return 200, render_site(profile, page="thanks", order=order_view(order))
+        raw = ""
+    return 200, render_site(profile, page="thanks", order=order_view(order, status_token=raw))
 

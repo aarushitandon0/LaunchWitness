@@ -143,7 +143,7 @@ def status_page(session: Session, business: Business, profile: Profile, token: s
     order = payclaims.order_for_token(session, business, token)
     if order is None:
         return HTMLResponse(NOT_FOUND, status_code=404, headers={"Cache-Control": "no-store"})
-    html = render_site(profile, page="thanks", order=order_view(order, payclaims.claim_for(session, order.id)),
+    html = render_site(profile, page="thanks", order=order_view(order, payclaims.claim_for(session, order.id), token),
                        claim_error=claim_error)
     resp = shop_response(html, code)
     resp.headers.update({"Cache-Control": "no-store", "X-Robots-Tag": "noindex"})

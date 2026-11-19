@@ -237,7 +237,8 @@ class Order(SQLModel, table=True):
     payment_terms: str = ""  # the shop's terms when the order was placed: upfront | advance | on_delivery
     pay_now_inr: int = 0
     pay_later_inr: int = 0
-    # S20: the unguessable address of this order's status page (/order/<token>); "" = an older order or a test order
+    # S20: SHA-256 of the unguessable token in this order's status link (/order/<token>); the raw token is never stored
+    # (S20B). "" = an older order or a test order
     status_token: str = Field(default="", index=True)
     # S10.5: the owner's own progress on the order (sites/orders.py STATUS_STEPS). Only the owner sets it.
     status: str = Field(default="new", index=True)  # new | confirmed | paid | done | cancelled

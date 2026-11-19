@@ -69,7 +69,9 @@ def order_for_token(session: Session, business: Business, token: str) -> Order |
     """The real order behind a status link: this shop's, never a test order, and only for a well-formed token."""
     if not re.fullmatch(r"[A-Za-z0-9_-]{24,64}", token or ""):
         return None
-    return session.exec(select(Order).where(Order.business_id == business.id, Order.status_token == token,
+    from app.safety.access import sha
+
+    return session.exec(select(Order).where(Order.business_id == business.id, Order.status_token == sha(token),
                                             Order.is_test == False)).first()  # noqa: E712
 
 
