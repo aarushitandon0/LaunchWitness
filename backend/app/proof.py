@@ -206,7 +206,9 @@ class _FormParser(HTMLParser):
 def find_order_form(html: str) -> OrderForm | None:
     p = _FormParser()
     p.feed(html)
-    return p.form if p.form and p.form.qty_fields else None
+    # S21: a shop whose items are all "Sold out today" has no quantity box but still the order form (a note-only order is
+    # allowed); the checker asks for the boxes its own test order needs (checker.lines_for_test_order), so nothing is weaker.
+    return p.form
 
 
 # ---------- what the report shows ----------

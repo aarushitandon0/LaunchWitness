@@ -42,3 +42,6 @@
   .qv-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .qv-row output { min-width: 2ch; text-align: center; font-weight: 700; }
   .qv-close { justify-self: end; }
+  .qv-opt { justify-content: space-between; border: 1px solid var(--line2); border-radius: var(--radius-sm); padding: 6px 6px 6px 10px; }
+  .qv-chip { flex: 1; font-weight: 650; white-space: pre; font-variant-numeric: tabular-nums; }
+  .qv-choice { display: grid; gap: 4px; font-size: 14px; font-weight: 650; color: var(--ink2); }

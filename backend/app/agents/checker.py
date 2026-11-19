@@ -217,6 +217,20 @@ def check_email_dmarc(ctx: Ctx) -> Outcome:
                    f"TXT _dmarc.{zone} = {got or 'nothing'}")
 
 
+def lines_for_test_order(profile: Profile) -> dict[str, str]:
+    """S21: what the test order asks for, like the simplest customer: the first main item that isn't sold out, its first
+    size / pack, its minimum quantity, its first choice. (Like the shop's own notice, an item's notice is ignored: the
+    test order gives no date.) Every item sold out: no line at all, so it sends only its note, which the form accepts."""
+    i = next((n for n, x in enumerate(profile.products) if not x.addon and not x.sold_out), None)
+    if i is None:
+        return {}
+    item = profile.products[i]
+    out = {f"qty_{i}_0" if item.options else f"qty_{i}": str(item.min_qty)}
+    if item.choices:
+        out[f"choice_{i}"] = item.choices[0]
+    return out
+
+
 TEST_CUSTOMER = {"customer_name": "LaunchWitness test", "customer_phone": "0000000000",
                  "note": "Automatic test order from a LaunchWitness check. No action needed."}
 
@@ -233,15 +247,15 @@ def check_test_order(ctx: Ctx) -> Outcome:
     if form is None:
         return Outcome("test_order", False, "We couldn't open your order form for a test order.",
                        f"GET {url}: status {page.status} {page.error}".strip())
-    index = next((i for i, x in enumerate(profile.products) if not x.addon), 0)
-    field = f"qty_{index}"
-    if field not in form.qty_fields:
-        return Outcome("test_order", False, "We couldn't find an item to order on your page.", f"{field} not in form")
+    lines = lines_for_test_order(profile)
+    missing = [k for k in lines if k.startswith("qty_") and k not in form.qty_fields]
+    if missing:
+        return Outcome("test_order", False, "We couldn't find an item to order on your page.", f"{missing[0]} not in form")
     run = ctx.session.get(CheckRun, ctx.run_id) if ctx.run_id else None
     audience = test_audience(run.trigger if run else "")
     ticket = proof.new_ticket(ctx.session, ctx.business, ctx.run_id, audience)
     started = utcnow()
-    fields = {**form.hidden, **TEST_CUSTOMER, field: "1", "lw_test": ticket.nonce}
+    fields = {**form.hidden, **TEST_CUSTOMER, **lines, "lw_test": ticket.nonce}
     sent = web.post(urljoin(url, form.action), fields)
     ctx.session.refresh(ticket)
     order = ctx.session.get(Order, ticket.order_id) if ticket.order_id else None

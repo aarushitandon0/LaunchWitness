@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
 from app.agents.reader import Profile
+from app.sites.items import group_sizes
 from app.sites.orders import OrderInvalid, parse_order_form
 from app.sites.render import render_site
 
@@ -32,8 +33,9 @@ def demo_profile(name: str) -> Profile:
     profile = Profile.model_validate(json.loads((FIXTURES / f"{DEMOS[name]}.json").read_text(encoding="utf-8")))
     # Never point a demo at a real person's phone, WhatsApp or UPI ID, even if a sample gains one later.
     theme, accent = DEMO_LOOKS[name]
+    # S21: the same code-side grouping a Reader reply gets ("X ½ kg" + "X 1 kg" -> one item with two sizes)
     return profile.model_copy(update={"phone": "", "whatsapp": "", "upi_id": "", "upi_display_name": "",
-                                      "theme": theme, "accent": accent})
+                                      "theme": theme, "accent": accent, "products": group_sizes(profile.products)})
 
 
 def page(name: str, which: str = "home", **kw) -> HTMLResponse:

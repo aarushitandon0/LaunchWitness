@@ -39,8 +39,19 @@ class Verdict:
     by: str = "claude"  # "code" | "claude" | "unavailable"
 
 
+def _sold_words(p) -> str:
+    """S21: an item's option labels and its choices are words customers read, so they are checked like the rest.
+    (Nothing is added for an item without them, so older shops' text is unchanged.)"""
+    out = ""
+    if p.options:
+        out += " [" + ", ".join(o.label for o in p.options) + "]"
+    if p.choices:
+        out += f" {p.choice_label or 'Choice'}: " + ", ".join(p.choices)
+    return out
+
+
 def shop_text(profile: Profile) -> str:
-    items = "\n".join(f"- {p.name}: {p.description}" for p in profile.products[:60])
+    items = "\n".join(f"- {p.name}: {p.description}" + _sold_words(p) for p in profile.products[:60])
     return (f"Shop name: {profile.name}\nTagline: {profile.tagline}\nAbout: {profile.about}\n"
             f"Selling point: {profile.selling_point}\nItems:\n{items}")[:6000]
 

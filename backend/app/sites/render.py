@@ -13,7 +13,9 @@ from markupsafe import Markup
 
 from app.agents.reader import Product, Profile
 from app.sites import fulfilment as ful
+from app.sites import items as sell
 from app.sites import motifs, themes
+from app.sites.items import line_label
 
 TEMPLATES = Path(__file__).parent / "templates"
 _env = Environment(loader=FileSystemLoader(TEMPLATES), autoescape=select_autoescape(["html"]))
@@ -30,6 +32,7 @@ def format_inr(amount: int) -> str:
 
 
 _env.filters["inr"] = format_inr
+_env.filters["line"] = line_label
 
 
 def whatsapp_digits(number: str) -> str:
@@ -46,7 +49,7 @@ def order_whatsapp_link(profile: Profile, order: dict | None) -> str | None:
     number = whatsapp_digits(profile.whatsapp or profile.phone)
     if len(number) < 11 or not order or not order.get("ref"):
         return None
-    items = ", ".join(f"{it['qty']} x {it['name']}" for it in order.get("items", []))[:600]
+    items = ", ".join(f"{it['qty']} x {line_label(it)}" for it in order.get("items", []))[:600]
     text = f"Hi {profile.name}, this is my order {order['ref']}" + (f": {items}" if items else "") + "."
     return f"https://wa.me/{number}?{urlencode({'text': text}, quote_via=quote)}"
 
@@ -239,6 +242,8 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
         categories=cats,
         extras=extras(profile.products),
         new_idx=new_idx,
+        sell=sell,  # S21: wording for options, units, notes (app/sites/items.py)
+        item_notice=sell.longest_notice(profile.products, profile.min_notice_days),
         new_names=[profile.products[i].name for i in new_idx],
         badges=badges(profile),
         monogram=monogram(profile.name),

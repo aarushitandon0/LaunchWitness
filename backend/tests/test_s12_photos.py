@@ -120,7 +120,7 @@ def test_upload_on_review_then_shown_lazy_and_sized_on_the_live_shop(client, sho
     # S14: the first shop photo is the hero image (large, loaded at once); the item photo is a lazy thumbnail
     assert f'src="{p["large"]}"' in html and 'fetchpriority="high"' in html
     assert html.count('loading="lazy"') == 1 and 'width="1200" height="900"' in html
-    assert 'class="item has-photo"' in html
+    assert 'class="item has-photo' in html  # S21: item 0 also has sizes ("item has-photo has-opts")
 
 
 def test_placeholders_stay_when_there_are_no_photos(client, shop):

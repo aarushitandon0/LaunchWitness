@@ -127,8 +127,6 @@
   .add { display: none; }
   .js .qty input, .js .qty label { display: none; }
   .js .add { display: inline-flex; }
-  .js .chosen .add { display: none; }
-  .js .chosen .step { display: inline-flex; }
   .extras-note { font-size: 14px; color: var(--muted); margin: -4px 0 10px; }
   .art-tile { position: relative; overflow: hidden; background: var(--soft); border-radius: var(--radius-sm); }
   .art-tile svg.art { position: absolute; inset: 0; width: 100%; height: 100%; }

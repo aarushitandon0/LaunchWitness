@@ -14,6 +14,7 @@ from app.mail.smtp import Mailer
 from app.models import Business, Order, utcnow
 from app.safety.access import owner_emails, run_by_team
 from app.sites import fulfilment as ful
+from app.sites import items as items_mod
 
 MAX_QTY = 50
 
@@ -113,6 +114,70 @@ def full_days(session: Session | None, business: Business | None, profile: Profi
     return ful.full_dates({d: n for d, n in rows if d}, profile)
 
 
+_QTY_FIELD = re.compile(r"qty_(\d{1,3})(?:_(\d{1,2}))?")
+
+
+def _qty(raw: str, top: int) -> int:
+    raw = (raw or "0").strip() or "0"
+    if not raw.isdigit() or int(raw) > top:
+        raise OrderInvalid(f"Please enter a quantity between 0 and {top}.")
+    return int(raw)
+
+
+def order_lines(form: dict[str, str], profile: Profile) -> tuple[list[dict], tuple[int, str] | None]:
+    """S21: the order's lines, priced ONLY from the menu. A plain item is `qty_<i>`; option j of an item with options is
+    `qty_<i>_<j>` (one box per option, so it works without JavaScript). Per item: its minimum and maximum (all options
+    together), sold out refused, a required choice from its own list. Returns the lines and the item notice that is
+    longer than the shop's own ((days, item name), or None). A line is {name, qty, price_inr} plus option_label / choice
+    when the item has them (and `addon`, which the caller removes)."""
+    for key, value in form.items():  # a box that isn't on this menu (an old page, a hand-made POST) never counts silently
+        m = _QTY_FIELD.fullmatch(key)
+        if not m or (value or "0").strip() in ("", "0"):
+            continue
+        i, j = int(m.group(1)), m.group(2)
+        item = profile.products[i] if i < len(profile.products) else None
+        if item is None:
+            continue  # as before S21: a box for an item that no longer exists is ignored
+        if (j is None) == bool(item.options) or (j is not None and int(j) >= len(item.options)):
+            raise OrderInvalid(f"Please choose one of the listed options for {item.name}." if item.options
+                               else f"Please choose {item.name} from the menu.")
+    lines: list[dict] = []
+    notice: tuple[int, str] | None = None
+    for i, product in enumerate(profile.products):
+        top = items_mod.cap(product)
+        if product.options:
+            picked = [(o, _qty(form.get(f"qty_{i}_{j}", "0"), max(MAX_QTY, top))) for j, o in enumerate(product.options)]
+        else:
+            picked = [(None, _qty(form.get(f"qty_{i}", "0"), max(MAX_QTY, top)))]
+        picked = [(o, n) for o, n in picked if n > 0]
+        total = sum(n for _, n in picked)
+        if not total:
+            continue
+        if product.sold_out:
+            raise OrderInvalid(f"Sorry, {product.name} is sold out today. Please take it out of your order.")
+        if total < product.min_qty:
+            raise OrderInvalid(f"{product.name}: please order at least {product.min_qty} (you chose {total}).")
+        if total > top:
+            raise OrderInvalid(f"{product.name}: you can order at most {top} in one order (you chose {total}).")
+        choice = ""
+        if product.choices:
+            asked = " ".join(form.get(f"choice_{i}", "").split())
+            choice = next((c for c in product.choices if c == asked), "")
+            if not choice:
+                raise OrderInvalid(f"Please choose a {items_mod.choice_word(product).lower()} for {product.name}.")
+        if product.notice_days > profile.min_notice_days and (notice is None or product.notice_days > notice[0]):
+            notice = (product.notice_days, product.name)
+        for o, n in picked:
+            line = {"name": product.name, "qty": n, "price_inr": o.price_inr if o else product.price_inr,
+                    "addon": product.addon}
+            if o:
+                line["option_label"] = o.label
+            if choice:
+                line["choice"] = choice
+            lines.append(line)
+    return lines, notice
+
+
 def parse_order_form(form: dict[str, str], profile: Profile, *, test: bool = False, session: Session | None = None,
                      business: Business | None = None, today: date | None = None) -> dict:
     """Everything the customer sent, checked against the shop's own rules. Prices, fees and totals come ONLY from the
@@ -134,14 +199,7 @@ def parse_order_form(form: dict[str, str], profile: Profile, *, test: bool = Fal
         raise OrderInvalid("Please add your name so we know who the order is for.")
     if not re.fullmatch(r"\+?[\d\s-]{10,20}", phone) or len(re.sub(r"\D", "", phone)) < 10:
         raise OrderInvalid("Please add a phone number we can call or WhatsApp (at least 10 digits).")
-    items = []
-    for i, product in enumerate(profile.products):
-        raw = form.get(f"qty_{i}", "0").strip() or "0"
-        if not raw.isdigit() or int(raw) > MAX_QTY:
-            raise OrderInvalid(f"Please enter a quantity between 0 and {MAX_QTY}.")
-        if int(raw) > 0:
-            items.append({"name": product.name, "qty": int(raw), "price_inr": product.price_inr,
-                          "addon": product.addon})
+    items, notice = order_lines(form, profile)
     if not items and not note:
         raise OrderInvalid("Please choose at least one item, or tell us what you'd like in the note.")
     if items and all(it["addon"] for it in items):
@@ -183,7 +241,15 @@ def parse_order_form(form: dict[str, str], profile: Profile, *, test: bool = Fal
         wanted = day.isoformat()
     elif ful.date_required(profile) and not test:
         raise OrderInvalid("Please pick the date you want your order by.")
-    slot = " ".join(form.get("time_slot", "").split())
+    if notice and not test:  # S21: an item that needs more notice than the shop's own (the test order ignores it, like the shop's)
+        days, what = notice
+        first = today + timedelta(days=days)
+        need = f"{what} needs {days} day{'s' if days != 1 else ''}' notice."
+        if not wanted:
+            raise OrderInvalid(f"{need} Please pick the date you want your order by.")
+        if date.fromisoformat(wanted) < first:
+            raise OrderInvalid(f"{need} The earliest date you can pick is {ful.nice_date(first)}.")
+    slot =" ".join(form.get("time_slot", "").split())
     if profile.time_slots and slot and slot not in profile.time_slots:
         raise OrderInvalid("Please pick one of the time slots on the list.")
     if not profile.time_slots:
@@ -228,7 +294,7 @@ def order_email(business: Business, profile: Profile, order: Order, items: list[
         if wa := customer_whatsapp_link(profile.name, order):
             lines.append(f"WhatsApp the customer: {wa}")
         lines.append("")
-    lines += [f"- {it['qty']} x {it['name']} @ {format_inr(it['price_inr'])} = {format_inr(it['qty'] * it['price_inr'])}"
+    lines += [f"- {it['qty']} x {items_mod.line_label(it)} @ {format_inr(it['price_inr'])} = {format_inr(it['qty'] * it['price_inr'])}"
               for it in items] or ["(no items chosen; see note)"]
     if order.fee_inr:
         what = "Shipping" if ful.offers(profile)["india"] else "Delivery"

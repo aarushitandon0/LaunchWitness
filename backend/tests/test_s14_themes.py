@@ -372,10 +372,15 @@ def test_every_font_has_the_rupee_sign_and_the_licence_file():
 
 @pytest.mark.parametrize("key", THEME_KEYS)
 def test_page_budget_no_frameworks_lazy_images(key):
+    import gzip
+
     for stem in ("big_menu", "cake_studio"):
         html = render_site(themed(stem, key))
-        limit = 130 if stem == "big_menu" else 75  # KB of HTML (CSS + the one small script are inline)
+        # KB of HTML (CSS + the two small fixed scripts are inline). S21 raised the small shop's raw budget 75 -> 85 for the
+        # option rows' CSS and script (+1.4 KB gzipped) and added the gzipped budget, which is what travels.
+        limit, gz = (130, 22) if stem == "big_menu" else (85, 20)
         assert len(html.encode()) <= limit * 1024, (key, stem, len(html.encode()))
+        assert len(gzip.compress(html.encode())) <= gz * 1024, (key, stem, "gzip")
     html = render_site(themed("cake_studio", key))
     assert "<script src" not in html and not re.search(r'<link[^>]+rel="stylesheet"', html)
     assert html.count("<script>") == 2

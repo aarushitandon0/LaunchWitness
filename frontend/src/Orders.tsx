@@ -95,7 +95,7 @@ export function OrdersPage({ businessId }: { businessId: number }) {
                 o.items.map((it, i) => (
                   <li key={i}>
                     <span>
-                      {it.qty} × {it.name}
+                      {it.qty} × {[it.name, it.option_label, it.choice].filter(Boolean).join(" · ")}
                     </span>
                     <span>{inr(it.qty * it.price_inr)}</span>
                   </li>

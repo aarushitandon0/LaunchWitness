@@ -71,7 +71,8 @@ def test_each_missing_profile_item_refuses_a_real_launch(owner, change, key):
 def test_no_priced_item_refuses(owner):
     biz = meera(owner)
     ready_for_real(owner, biz["id"])
-    products = [{**p, "price_inr": 0} for p in owner.get(f"/api/businesses/{biz['id']}").json()["profile"]["products"]]
+    products = [{**p, "price_inr": 0, "options": []}  # S21: a size's price is a price too
+                for p in owner.get(f"/api/businesses/{biz['id']}").json()["profile"]["products"]]
     undo(owner, biz["id"], products=products)
     assert "shop" in missing_keys(real(owner, biz["id"]))
 

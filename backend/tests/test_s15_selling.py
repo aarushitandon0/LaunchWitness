@@ -19,7 +19,7 @@ from tests.test_m3_launch import approve, plan
 SELLERS = Path(__file__).parent / "fixtures" / "sellers"
 HOST = {"host": "meera.localhost"}
 ADDRESS = "Flat 4B, 12 Secret Lane, Baner, Pune"
-BASE = {"qty_0": "1", "customer_name": "Asha Rao", "customer_phone": "98765 43210"}
+BASE = {"qty_0_0": "1", "customer_name": "Asha Rao", "customer_phone": "98765 43210"}
 ITEM = 650  # Chocolate truffle cake 1/2 kg in Meera's saved reply
 
 
@@ -262,8 +262,8 @@ def test_totals_and_fees_come_from_the_menu_not_the_browser(client, engine):
 
 def test_free_delivery_above_a_value_and_pickup_has_no_fee(client, engine):
     shop(client, free_delivery_above_inr=1200)
-    order(client, **delivery(qty_0="1"))
-    order(client, **delivery(qty_0="2", order_token="a" * 20))  # 1300 >= 1200: free
+    order(client, **delivery(qty_0_0="1"))
+    order(client, **delivery(qty_0_0="2", order_token="a" * 20))  # 1300 >= 1200: free
     order(client, **pickup(order_token="b" * 20))
     got = sorted((o.total_inr, o.fee_inr) for o in stored(engine))
     assert got == [(ITEM, 0), (ITEM + 80, 80), (2 * ITEM, 0)]
@@ -396,7 +396,7 @@ def test_the_upi_link_asks_for_the_advance_with_the_order_ref(client, engine):
 
 def test_full_payment_upfront_asks_for_the_whole_total(client, engine):
     shop(client, payment_terms="upfront")
-    r = order(client, **pickup(qty_0="2"))
+    r = order(client, **pickup(qty_0_0="2"))
     assert uri_params(r.text)["am"] == "1300.00" and "Pay now: ₹1,300" in r.text
     assert stored(engine)[0].pay_later_inr == 0
 

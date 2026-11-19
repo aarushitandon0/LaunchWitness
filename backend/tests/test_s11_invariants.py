@@ -29,7 +29,7 @@ from tests.test_s9_phase2_access import call, owner_urls
 
 HOST, SHOP = "meera.localhost", {"host": "meera.localhost"}
 OWNER, OTHER = "a@example.org", "b@example.org"
-ORDER = {"qty_0": "1", "customer_name": "Asha Rao", "customer_phone": "98765 43210", **pickup()}
+ORDER = {"qty_0_0": "1", "customer_name": "Asha Rao", "customer_phone": "98765 43210", **pickup()}
 FAULTS = ("dns_missing", "dns_wrong", "cert_not_ready", "smtp_down", "smtp_login", "mail_lost", "write_fails",
           "restart", "claude_down", "double_submit", "two_runs", "cert_later")
 MACHINE_STEPS = {"dns_answer", "http_response", "form_post", "smtp_accepted", "imap_seen",

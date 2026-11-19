@@ -194,17 +194,32 @@ def remap_items(session: Session, business_id: int, new: list[str]) -> None:
             session.add(p)
 
 
+def merged_into(old_name: str, new: list[str]) -> str:
+    """S21: "Chocolate truffle cake ½ kg" was merged into "Chocolate truffle cake" (one item with sizes): that name, if
+    it is on the new list. Same words as the grouping in app/sites/items.py, so a photo follows its item."""
+    from app.sites.items import split_size
+
+    s = split_size(old_name)
+    if s is None:
+        return ""
+    want = " ".join(s[0].lower().split())
+    return next((n for n in new if " ".join(n.lower().split()) == want), "")
+
+
 def follow_items(session: Session, business_id: int, old: list[str], new: list[str]) -> None:
     """After the owner saves her list: a renamed item keeps its photo (same position, new name, and the list kept its
-    length, so it was an edit rather than an item added or removed); a photo whose item is gone is deleted.
+    length, so it was an edit rather than an item added or removed); S21: a photo of a size that was merged into one item
+    with sizes moves to that item (the first such photo; the item keeps one); a photo whose item is gone is deleted.
     No commit (the caller saves the profile in the same transaction)."""
     renamed = {o: n for o, n in zip(old, new, strict=True) if o != n and o not in new} if len(old) == len(new) else {}
     for p in session.exec(select(Photo).where(Photo.business_id == business_id, Photo.item != "")).all():
         if p.item in new:
             continue
-        if p.item in renamed and not session.exec(select(Photo.id).where(
-                Photo.business_id == business_id, Photo.item == renamed[p.item])).first():
-            p.item = renamed[p.item]
+        target = renamed.get(p.item) or merged_into(p.item, new)
+        if target and not session.exec(select(Photo.id).where(
+                Photo.business_id == business_id, Photo.item == target)).first():
+            p.item = target
             session.add(p)
+            session.flush()  # the next photo of the same merged item sees this one and is not moved onto it
         else:
             session.delete(p)

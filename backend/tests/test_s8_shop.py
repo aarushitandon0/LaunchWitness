@@ -186,7 +186,7 @@ def test_extras_cannot_be_ordered_alone_and_totals_come_from_the_menu(client, en
     save(client, biz)
     products = biz["profile"]["products"]
     extra = next(i for i, x in enumerate(products) if x["addon"])
-    item = next(i for i, x in enumerate(products) if not x["addon"])
+    item = next(i for i, x in enumerate(products) if not x["addon"] and not x["options"])  # S21: a plain item (qty_<i>)
     base_form = {k: v for k, v in order_form().items() if not k.startswith("qty_")}
     r = client.post("/order", data={**base_form, f"qty_{extra}": "1"}, headers={"host": MEERA})
     assert r.status_code == 422 and "Extras go with another item" in r.text
@@ -251,4 +251,4 @@ def test_order_shops_are_still_built(client):
 def test_group_products_leaves_extras_out():
     p = tidy_profile(meera_live())
     names = [item.name for cat in group_products(p.products) for _i, item in cat.items]
-    assert "Photo print on cake" not in names and "Chocolate truffle cake 1 kg" in names
+    assert "Photo print on cake" not in names and "Chocolate truffle cake" in names  # S21: one item, two sizes
