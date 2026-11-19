@@ -368,3 +368,27 @@ One entry per Claude Code session, newest last. This is what judges read to unde
   frames > 50 ms 193-197 -> 8-17, long tasks after load > 100 ms 4-6 -> 3, CLS unchanged (0.026 desktop / 0.005 phone).
   tsc, build, landing pytest 17/17; e2e 26/32 on full Chrome, the 6 failures are the shop `/favicon.ico` 404 (not landing).
 - Next: demo video; optionally give shop pages a favicon.
+- Deploy confirmed (owner, start of 19D): `65d07e3` pulled and rebuilt on the VPS, health ok.
+
+### Session 19D — 2026-11-19 — View shop, edit after launch, New badge, safe live edits (Opus, laptop)
+- Goal: (1) a way to open each shop from My shops; (7) let a seller edit a LIVE shop, add items and mark them New,
+  without ever showing customers unconfirmed payment details or unchecked words.
+- Asked Claude to: ship View shop on its own first (commit, deploy, confirm live), then Part 7 in the owner's order: (a) the
+  WhatsApp/UPI overlay (money first), (b) add item + New badge + Edit shop, (c) policy re-check with a pending copy and Team
+  approval; commit after each green step; hard stop 1:00 AM IST.
+- Claude built: `live_url` (owner-only, server-built) + View shop / Preview on My shops (`ShopLink` reused); `app/sites/live_contact.py`
+  (customers see the last confirmed WhatsApp / UPI on every shop page, order form and thank-you UPI link until she confirms the
+  new one; My shops asks her to); `app/sites/newness.py` (`NEW_BADGE_DAYS = 15`, `new_until` server-clamped, badge on day 15,
+  gone on day 16) + the badge and a "New on the menu" line in all six looks; Edit shop button, "Save changes" -> "Your shop is
+  updated"; group suggestions; `edit_hold` + `apply_profile` (a live shop's changed words go through the go-live policy check,
+  fail closed; held -> pending copy, shop stays live with the approved version; Team page Publish / Discard edit); every save
+  logs which fields changed (names only). VPS docs: user `lwadmin`. `scripts/hero_scroll_trace.js`.
+- Audit before Part 7 (owner asked): edits already reached the live shop at once; a changed UPI went to customers before she
+  re-confirmed it; the policy check ran only at launch.
+- I changed / rejected: badge window 14 -> 15 days (one constant, tested on day 15/16); order of work (View shop shipped alone first).
+- Result: backend 1417 passed + the reader-schema test fixed after the full run (136/136 on the affected files); the two S13
+  timing tests fail on this laptop as before (one also alone); ruff, tsc, build clean; e2e 35/35 on the Docker stack (incl. 3 new
+  S19D flows); screenshots `docs/screenshots/s19d/` (My shops, edit screen, shop with a New item in bakery + kitchen, 390/1440).
+  Deployed twice as `lwadmin` (`131bec2` View shop alone, then `529b472` Part 7): health ok, served bundle = local build, demo
+  shop unchanged (marker, no badge), shared report `/verify` intact (242 rows). Hero trace on the live site: see PROGRESS.
+- Next: owner clicks View shop / Edit shop live and adds "Mango cake" on camera; demo video; submission.

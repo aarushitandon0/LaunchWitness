@@ -1,4 +1,29 @@
-# State for the next session (written 2026-11-19 IST, end of Session 19B)
+# State for the next session (written 2026-11-19 IST, end of Session 19D)
+
+## Session 19D (Opus, 2026-11-19, laptop): View shop, edit after launch, New badge, safe live edits
+
+**VPS:** `ssh -i ~/.ssh/launchwitness lwadmin@148.66.158.18`, repo `~/LaunchWitness`; deploy = `git pull --ff-only` then
+`docker compose --env-file .env -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build --wait`
+(`lwc` alias in interactive shells only). 19C (`65d07e3`) was deployed by the owner; 19D Part 1 (`131bec2`) deployed and
+the served bundle checked.
+
+**Code map:**
+- `businesses.live_url` (owner-only; real live shop, paused too) -> My shops View shop / Preview (`ShopLink` with `className`,
+  `previewLabel`), address under the name, Edit shop for launched shops.
+- `app/sites/live_contact.py`: `Business.live_contact_json` keeps the last confirmed WhatsApp / UPI of a real live shop;
+  `public_profile(b)` is what `routes.seller_for_request` returns (shop page, order, thank-you, status). `confirm` clears it.
+  `business_out.confirm_new` -> My shops "Please confirm your new ...".
+- `app/sites/newness.py`: `NEW_BADGE_DAYS = 15`, `Product.new_until`; render passes `new_idx/new_names`; badge CSS in
+  `templates/css/base.css` (`.new-badge`, `.new-strip`).
+- `businesses.edit_hold` / `apply_profile` / `changed_fields`; `Business.pending_profile_json/pending_reason/pending_at`;
+  admin `POST /api/admin/businesses/{id}/publish-edit|discard-edit`; Team page row "Edited live shop: needs a look".
+- Tests: `tests/test_s19d_view_shop.py`, `test_s19d_live_contact.py`, `test_s19d_new_badge.py`, `test_s19d_edit_review.py`;
+  e2e `n-s19d-view-shop.spec.ts`, `o-s19d-edit-shop.spec.ts` (`LW_S19D_SHOTS=<dir>` for screenshots `docs/screenshots/s19d/`).
+- Hero trace: `cd e2e && NODE_PATH=$(pwd)/node_modules LW_CHROME=<chrome.exe> node ../scripts/hero_scroll_trace.js <url> 2`.
+
+**Live demo shop untouched** (owner adds "Mango cake" on camera). Owner to click View shop / Edit shop on the live site.
+
+# (Session 19B, earlier)
 
 ## Session 19B (Opus, 2026-11-19, laptop): test emails only when she asks + full re-check, deployed
 

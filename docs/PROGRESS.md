@@ -4,6 +4,24 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
+**Session 19D (Nov 19, Opus, laptop): View shop, edit a live shop, New badge, safe live edits.** My shops: View shop (live
+real shops, own address in a new tab, address shown) or Preview (practice/draft), Edit shop. A live shop's owner can edit and
+add items; items can show "New" for 15 days. Customers never see an unconfirmed WhatsApp/UPI, and changed words on a live shop
+pass the policy check first (held edits wait for the team; the shop stays live). 19C deploy confirmed. **Next: demo video,
+submission.**
+
+Decisions (S19D): `live_url` is set for a real live shop also when paused / held / on a break (its own page says so); the
+Report keeps its existing "Open my shop" (hidden while a check runs, as before). Removing a WhatsApp/UPI value takes effect at
+once (nothing to confirm). New badge: `new_until` = day marked + 15 (IST), shown while today <= new_until, server never stores
+more than 15 days ahead; items added after launch are New by default; the badge uses the theme's accent/accent-ink pair (the
+button pair, AA in every look). Only a change to the words the policy check reads (name, tagline, about, selling point, item
+names/descriptions) re-runs it; prices, hours, photos, the badge, theme don't. While an edit is held she keeps editing her own
+copy; any later save that still carries the held words waits too; taking them out publishes. A real server on saved Claude
+answers holds every word edit (as launches). The team sees the held edit through "See the edit" (the owner's Review). The
+local e2e stack allows 1000 live shops (`docker-compose.local.yml`; production keeps 40). Hero trace (new script, different
+settings from 19C, so not comparable): live, full Chrome headless, 1440: 60-68 fps, idle 3.6%, CLS 0.027; 390 px x4 (DPR 3,
+scrolling through the dark panel): 16-18 fps, idle 23-28%, CLS 0.0006.
+
 **Session 19C (Nov 19, Opus, laptop): landing hero performance.** The 19A hero kept the main thread busy every frame (idle
 37-47% desktop / 98% on a 4x-throttled phone; scroll 20 fps desktop, 9 fps phone). Measured with CDP traces, fixed the causes,
 same look on desktop (frozen-frame pixel diff < 0.06%). Landing files only. Numbers, method and screenshots:
