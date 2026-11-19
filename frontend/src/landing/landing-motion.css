@@ -1,18 +1,6 @@
 /* S19: landing-page motion. Only transform/opacity animate (plus tiny SVG strokes). Colours are the existing tokens.
    Every effect has a prefers-reduced-motion fallback at the bottom: final state at once, nothing loops. */
 
-/* ---- decode reveal: real text stays; a ::after layer shows the scramble ---- */
-.dt { position: relative; }
-.dt.dt-run { color: transparent; }
-.dt.dt-run::after {
-  content: attr(data-s); position: absolute; left: 0; top: 0; width: 100%; color: var(--dt-color, currentColor);
-  white-space: pre-wrap; pointer-events: none; font-variant-ligatures: none;
-}
-.dt.dt-run { --dt-color: var(--text); }
-.on-dark .dt.dt-run, .section-head .dt.dt-run { --dt-color: var(--on-ink); }
-.display .dt.dt-run { white-space: nowrap; }
-.display .dt.dt-run::after { white-space: nowrap; }
-
 /* ---- hero: flowing light-lines (behind everything, inside the clipped hero card) ---- */
 .flowlines { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
 .flowline { position: absolute; inset: 0; width: 100%; height: 100%; will-change: transform, opacity; }
@@ -106,8 +94,6 @@
 @keyframes row-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* ---- security ticks + lifts on hover ---- */
-.security-list li::before { content: none; }
-.security-list li { grid-template-columns: 1.4rem 1fr; gap: 0.3rem; align-items: start; }
 .sec-tick { width: 1.1rem; height: 1.1rem; color: var(--success); margin-top: 0.2em; }
 .sec-tick path { stroke-dasharray: 24; stroke-dashoffset: 24; }
 .security-list[data-in="1"] .sec-tick path { animation: draw-tick 0.5s var(--ease) both; animation-delay: calc(var(--i) * 0.14s + 0.1s); }

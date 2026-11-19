@@ -1,7 +1,6 @@
 import { motion, MotionValue, useInView, useMotionValue, useScroll, useSpring, useTransform } from "framer-motion";
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import "./landing/landing-motion.css";
-import { DecodeText, WordFade } from "./landing/DecodeText";
 import { FlowLines } from "./landing/FlowLines";
 import { PanelCap } from "./landing/PanelCap";
 import { PromiseBeam } from "./landing/PromiseBeam";
@@ -215,10 +214,8 @@ export default function Landing() {
               transition={{ duration: 0.7, delay: 0.45, ease: EASE }}
             >
               <p>
-                <WordFade now delay={1.35}>
-                  Describe your business. LaunchWitness puts it online on GoDaddy, proves a real order reaches you, fixes
-                  what breaks, and keeps checking.
-                </WordFade>
+                Describe your business. LaunchWitness puts it online on GoDaddy, proves a real order reaches you, fixes what
+                breaks, and keeps checking.
               </p>
               <div className="hero-meta">
                 <a className="btn btn-primary" href="#/new">
@@ -398,14 +395,19 @@ export default function Landing() {
   );
 }
 
-/** One headline line, decoded letter by letter on first load. Non-text children (the lime check chip) stay as they are. */
+/** One headline line that rises out of a mask on first load. */
 function Line({ i, children }: { i: number; children: ReactNode }) {
-  const parts = Array.isArray(children) ? children : [children];
+  const calm = useCalm();
   return (
-    <span className="line" style={{ paddingBottom: "0.06em" }}>
-      {parts.map((c, k) =>
-        typeof c === "string" ? <DecodeText key={k} now text={c.trim()} delay={250 + i * 220} ms={900} /> : c,
-      )}
+    <span className="line" style={{ overflow: "hidden", paddingBottom: "0.06em" }}>
+      <motion.span
+        style={{ display: "inline-block" }}
+        initial={calm ? false : { y: "105%" }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.9, delay: 0.1 + i * 0.09, ease: EASE }}
+      >
+        {children}
+      </motion.span>
     </span>
   );
 }
@@ -445,7 +447,7 @@ function SectionHead({ id, title, label, children }: { id: string; title: string
     <div className="section-head">
       <div className="meta">
         <h2 id={id}>
-          <DecodeText text={title} />
+          {title}
         </h2>
         <span className="label">{label}</span>
       </div>
@@ -458,7 +460,7 @@ function SectionHead({ id, title, label, children }: { id: string; title: string
       />
       {children && (
         <p>
-          <WordFade delay={0.5}>{children}</WordFade>
+          {children}
         </p>
       )}
     </div>
