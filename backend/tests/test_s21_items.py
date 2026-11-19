@@ -435,3 +435,18 @@ def test_link_preview_text_is_escaped(client):
     shop(client, section_copy={"hero_line": EVIL, "about": "", "how_ordering": ""})
     head = client.get("/", headers=HOST).text.split("</head>")[0]
     assert "<script>alert" not in head and "<img src=x" not in head and "og:description" in head
+
+
+def test_poster_is_owner_only_for_a_live_shop_with_a_qr_and_no_script(client, new_client):
+    biz = shop(client, tagline="Eggless <cakes> & more", section_copy={"hero_line": "", "about": "", "how_ordering": ""})
+    r = client.get(f"/api/businesses/{biz['id']}/poster")
+    assert r.status_code == 200 and "default-src 'none'" in r.headers["Content-Security-Policy"]
+    html = r.text
+    assert "<script" not in html and "Order online" in html and "meera.localhost" in html
+    assert 'aria-label="QR code for http://meera.localhost/"' in html and "<path" in html
+    assert "Eggless &lt;cakes&gt; &amp; more" in html and "http" not in html.split("<style>")[1].split("</style>")[0]
+    assert new_client().get(f"/api/businesses/{biz['id']}/poster").status_code in (401, 403, 404)
+    from tests.test_s15_selling import create
+
+    draft = create(client)  # a draft is not on the internet: nothing to print
+    assert client.get(f"/api/businesses/{draft['id']}/poster").status_code == 404

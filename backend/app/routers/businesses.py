@@ -643,6 +643,23 @@ def preview(b: Annotated[Business, Depends(require_business_access)], actor: Act
                         headers={"X-Robots-Tag": "noindex", "Cache-Control": "no-store"})
 
 
+@router.get("/businesses/{business_id}/poster", response_class=HTMLResponse)
+def poster(b: Annotated[Business, Depends(require_business_access)],
+           settings: Annotated[Settings, Depends(get_settings)],
+           session: Annotated[Session, Depends(get_session)]) -> HTMLResponse:
+    """S21: a printable poster with a QR code of the live shop's address (owner only, app host). A shop that isn't live
+    has no public address to print, so it answers 404."""
+    from app.sites.poster import poster_html
+
+    url = live_url(session, settings, b)
+    if not url:
+        raise HTTPException(status_code=404, detail="Your shop has no public address yet.")
+    html = poster_html(Profile.model_validate_json(b.profile_json), url)
+    return HTMLResponse(html, headers={"X-Robots-Tag": "noindex", "Cache-Control": "no-store",
+                                       "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; "
+                                       "img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"})
+
+
 def claim_out(c) -> dict | None:
     """S20: what a customer SAID about paying, for the owner only. Always a claim ("says paid"), never "paid"."""
     from app.payclaims import show_utr
