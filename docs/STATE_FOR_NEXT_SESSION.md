@@ -1,4 +1,20 @@
-# State for the next session (written 2026-11-19 IST, end of Session 19D)
+# State for the next session (written 2026-11-20 IST, end of Session 20B)
+
+## Session 20B (Opus, 2026-11-20, laptop): S20 reviewed + fixed + deployed
+
+**VPS = `main` = `2940687`** (plus docs commits after it). Rollback target if ever needed: `git checkout ceb82c8` + rebuild
+(the code the VPS ran before, `529b472`).
+- S20 code map: `docs/S20.md`. S20B: `orders.new_status_token()` (raw to the customer, `Order.status_token` = sha256),
+  `order_view(order, claim, status_token)` builds the link only from a raw token the caller holds (URL path or just issued);
+  `payclaims.order_for_token` looks up by hash. `orders.first_name()`. Favicon 204 in `routes.seller_page` (shop hosts only).
+  Signature strip: `motifs.band_svg()`, `.motif-band` in `templates/css/fx.css`, after the hero in `seller.html`.
+- Tests: `tests/test_s20b_fixes.py` (hash, re-sent form, first name, privacy, pay-on-delivery, favicon, strip);
+  `test_s19d_live_contact.py::test_both_changed_twice...` checks the thank-you page again.
+- Screenshots `docs/screenshots/s20b/` (strip in 3 looks at 390/1440; live demo shop). Script `scripts/shoot_s20b_band.js`.
+- **Morning, with the owner:** one real order on the demo shop (emails hello@): pickup + pay upfront -> thank-you shows UPI
+  link + QR with the exact amount -> owner tests the link on a phone -> fake 12-digit UTR -> Orders shows "Customer says paid"
+  -> owner cancels it. Not done yet.
+
 
 ## Session 19D (Opus, 2026-11-19, laptop): View shop, edit after launch, New badge, safe live edits
 

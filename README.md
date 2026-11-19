@@ -55,7 +55,7 @@ Lots of tools will build a small business a website. Almost none of them tell th
 
 **LaunchWitness is a website builder that doesn't stop at "your site is ready".** A home seller types a few lines about their business and pastes their price list (or uploads a photo of it). LaunchWitness then:
 
-1. **Builds** a mobile-friendly shop with their menu, prices, order form, WhatsApp button and UPI QR code.
+1. **Builds** a mobile-friendly shop with their menu, prices, order form, WhatsApp button and UPI payment for each order.
 2. **Puts it online** on GoDaddy: the web address, the DNS settings, HTTPS and email.
 3. **Proves it works** by placing a real test order through the real order form and following it all the way to the inbox.
 4. **Fixes what breaks** using a small, fixed list of safe repairs, and explains every problem in one plain sentence.
@@ -128,7 +128,7 @@ Other things worth a look:
 | 6 | **Prove** | Code (+ Claude to explain) | Run every check, including a real test order. Anything that fails goes to the Doctor, gets a safe fix, and is checked again. |
 | 7 | **Report and watch** | Code | A report with every check, its result and time, the Doctor's explanations, and the full audit log. A shareable read-only link. Monitoring starts. |
 
-After launch the seller also gets an **Orders** page (New → Confirmed → Paid → Done / Cancelled, with a one-tap WhatsApp message to the customer), new-order emails at their personal address, and an account page where they can delete everything.
+After launch the seller also gets an **Orders** page (New → Confirmed → Paid → Done / Cancelled, with a one-tap WhatsApp message to the customer, and a "Customer says paid" note when a customer sends their UPI reference), new-order emails at their personal address, and an account page where they can delete everything.
 
 ---
 
@@ -212,7 +212,9 @@ Every seller's site comes from **one rendering engine and one template**, server
 - **Six looks** for home businesses: Bakery & desserts, Home kitchen / tiffin, Handmade & crafts, Tailoring & custom work, Gifts & hampers, General. Claude picks only a **key** (which look, which accent, three short lines of copy). Code validates the key and draws everything: colours, self-hosted fonts, layout and illustrations.
 - **Menu with prices in ₹**, a basket that works even without JavaScript, extras listed separately, a search box for long menus.
 - **Order form** with date (minimum notice enforced), pickup or delivery (by area or PIN code), time slots, quantities, and totals worked out **on the server**.
-- **Payment by UPI**: each order shows "Pay ₹X via UPI" as a prefilled UPI link on phones and a QR code on laptops, with the order ID as the note. Money goes straight from the customer to the seller. It never passes through LaunchWitness.
+- **Payment by UPI, only after an order**: the shop page never shows the seller's UPI ID or QR code. After a real order, the thank-you page (and the order's own private status page) shows "Pay ₹X via UPI" as a prefilled UPI link on phones and a QR code on laptops, with the exact amount and the order ID as the note. Pay-on-delivery orders get no UPI details at all. Money goes straight from the customer to the seller. It never passes through LaunchWitness.
+- **"I've paid"**: after paying in their own UPI app, the customer can enter the 12-digit UPI reference (UTR) and, optionally, a screenshot (re-encoded, no hidden data). The seller sees **"Customer says paid"**, never "Paid": they check their own UPI app and mark the order Paid themselves. References and screenshots are private to the seller, and are deleted 30 days after the order closes.
+- **Each shop's own signature**: a small set of drawings (sprinkles, leaves, stars and so on) chosen by code from the shop's name, shown as a strip under the top of the page where no text sits, plus gentle touches (add-to-basket, a quick view of each item). The page works the same with JavaScript off.
 - **WhatsApp button**, an order status page per order, a privacy page, "Report this shop", and the optional food licence (FSSAI) number.
 - **Product photos**: re-encoded to WebP from the pixels alone, so no location or camera data survives.
 - **Accessibility and safety**: every colour combination passes WCAG AA (tested), every seller-supplied field is HTML-escaped (tested with hostile input in every field, in every look), and shop pages send a strict Content-Security-Policy.
@@ -325,7 +327,7 @@ Claude has three jobs, and none of them involve acting on money or DNS.
 | Seller sites | Server-rendered Jinja2, one template, six themes, self-hosted open-licence fonts |
 | Infrastructure | GoDaddy Docker VPS, Docker Compose, Caddy (automatic HTTPS, on-demand TLS) |
 | Email | GoDaddy Professional Email over SMTP and IMAP; Mailpit for the local stack |
-| Testing | pytest (1,350+ backend tests), Playwright end-to-end flows, ruff |
+| Testing | pytest (1,580+ backend tests), Playwright end-to-end flows, ruff |
 
 ---
 
@@ -435,7 +437,7 @@ All are listed in [`.env.example`](.env.example) with safe defaults.
 ## Testing
 
 ```bash
-cd backend && ../.venv/bin/pytest -q          # 1,350+ tests, no network access allowed
+cd backend && ../.venv/bin/pytest -q          # 1,580+ tests, no network access allowed
 .venv/bin/python -m ruff check backend        # lint
 cd frontend && npx tsc --noEmit && npm run build
 cd e2e && npm install && npx playwright install chromium && npx playwright test
@@ -478,6 +480,7 @@ Being honest about the state of a hackathon build:
 - A real shop launched by the app: its DNS record written through the GoDaddy API with a backup first, its certificate issued on demand, all seven checks proven, and a shareable report with an intact evidence chain.
 - Real email: sign-in links, order emails and test orders sent through GoDaddy Professional Email, and test orders found in the inbox over IMAP.
 - Monitoring, nightly database backups, and a tested restore.
+- Private UPI: the live shops show UPI details only after an order, and customers can tell the shop they paid (UTR and an optional screenshot), which the seller checks before marking the order Paid.
 
 **Not done yet**
 
@@ -485,7 +488,7 @@ Being honest about the state of a hackathon build:
 - **Creating a mailbox for each seller** through GoDaddy's email API is still a stub. Test orders go to the app's own mailbox, or the owner confirms with "Yes, I got it".
 - **The admin** is whoever controls the `ADMIN_EMAIL` inbox. There is no second factor yet.
 - **The demo fault** is staged so it shows reliably on camera. The detection and the fix are real.
-- **Payments** are UPI links only. No money passes through LaunchWitness, and card payments are future work.
+- **Payments** are UPI links only. No money passes through LaunchWitness, so it never confirms a payment: "Customer says paid" stays a claim until the seller checks their UPI app. Card payments (a gateway, after the seller's KYC) are future work.
 
 ---
 

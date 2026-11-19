@@ -4,6 +4,23 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
+**Session 20B (Nov 20, Opus, laptop): S20 reviewed, fixed, verified and deployed.** S20 (PR #18, private UPI + "customer
+says paid" + each shop's signature) was already merged on GitHub (`d8e01bc`); reviewed it, then on top: status-link token stored
+as SHA-256; thank-you/status page shows the first name only; privacy text names the team's logged access to a screenshot;
+the UPI hold test has its positive check back; a pay-on-delivery test; docs .08; shop hosts answer `/favicon.ico` with 204;
+the signature is now clearly visible as a strip under the hero (opacity .3, no text on it) while the layer behind the hero
+text stays .08. Full verification green, deployed (`2940687`), live checks green. **Next (with the owner, morning): one real
+order on the demo shop (pickup + pay upfront -> UPI link/QR -> fake UTR -> "Customer says paid" -> cancel), demo video,
+submission.**
+
+Decisions (S20B): a re-sent order form (double tap) issues a fresh status link (only the hash is kept, so the old raw token
+can't be shown again; the earlier link stops working). The signature strip sits directly under the hero in every look,
+static (no new script; fx.js unchanged), faded at both ends, 56 px phone / 72 px laptop; masking the hero layer away from the
+text column was not done (five hero layouts, not reliable in the time). `check_m1.sh` greps large outputs without a pipe
+(pipefail + `grep -q` SIGPIPE gave a false FAIL on the 66 KB shop page and could give a false PASS on the git-history
+password scan). Local e2e stack: the app volume was reset twice (admin hit the 100 sign-in links/day and 5 describe-problem/day
+limits after repeated full runs; test data only). VPS was on `529b472` (code = `ceb82c8`), the rollback target.
+
 **Session 19D (Nov 19, Opus, laptop): View shop, edit a live shop, New badge, safe live edits.** My shops: View shop (live
 real shops, own address in a new tab, address shown) or Preview (practice/draft), Edit shop. A live shop's owner can edit and
 add items; items can show "New" for 15 days. Customers never see an unconfirmed WhatsApp/UPI, and changed words on a live shop

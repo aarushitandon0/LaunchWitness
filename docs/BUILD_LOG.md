@@ -392,3 +392,34 @@ One entry per Claude Code session, newest last. This is what judges read to unde
   Deployed twice as `lwadmin` (`131bec2` View shop alone, then `529b472` Part 7): health ok, served bundle = local build, demo
   shop unchanged (marker, no badge), shared report `/verify` intact (242 rows). Hero trace on the live site: see PROGRESS.
 - Next: owner clicks View shop / Edit shop live and adds "Mango cake" on camera; demo video; submission.
+
+### Session 20A — 2026-11-19 — Private UPI, "customer says paid", each shop's signature (cloud)
+- Goal: payments the owner can trust without a gateway; shops that don't all look alike.
+- Asked Claude to: hide the UPI ID until a real order; let a customer say they paid (UTR + optional screenshot) as a claim the
+  owner checks; give every shop its own motif and gentle interactions without breaking the safety layer.
+- Claude built: `app/payclaims.py`, `PaymentClaim`, `/order/<token>` status page + `POST /order/<token>/paid`, owner Orders
+  "Customer says paid" + screenshot route, 30-day purge; `app/sites/motifs.py` (18 motifs x 3 arrangements, by code from the
+  name), `fx.js`/`fx.css` (basket fly, quick view, sticky category bar), look-picker thumbnails; tests + 2 e2e flows; `docs/S20.md`.
+- I changed / rejected: merged PR #18 on GitHub; the laptop review (20B) followed.
+- Result: details and numbers in `docs/S20.md`. The cloud couldn't run Docker/e2e.
+- Next: review and verify on the laptop.
+
+### Session 20B — 2026-11-20 — Review, fixes, verification, deploy (Opus, laptop)
+- Goal: check 20A's decisions before going live; verify everything the cloud couldn't; deploy.
+- Asked Claude to: confirm the real change set (no landing/routing/proof/deploy files), review the status page, pay-on-delivery,
+  the motif opacity and every changed test (before/after), then apply 8 fixes, verify fully and deploy if all green.
+- Claude found: main already held the merge (`d8e01bc`); the status token was stored raw; the page showed the full name;
+  one changed test (`both_changed_twice`) had lost its positive UPI check; no test pinned pay-on-delivery; the motif was .08
+  (docs said .09) and near-invisible; the privacy text missed the team's logged access to a screenshot.
+- Claude built: the 8 fixes, each with a test and its own commit; a signature strip under the hero (opacity .3, no text on it);
+  `/favicon.ico` 204 on shop hosts; `check_m1.sh` SIGPIPE fix (false FAIL on the 66 KB shop page; false PASS risk on the
+  git-history password scan); e2e expectations for the first name; the screenshot e2e fetch moved into the page (Windows).
+- I changed / rejected: chose "merge all" and the fix list; asked for the motif out of the text area rather than raised behind it;
+  the real test order is left for the morning, together.
+- Result: backend 1581 passed + 1 updated test passing (`test_m2_site`, first name), 3 skipped; the two S13 timing tests fail
+  on this laptop as before (also alone); ruff, tsc, build clean; Docker prod-like stack + `check_m1.sh --local` all pass
+  (incl. the shop marker); full e2e 37/37 on a fresh local DB (an earlier run had a timing race in `h-s12` "Checking now.",
+  unrelated code, passed in the other runs); secret scan clean. Deployed `2940687` as lwadmin: health ok; demo shop has the
+  marker, no UPI ID/QR, strip + basket work, no console/CSP/HTTP errors (bundled Chromium and full Chrome, 390 + 1440),
+  favicon 204; "Run checks now" 7/7 proven; shared report `/verify` intact.
+- Next: the real order with the owner; demo video; submission.
