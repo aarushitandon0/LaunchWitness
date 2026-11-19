@@ -1,0 +1,38 @@
+  /* S20: each shop's signature (motif layer in the hero) and the gentle interactions. Transform and opacity only: nothing
+     here animates filters, blur, shadows, radii or layout. With reduced motion everything is still. */
+  .hero { position: relative; isolation: isolate; }
+  .motif-wrap { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; color: var(--accent); opacity: .08; contain: paint; }
+  .motif { position: absolute; left: -3%; top: -3%; width: 106%; height: 106%; }
+  .motif-thumb { display: block; width: 100%; height: auto; color: var(--accent); }
+  @keyframes lw-drift { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(-1.6%, 1.8%, 0); } }
+  @keyframes lw-sway { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(1.4deg); } }
+  @keyframes lw-bob { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(0, -2.2%, 0); } }
+  @keyframes lw-shine { from { transform: translateX(-130%); } to { transform: translateX(130%); } }
+  @keyframes lw-sheet { from { transform: translateY(26px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: no-preference) {
+    .motion-drift .motif { animation: lw-drift 30s ease-in-out infinite; will-change: transform; }
+    .motion-sway .motif { animation: lw-sway 34s ease-in-out infinite; will-change: transform; }
+    .motion-bob .motif { animation: lw-bob 22s ease-in-out infinite; will-change: transform; }
+    .motif-wrap.off .motif { animation-play-state: paused; will-change: auto; }
+    .js .pre { opacity: 0; transform: translate3d(0, 14px, 0); }
+    .js .pre.in { opacity: 1; transform: none; transition: opacity .55s ease, transform .55s ease; }
+    .new-badge { position: relative; overflow: hidden; }
+    .new-badge.shine::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.6) 50%, transparent 70%); animation: lw-shine .9s ease 1 both; }
+    dialog.qv[open] { animation: lw-sheet .26s ease-out; }
+  }
+  .fly { position: fixed; left: 0; top: 0; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); z-index: 80; pointer-events: none; }
+  .chips { position: sticky; top: 0; z-index: 15; background: var(--bg); padding-top: 8px; }
+  .chips a.on, .chips a[aria-current="true"] { background: var(--accent); color: var(--accent-ink); }
+  .cat { scroll-margin-top: 64px; }
+  .js .item-main { cursor: pointer; }
+  .qv-open { background: none; border: 0; padding: 2px 0; margin-top: 4px; color: var(--accent); font: inherit; font-size: 13px; font-weight: 650; text-decoration: underline; cursor: pointer; }
+  dialog.qv { border: 0; padding: 0; width: min(520px, 94vw); max-height: 88vh; overflow: auto; border-radius: var(--radius); background: var(--paper); color: var(--ink); }
+  dialog.qv::backdrop { background: rgba(0, 0, 0, .5); }
+  @media (max-width: 640px) { dialog.qv { width: 100%; max-width: 100%; margin: auto 0 0; border-radius: 18px 18px 0 0; } }
+  .qv-body { padding: 18px 20px 22px; display: grid; gap: 10px; }
+  .qv-body img { width: 100%; height: auto; max-height: 46vh; object-fit: cover; border-radius: var(--radius-sm, 10px); }
+  .qv-body h3 { font-family: var(--display); font-size: 24px; line-height: 1.15; margin: 0; }
+  .qv-price { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .qv-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .qv-row output { min-width: 2ch; text-align: center; font-weight: 700; }
+  .qv-close { justify-self: end; }

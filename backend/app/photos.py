@@ -39,10 +39,12 @@ def _webp(img: Image.Image, width: int) -> tuple[bytes, int, int]:
     return out.getvalue(), img.width, img.height
 
 
-def process(data: bytes) -> dict:
-    """Validate and re-encode one upload. Raises PhotoRefused with a sentence the owner understands."""
-    if len(data) > MAX_UPLOAD_BYTES:
-        raise PhotoRefused(f"That photo is too big. Please use one under {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.")
+def clean_image(data: bytes, *, max_bytes: int = MAX_UPLOAD_BYTES) -> Image.Image:
+    """The shared gate for every image a visitor or the owner sends: size cap, content sniff (JPEG/PNG/WebP by what the
+    file IS), pixel cap, upright, and a brand-new RGB image copied from the pixels alone (nothing of the original
+    survives). Raises PhotoRefused with a sentence a person understands."""
+    if len(data) > max_bytes:
+        raise PhotoRefused(f"That photo is too big. Please use one under {max_bytes // (1024 * 1024)} MB.")
     if not data:
         raise PhotoRefused("That file is empty.")
     with warnings.catch_warnings():
@@ -74,6 +76,12 @@ def process(data: bytes) -> dict:
             raise PhotoRefused("We couldn't read that photo. Please try another one.") from None
     if min(clean.size) < MIN_SIDE:
         raise PhotoRefused("That photo is very small. Please use a bigger one.")
+    return clean
+
+
+def process(data: bytes) -> dict:
+    """Validate and re-encode one upload. Raises PhotoRefused with a sentence the owner understands."""
+    clean = clean_image(data)
     small, sw, sh = _webp(clean, SMALL_WIDTH)
     large, lw, lh = _webp(clean, LARGE_WIDTH)
     return {"small": small, "large": large, "small_w": sw, "small_h": sh, "large_w": lw, "large_h": lh}

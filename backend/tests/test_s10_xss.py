@@ -58,7 +58,7 @@ def assert_parsed_inert(html: str, scripts: int) -> None:
 
 
 def assert_inert(html: str) -> None:
-    assert_parsed_inert(html, scripts=1)  # at most the template's own basket script
+    assert_parsed_inert(html, scripts=2)  # at most the template's own two fixed scripts (effects + basket)
     assert "alert(" not in html.split("<script>")[-1].split("</script>")[0] or "<script>" not in html
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html or "&#34;&gt;&lt;script" in html  # shown as text
 

@@ -78,7 +78,7 @@ def test_every_theme_renders_every_gallery_seller_cleanly(key, stem):
         assert html.count(f'name="qty_{i}"') == 1
     assert html.count("<h1>") == 1
     assert ("WhatsApp" in html) == bool(p.whatsapp or p.phone)
-    assert ('id="pay"' in html) == bool(p.upi_id)
+    assert 'id="pay"' not in html and "upi://" not in html  # S20: the UPI details appear only after an order
 
 
 # ---------- The safety layer is the same in every theme ----------
@@ -93,12 +93,12 @@ def test_every_theme_keeps_the_marker_the_order_path_the_links_and_the_basket(ke
     assert 'name="customer_name" required' in html and 'name="customer_phone" required' in html
     assert 'class="hp" aria-hidden="true"' in html and 'name="website"' in html  # the honeypot
     assert 'href="/report-shop"' in html and 'href="/privacy"' in html
-    assert "https://wa.me/919876543210?text=" in html and "upi://pay?pa=sugarcrumb.demo@example" in html
-    assert 'aria-label="UPI payment QR code"' in html and "https://www.instagram.com/sugar.crumb/" in html
+    assert "https://wa.me/919876543210?text=" in html and "sugarcrumb.demo@example" not in html  # S20: no UPI ID on the shop page
+    assert "UPI payment QR code" not in html and "https://www.instagram.com/sugar.crumb/" in html
     assert 'id="basket"' in html and 'id="total"' in html and 'id="bar-order"' in html
     prices = re.findall(r'data-price="(\d+)"', html)  # the basket reads these: they must be the real prices
     assert prices == [str(item.price_inr) for item in p.products]
-    assert html.count("<script>") == 1  # exactly the template's own basket script
+    assert html.count("<script>") == 2  # exactly the template's own two fixed scripts: S20 effects + the basket
 
 
 def test_the_basket_script_and_the_form_are_identical_in_every_theme():
@@ -129,7 +129,7 @@ def test_privacy_thanks_and_demo_pages_keep_their_parts(key):
     assert "Demo shop: orders here are not real" in demo and "Report this shop" not in demo
     pre = render_site(p, preview=True)
     assert "Preview: only you can see this page" in pre and 'id="preview-off"' in pre
-    assert pre.count("<script>") == 2
+    assert pre.count("<script>") == 3
 
 
 @pytest.mark.parametrize("key", THEME_KEYS)
@@ -169,8 +169,8 @@ def test_hostile_text_in_every_field_is_escaped_in_every_theme(key):
     for page in ("home", "privacy"):
         assert_inert(render_site(p, page=page, shop=EVIL))
     html = render_site(p, shop="ok")
-    assert html.count("<script>") == 1 and "alert(1)</script>" not in html
-    assert_parsed_inert(html, scripts=1)
+    assert html.count("<script>") == 2 and "alert(1)</script>" not in html
+    assert_parsed_inert(html, scripts=2)
     assert 'id="reviews"' in html  # the hostile testimonial really was rendered (and escaped)
     order = {"code": "LW-1", "items": [{"name": EVIL, "qty": 1, "price_inr": 100}], "total_inr": 100, "customer_name": EVIL,
              "customer_phone": SHORT, "note": EVIL, "item_message": EVIL}
@@ -378,7 +378,7 @@ def test_page_budget_no_frameworks_lazy_images(key):
         assert len(html.encode()) <= limit * 1024, (key, stem, len(html.encode()))
     html = render_site(themed("cake_studio", key))
     assert "<script src" not in html and not re.search(r'<link[^>]+rel="stylesheet"', html)
-    assert html.count("<script>") == 1
+    assert html.count("<script>") == 2
     css = re.search(r"<style>(.*?)</style>", html, re.S).group(1)
     assert len(css.encode()) <= 40 * 1024
     assert 'rel="preload"' in html and html.count('rel="preload"') == 1  # one font: the headline's
@@ -442,8 +442,8 @@ def test_owner_picks_a_look_saved_audited_and_the_preview_follows(client, engine
     biz = create(client)
     assert biz["theme"]["key"] == "bakery" and biz["profile"]["theme"] == "bakery"
     r = client.put(f"/api/businesses/{biz['id']}/theme", json={"theme": "gifts", "accent": "emerald"})
-    assert r.status_code == 200 and r.json()["theme"] == {"key": "gifts", "accent": "emerald", "suggested": "bakery",
-                                                         "chosen": True}
+    base = {k: r.json()["theme"][k] for k in ("key", "accent", "suggested", "chosen")}  # S20 added the signature keys
+    assert r.status_code == 200 and base == {"key": "gifts", "accent": "emerald", "suggested": "bakery", "chosen": True}
     assert r.json()["profile"]["theme"] == "gifts" and r.json()["profile"]["products"] == biz["profile"]["products"]
     assert 'class="theme-gifts"' in client.get(f"/api/businesses/{biz['id']}/preview").text
     with Session(engine) as s:

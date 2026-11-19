@@ -13,7 +13,7 @@ from markupsafe import Markup
 
 from app.agents.reader import Product, Profile
 from app.sites import fulfilment as ful
-from app.sites import themes
+from app.sites import motifs, themes
 
 TEMPLATES = Path(__file__).parent / "templates"
 _env = Environment(loader=FileSystemLoader(TEMPLATES), autoescape=select_autoescape(["html"]))
@@ -168,8 +168,10 @@ def pay_view(profile: Profile, order: dict) -> dict | None:
     if not order.get("payment_terms"):
         return None
     now, later = order.get("pay_now_inr", 0), order.get("pay_later_inr", 0)
-    uri = ful.upi_order_uri(profile, now, order.get("ref", "")) if now and order.get("ref") else None
-    return {"now": now, "later": later, "uri": uri, "qr": upi_qr_svg(uri) if uri else None,
+    # S20: the UPI details exist only here, after a real order. A test order (the checker's) never gets them.
+    amount = now
+    uri = ful.upi_order_uri(profile, amount, order.get("ref", "")) if amount and order.get("ref") and not order.get("is_test") else None
+    return {"now": now, "later": later, "uri": uri, "upi_amount": amount, "qr": upi_qr_svg(uri) if uri else None,
             "when": "delivery" if order.get("fulfilment") == "delivery" else "pickup"}
 
 
@@ -192,14 +194,14 @@ def delivery_refusal(profile: Profile) -> str:
 
 
 def render_site(profile: Profile, *, page: str = "home", order: dict | None = None, form_error: str = "",
-                form_values: dict | None = None, preview: bool = False, shop: str = "", demo: bool = False,
+                form_values: dict | None = None, claim_error: str = "", preview: bool = False, shop: str = "", demo: bool = False,
                 base: str = "", photos: dict | None = None, full_dates: list[str] | None = None,
                 today: "date | None" = None) -> str:
     """page: 'home' | 'privacy' | 'thanks'. preview=True: the owner's private look at a shop that
     isn't public (banner on top, the order button is off). demo=True: a sample shop served by the app at
     `base` (e.g. /demo/meera), labelled as a demo; its form places no order."""
-    uri = upi_uri(profile)
     theme, accent = themes.resolve(profile)
+    motif, art_variant = motifs.signature(theme.key, profile.name, profile.motif, profile.art)
     cats = group_products(profile.products)
     sc = profile.section_copy
     tagline = profile.tagline.strip()
@@ -218,6 +220,10 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
         theme=theme,
         accent=accent,
         css=themes.css_for(theme, accent),
+        motif=motif,
+        art_variant=art_variant,
+        motion=motifs.MOTION[art_variant],
+        motif_svg=motifs.svg_for(motif, art_variant, profile.name),
         font_base="/shop-assets/fonts/",
         headline=headline,
         lede=lede,
@@ -238,10 +244,9 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
         show_area=bool(profile.area.strip()) and not area_is_repeated(profile),
         whatsapp_url=whatsapp_link(profile),
         order_whatsapp_url=order_whatsapp_link(profile, order) if page == "thanks" else None,
-        upi=uri,
-        upi_qr=upi_qr_svg(uri) if uri else None,
         order=order,
         form_error=form_error,
+        claim_error=claim_error,
         form=form_values or {},
         order_token=(form_values or {}).get("order_token") or secrets.token_urlsafe(16),
         preview=preview,

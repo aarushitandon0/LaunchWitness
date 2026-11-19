@@ -33,7 +33,7 @@ from app.mail import layout
 from app.mail.smtp import Mailer
 from app.models import Order, Outbox, utcnow
 
-PRIORITY = {"login": 0, "order": 0, "alert": 1, "team": 1, "watch": 1, "contact": 1, "test_order": 2, "digest": 2}
+PRIORITY = {"login": 0, "order": 0, "alert": 1, "payment_claim": 1, "team": 1, "watch": 1, "contact": 1, "test_order": 2, "digest": 2}
 LOW_SHARE = 0.8  # from this share of the daily budget, priority-2 mail waits
 BASE_DELAY_S, MAX_DELAY_S, MAX_ATTEMPTS = 30, 30 * 60, 10  # about 2 hours of trying, then dead
 HOLD_S = 15 * 60  # mail held back by the budget looks again after this
@@ -179,8 +179,10 @@ def _finish(session: Session, row: Outbox, status: str, now: datetime, error: st
         row.last_error = error
     elif status == "sent":
         row.last_error = ""
-    if status in ("sent", "dead") and row.kind == "login":
-        row.body = row.html = ""  # the link is a key to the account: don't keep it once it's out (or dropped)
+    if status in ("sent", "dead") and row.kind in ("login", "payment_claim"):
+        # a sign-in link is a key to the account, and a payment note holds a customer's UPI reference (S20):
+        # don't keep either once it's out (or dropped)
+        row.body = row.html = ""
     session.add(row)
     session.commit()
     session.refresh(row)

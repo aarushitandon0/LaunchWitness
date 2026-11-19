@@ -45,8 +45,8 @@ def test_badge_shows_until_day_15_in_every_theme(key):
     assert on.count('<span class="new-badge">New</span>') == 2  # on the item + the "New on the menu" line
     assert "New on the menu: Mango cake ½ kg" in on
     off = render_site(profile(key, until), today=ADDED + timedelta(days=16))
-    assert "new-badge" not in off.split("</style>")[-1] and "New on the menu" not in off
-    assert "new-badge" not in render_site(profile(key, ""), today=ADDED).split("</style>")[-1]
+    assert "new-badge" not in off.split("</style>")[-1].split("<script>")[0] and "New on the menu" not in off
+    assert "new-badge" not in render_site(profile(key, ""), today=ADDED).split("</style>")[-1].split("<script>")[0]
 
 
 @pytest.mark.parametrize("key", THEME_KEYS)
@@ -65,7 +65,7 @@ def test_hostile_new_item_is_escaped_in_every_theme(key):
     html = render_site(p, shop="ok", today=ADDED)
     assert "New on the menu" in html
     assert_inert(html)
-    assert_parsed_inert(html, scripts=1)
+    assert_parsed_inert(html, scripts=2)
 
 
 def test_server_keeps_only_a_real_date_at_most_15_days_ahead(client, engine):
@@ -96,7 +96,7 @@ def test_item_added_to_a_live_shop_shows_at_once_with_the_badge(client, engine):
     # she unticks it: gone at once
     products = out["profile"]["products"]
     edit(client, biz, products=[{**p, "new_until": ""} for p in products])
-    assert "new-badge" not in shop(client).split("</style>")[-1]
+    assert "new-badge" not in shop(client).split("</style>")[-1].split("<script>")[0]
 
 
 def test_another_owner_cannot_edit_the_menu(client, new_client, engine):

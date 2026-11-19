@@ -50,7 +50,7 @@ def wa(html: str, number: str) -> bool:
 
 def test_changed_upi_stays_old_for_customers_until_she_confirms(client, engine):
     biz = live_shop(client, engine)
-    assert OLD_UPI in shop(client)
+    assert OLD_UPI not in shop(client)  # S20: the shop page never carries the UPI ID
     edit(client, biz, payment_terms="upfront")  # so the thank-you page carries a UPI link for the full amount
     out = edit(client, biz, upi_id=NEW_UPI, upi_display_name="Someone Else")
     assert out["status"] == "live" and out["public"] is True  # still live
@@ -63,7 +63,7 @@ def test_changed_upi_stays_old_for_customers_until_she_confirms(client, engine):
     assert out["profile"]["upi_id"] == NEW_UPI
     assert client.post(f"/api/businesses/{biz['id']}/confirm", json={"what": "upi"}).status_code == 200
     assert client.get(f"/api/businesses/{biz['id']}").json()["confirm_new"] == []
-    assert NEW_UPI in shop(client)
+    assert NEW_UPI not in shop(client) and f"upi://pay?pa={NEW_UPI}" in order_page(client).replace("&amp;", "&")
 
 
 def test_changed_whatsapp_stays_old_until_confirmed(client, engine):
@@ -82,7 +82,7 @@ def test_both_changed_twice_keeps_the_first_confirmed_values(client, engine):
     out = edit(client, biz, upi_id="third.one@okicici", whatsapp="99999 11111")
     assert out["confirm_new"] == ["upi", "whatsapp"]
     page = shop(client)
-    assert OLD_UPI in page and "third.one" not in page and NEW_UPI not in page
+    assert "third.one" not in page and NEW_UPI not in page and OLD_UPI not in page  # S20: not on the shop page at all
     assert wa(page, OLD_WA_DIGITS)
 
 
@@ -111,8 +111,8 @@ def test_practice_shop_shows_changes_at_once(client):
     ready_for_real(client, biz["id"])
     out = edit(client, biz, upi_id=NEW_UPI)
     assert out["confirm_new"] == []  # nothing held back: no customer sees a practice shop
-    html = client.get(f"/api/businesses/{biz['id']}/preview").text
-    assert NEW_UPI in html
+    assert out["profile"]["upi_id"] == NEW_UPI  # her own copy; S20: the preview page itself carries no UPI either
+    assert NEW_UPI not in client.get(f"/api/businesses/{biz['id']}/preview").text
 
 
 def test_removing_whatsapp_takes_effect_at_once(client, engine):

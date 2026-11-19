@@ -329,9 +329,13 @@ def existing_order(session: Session, business: Business, token: str) -> Order | 
     return session.exec(select(Order).where(Order.business_id == business.id, Order.client_token == token)).first()
 
 
-def order_view(order: Order) -> dict:
-    """What the thank-you page may show. Deliberately NOT the street address: that stays with the owner."""
-    return {"customer_name": order.customer_name, "customer_phone": order.customer_phone, "note": order.note,
+def order_view(order: Order, claim=None) -> dict:
+    """What the thank-you / status page may show. Deliberately NOT the street address: that stays with the owner.
+    S20: `status_url` (a real order's own unguessable page), the shop's own update, and only the LAST 4 digits of a claim."""
+    return {"is_test": order.is_test, "status_url": f"/order/{order.status_token}" if order.status_token else "",
+            "status_label": STATUS_LABELS.get(order.status, "") if order.status_token else "", "status": order.status,
+            "claim": {"last4": claim.utr[-4:], "has_shot": bool(claim.screenshot)} if claim is not None else None,
+            "customer_name": order.customer_name, "customer_phone": order.customer_phone, "note": order.note,
             "items": json.loads(order.items_json), "total_inr": order.total_inr, "ref": order.ref,
             "fulfilment": order.fulfilment, "delivery_pin": order.delivery_pin, "wanted_date": order.wanted_date,
             "time_slot": order.time_slot, "fee_inr": order.fee_inr, "payment_terms": order.payment_terms,
@@ -352,6 +356,7 @@ def place_order(session: Session, mailer: Mailer, settings: Settings, *, busines
                   items_json=json.dumps(data["items"], ensure_ascii=False), total_inr=data["total_inr"],
                   note=data["note"], is_test=is_test, nonce=nonce, visitor=visitor, ref=new_ref(),
                   client_token=token if TOKEN.match(token) else "", email_status="queued",
+                  status_token="" if is_test else secrets.token_urlsafe(24),
                   fulfilment=data.get("fulfilment", ""), delivery_address=data.get("delivery_address", ""),
                   delivery_pin=data.get("delivery_pin", ""), wanted_date=data.get("wanted_date", ""),
                   time_slot=data.get("time_slot", ""), fee_inr=data.get("fee_inr", 0),
@@ -385,13 +390,13 @@ def accept_order_form(session: Session, settings: Settings, mailer: Mailer, *, b
 
     A POST carrying `lw_test=<nonce>` of an OPEN test ticket for this shop becomes a hidden test order
     (not counted in limits, not in the seller's list). Any other value is ignored."""
-    from app import proof
+    from app import payclaims, proof
     from app.sites.render import render_site
 
     token = form.get("order_token", "")
     again = existing_order(session, business, token)
     if again is not None:  # double tap / form sent twice: show the same thank-you, make nothing new
-        return 200, render_site(profile, page="thanks", order=order_view(again))
+        return 200, render_site(profile, page="thanks", order=order_view(again, payclaims.claim_for(session, again.id)))
     ticket = proof.open_ticket(session, business, form.get("lw_test", ""))  # the checker's own test order, or None
     shown = {"session": session, "business": business}
     if ticket is None and ful.on_break(profile):  # S15: refused politely here, not only in the page; the checker's test order is not

@@ -782,6 +782,8 @@ fieldset.field > legend { font-weight: 600; padding: 0; margin-bottom: 0.35rem; 
 .weekdays { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 0 0.5rem; }
 .order-where { margin: 0.4rem 0; font-size: var(--fs-sm); }
 .order-pay { font-weight: 600; margin: 0.25rem 0; }
+.order-claim { margin: 0.35rem 0; padding: 0.5rem 0.75rem; border-left: 3px solid var(--lime, #b7e34a); background: rgba(0, 0, 0, 0.04); border-radius: 6px; }
+.order-claim p { margin: 0.15rem 0; }
 .pay-chip { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 999px; background: var(--surface-2, #eef2f7); font-size: var(--fs-sm); }
 
 /* S17: Describe step, one row per item with its own photo */
@@ -792,3 +794,10 @@ fieldset.field > legend { font-weight: 600; padding: 0; margin-bottom: 0.35rem; 
 .item-rows .actions { margin: var(--s-3) 0 0; }
 .link-like { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; }
 .error { color: var(--danger); margin: 0; }
+
+.sig-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.sig-opt { display: grid; gap: 2px; width: 108px; padding: 6px; border: 2px solid var(--line, #ddd); border-radius: 12px; background: #fff; cursor: pointer; font: inherit; color: inherit; text-align: center; }
+.sig-opt.on { border-color: var(--accent, #1d4ed8); box-shadow: 0 0 0 2px var(--accent, #1d4ed8); }
+.sig-opt small { font-size: 12px; }
+.sig-opt:disabled { opacity: .6; cursor: progress; }
+.sig-opt .motif-thumb { opacity: .85; }

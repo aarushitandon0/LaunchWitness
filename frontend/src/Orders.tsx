@@ -131,6 +131,31 @@ export function OrdersPage({ businessId }: { businessId: number }) {
             )}
             {!o.fulfilment && o.wanted_date && <p className="order-where">Wanted by {o.wanted_date}</p>}
             {o.payment_label && <p className="order-pay">{o.payment_label}</p>}
+            {o.payment_claim && (
+              <div className="order-claim" data-testid="payment-claim">
+                <p>
+                  <strong>{o.payment_claim.says}</strong>
+                  {o.payment_claim.has_screenshot && (
+                    <>
+                      {" · "}
+                      <a
+                        href={`/api/businesses/${businessId}/orders/${o.id}/payment-screenshot`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        View screenshot
+                      </a>
+                    </>
+                  )}
+                </p>
+                {(o.status === "new" || o.status === "confirmed") && (
+                  <p className="muted">
+                    This is what your customer typed. LaunchWitness can't see your bank. Check your UPI app, then mark
+                    the order Paid.
+                  </p>
+                )}
+              </div>
+            )}
             {o.note && <p className="order-note">“{o.note}”</p>}
             <p className="order-phone">{o.tel_url ? <a href={o.tel_url}>{o.customer_phone}</a> : o.customer_phone}</p>
             <p className={`order-email ${o.email_status === "failed" ? "warn" : "muted"}`}>

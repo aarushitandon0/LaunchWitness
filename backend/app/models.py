@@ -237,10 +237,32 @@ class Order(SQLModel, table=True):
     payment_terms: str = ""  # the shop's terms when the order was placed: upfront | advance | on_delivery
     pay_now_inr: int = 0
     pay_later_inr: int = 0
+    # S20: the unguessable address of this order's status page (/order/<token>); "" = an older order or a test order
+    status_token: str = Field(default="", index=True)
     # S10.5: the owner's own progress on the order (sites/orders.py STATUS_STEPS). Only the owner sets it.
     status: str = Field(default="new", index=True)  # new | confirmed | paid | done | cancelled
     status_changed_at: datetime | None = None
     created_at: datetime = Field(default_factory=utcnow)
+
+
+class PaymentClaim(SQLModel, table=True):
+    """S20: "I've paid": what a customer typed after paying in her own UPI app: the 12-digit UPI reference (UTR) and,
+    optionally, ONE screenshot (re-encoded WebP, no metadata). It is only ever a CLAIM: the owner checks her own UPI
+    app and marks the order Paid herself. One per order (a second submit replaces the first). Private: never in audit
+    rows, evidence, the shared report or a public page; deleted with the order, the shop or the account, and 30 days
+    after the order is Done or Cancelled."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    business_id: int = Field(foreign_key="business.id", index=True)
+    order_id: int = Field(foreign_key="order.id", unique=True, index=True)
+    utr: str  # 12 digits
+    screenshot: bytes | None = None
+    screenshot_w: int = 0
+    screenshot_h: int = 0
+    visitor: str = Field(default="", index=True)  # hashed client IP, for the rate limit only
+    submits: int = 1  # how many times this order's claim was sent (rate limit)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow, index=True)
 
 
 class ClaudeUsage(SQLModel, table=True):

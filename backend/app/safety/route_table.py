@@ -29,6 +29,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/r/{token}/verify"): PUBLIC,  # recomputes the proof chain: intact/rows/head only; same token, rate-limited
     # --- public shop pages (served on shop hosts only) ---
     ("POST", "/order"): PUBLIC,
+    ("POST", "/order/{token}/paid"): PUBLIC,  # S20 "I've paid": the order's unguessable token is the permission; rate-limited
     ("POST", "/report-shop"): PUBLIC,
     # --- demo shops (S10.5): sample profiles, no database row, the form places no order ---
     ("GET", "/shop-assets/fonts/{file}"): PUBLIC,  # S14: the shop themes' self-hosted woff2 files (on every host)
@@ -58,10 +59,12 @@ ROUTES: dict[tuple[str, str], str] = {
     ("DELETE", "/api/businesses/{business_id}"): OWNER,
     ("GET", "/api/businesses/{business_id}/preview"): OWNER,
     ("GET", "/api/businesses/{business_id}/orders"): OWNER,
+    ("GET", "/api/businesses/{business_id}/orders/{order_id}/payment-screenshot"): OWNER,  # S20: only the owner, app host only
     ("POST", "/api/businesses/{business_id}/orders/{order_id}/status"): OWNER,  # S10.5: New → Confirmed → Paid → Done
     ("GET", "/api/businesses/{business_id}/export"): OWNER,
     ("POST", "/api/businesses/{business_id}/describe-problem"): OWNER,  # S12: symptom → Doctor (data), 5/day per user
     ("PUT", "/api/businesses/{business_id}/theme"): OWNER,  # S14: the owner's look; fixed keys only, audited
+    ("PUT", "/api/businesses/{business_id}/signature"): OWNER,  # S20: motif + arrangement keys, audited
     ("GET", "/api/businesses/{business_id}/photos"): OWNER,  # S12 product photos
     ("POST", "/api/businesses/{business_id}/photos"): OWNER,  # content-checked, re-encoded, stripped, 60/day per shop
     ("DELETE", "/api/businesses/{business_id}/photos/{photo_id}"): OWNER,

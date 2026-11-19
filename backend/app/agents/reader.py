@@ -157,6 +157,9 @@ class Profile(BaseModel):
     # choice, see themes.resolve). The Reader picks them; the owner can change them on the Review page.
     theme: str = ""
     accent: str = ""
+    # S20 signature: keys from app/sites/motifs.py ("" = chosen from the shop's name by code). Never from Claude's prose.
+    motif: str = ""
+    art: str = ""
     section_copy: SectionCopy = Field(default_factory=SectionCopy)
     testimonials: list[Testimonial] = Field(default_factory=list, max_length=6)  # owner-only: real ones she pasted
     # S15: where she sells and how she is paid. Old profiles have none of these: they load with the defaults below.
@@ -189,6 +192,25 @@ class Profile(BaseModel):
     @classmethod
     def _accent_text(cls, v):
         return v if isinstance(v, str) else ""
+
+    @field_validator("art", mode="before")
+    @classmethod
+    def _art(cls, v):
+        from app.sites.motifs import clean_arrangement
+
+        return clean_arrangement(v)
+
+    @field_validator("motif", mode="before")
+    @classmethod
+    def _motif_text(cls, v):
+        return v if isinstance(v, str) else ""
+
+    @model_validator(mode="after")
+    def _motif_fits_theme(self):
+        from app.sites.motifs import clean_motif
+
+        self.motif = clean_motif(self.theme, self.motif)  # a motif belongs to one theme; with none chosen any known key stays
+        return self
 
     @model_validator(mode="after")
     def _accent_fits_theme(self):
@@ -334,7 +356,7 @@ class Profile(BaseModel):
 OWNER_ONLY = {"instagram", "delivery_areas", "niche", "testimonials", "selling_mode", "city", "free_delivery_above_inr",
               "shipping_fee_inr", "dispatch_days", "shipping_note", "payment_terms", "advance_percent", "accepts_cash",
               "cancellation_preset", "cancellation_text", "on_break", "back_on", "days_off", "time_slots",
-              "max_orders_per_day"}
+              "max_orders_per_day", "motif", "art"}  # S20: the shop's signature is chosen by code / the owner, never by Claude
 # Item fields only the owner sets (S19D): the New badge's date is hers alone, never the Reader's.
 PRODUCT_OWNER_ONLY = {"new_until"}
 
