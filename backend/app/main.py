@@ -91,6 +91,10 @@ def start_monitor(settings: Settings):
 
     monitor.scheduler.add_job(lambda: purge_old_guest_shops(engine, settings, get_practice_integrations()), "interval",
                               hours=1, id="guest_cleanup", replace_existing=True, max_instances=1, coalesce=True)
+    from app import payclaims  # S20: customers' UPI references + screenshots go 30 days after the order closed
+
+    monitor.scheduler.add_job(lambda: payclaims.purge_job(engine), "interval", days=1, id="payment_claims_purge",
+                              replace_existing=True, max_instances=1, coalesce=True)
     logging.getLogger("launchwitness").warning("monitor started (pid %s): jobs=%s", os.getpid(),
                                                sorted(j.id for j in monitor.scheduler.get_jobs()))
     return monitor
@@ -120,6 +124,9 @@ async def lifespan(_app: FastAPI):
     for w in warnings(settings):  # startup self-check: wrong-for-production settings, never a secret
         logging.getLogger("launchwitness").warning("self-check [%s]: %s", w.code, w.text)
     purge_old_guest_shops(get_engine(), settings, get_practice_integrations())
+    from app import payclaims
+
+    payclaims.purge_job(get_engine())
     monitor = start_monitor(settings) if settings.monitor_enabled else start_mail_sender(settings)
     yield
     if monitor is not None:

@@ -223,6 +223,8 @@ export type Order = {
   payment_terms: string;
   payment_label: string; // "Advance paid · ₹300 due on delivery"
   paid_action: string; // what the "paid" button says
+  // S20: what the customer SAID about paying (a claim, never "paid"); screenshot served to the owner only
+  payment_claim: { utr: string; says: string; has_screenshot: boolean; at: string } | null;
 };
 
 export type Step = {

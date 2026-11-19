@@ -33,6 +33,7 @@ WHY = {
     "delete": "You got this because someone asked to delete the LaunchWitness account for this address.",
     "order": "You got this because your shop on LaunchWitness sends its orders to this address.",
     "test_order": "You got this because LaunchWitness checks that your shop's orders reach this address. It was a check, not an order.",
+    "payment_claim": "You got this because a customer of your shop said they paid. LaunchWitness never checks payments: you do, in your own UPI app.",
     "alert": "You got this because LaunchWitness keeps checking your shop and tells you when something needs you.",
     "watch": "You got this because you asked LaunchWitness to watch this address every day.",
     "team": "You got this because you run or use LaunchWitness.",

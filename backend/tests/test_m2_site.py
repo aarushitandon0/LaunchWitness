@@ -117,7 +117,7 @@ def test_meera_localhost_shows_her_site(client, meera):
     html = r.text
     assert "<h1>Fresh eggless cakes and cupcakes, baked to order in Baner</h1>" in html  # S14: the Reader's headline line
     assert "Meera&#39;s Eggless Bakes</span>" in html and 'class="eyebrow">Meera&#39;s Eggless Bakes' in html
-    for section in ('id="menu"', 'id="about"', 'id="info"', 'id="pay"', 'id="order"', 'href="/privacy"'):
+    for section in ('id="menu"', 'id="about"', 'id="info"', 'id="order"', 'href="/privacy"'):
         assert section in html
     assert "10am to 8pm, closed on Tuesdays" in html
     assert "https://wa.me/919876543210?text=Hi%20Meera%27s%20Eggless%20Bakes" in html

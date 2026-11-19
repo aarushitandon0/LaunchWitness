@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlmodel import Session, func, select
 
 from app import audit
@@ -124,7 +124,30 @@ def seller_page(path: str, request: Request, settings: Settings, session: Sessio
         return shop_response(render_site(profile, page="privacy"))
     if path.rstrip("/") == "report-shop":
         return shop_response(report_page(profile.name))
+    m = STATUS_PATH.match(path.rstrip("/"))
+    if m:  # S20: a real order's own page (the long random token in the link is the permission)
+        return status_page(session, b, profile, m.group(1))
     return HTMLResponse(NOT_FOUND, status_code=404)
+
+
+STATUS_PATH = re.compile(r"^order/([A-Za-z0-9_-]{24,64})$")
+
+
+def status_page(session: Session, business: Business, profile: Profile, token: str, *, claim_error: str = "",
+                code: int = 200) -> HTMLResponse:
+    """The thank-you page again, for one order: its UPI details (only here and on the thank-you page), what the customer
+    told the shop, and the shop's own update. No store, no cache, not indexed. An unknown token is a plain 404."""
+    from app import payclaims
+    from app.sites.orders import order_view
+
+    order = payclaims.order_for_token(session, business, token)
+    if order is None:
+        return HTMLResponse(NOT_FOUND, status_code=404, headers={"Cache-Control": "no-store"})
+    html = render_site(profile, page="thanks", order=order_view(order, payclaims.claim_for(session, order.id)),
+                       claim_error=claim_error)
+    resp = shop_response(html, code)
+    resp.headers.update({"Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
+    return resp
 
 
 PHOTO_FILE = re.compile(r"^([0-9a-f]{32})-(\d+)\.webp$")
@@ -190,6 +213,55 @@ async def submit_order(
     status, html = accept_order_form(session, settings, integ.mailer, business=business, profile=profile, form=form,
                                      visitor=visitor_id(request), channel=channel_of(integ))
     return shop_response(html, status)
+
+
+@router.post("/order/{token}/paid")
+async def submit_payment_claim(
+    token: str,
+    request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
+    session: Annotated[Session, Depends(get_session)],
+    server: Annotated[Integrations, Depends(get_integrations)],
+    practice: Annotated[Integrations, Depends(get_practice_integrations)],
+):
+    """S20 "I've paid": a plain multipart form (no JavaScript). The UTR and one optional screenshot are stored as a CLAIM
+    for the owner to check in her own UPI app; nothing here says "paid" or "verified"."""
+    from app import payclaims
+    from app.outbox import channel_of
+
+    try:
+        found = seller_for_request(request, settings, session)
+    except HTTPException:
+        return HTMLResponse(NOT_SET_UP, status_code=404)
+    if found is None:
+        raise HTTPException(status_code=404)
+    business, profile = found
+    if business.paused:
+        return HTMLResponse(PAUSED, status_code=503)
+    order = payclaims.order_for_token(session, business, token)
+    if order is None:
+        return HTMLResponse(NOT_FOUND, status_code=404, headers={"Cache-Control": "no-store"})
+    try:
+        declared = int(request.headers.get("content-length", "0") or 0)
+    except ValueError:
+        declared = 0
+    if declared > payclaims.MAX_BODY_BYTES:  # refused before the body is read
+        return status_page(session, business, profile, token, code=413,
+                           claim_error="That screenshot is too big. Please use one under 4 MB, or leave it out.")
+    form = await request.form()
+    text = form.get("utr")
+    shot = form.get("screenshot")
+    data = None
+    if shot is not None and not isinstance(shot, str):
+        data = await shot.read(payclaims.MAX_SHOT_BYTES + 1)
+    integ = for_business(business, server, practice)
+    try:
+        payclaims.submit(session, settings, integ.mailer, business=business, profile=profile, order=order,
+                         utr_text=text if isinstance(text, str) else "", screenshot=data or None,
+                         visitor=visitor_id(request), channel=channel_of(integ))
+    except payclaims.ClaimRefused as e:
+        return status_page(session, business, profile, token, claim_error=str(e), code=e.status if e.status != 404 else 422)
+    return RedirectResponse(f"/order/{token}#claim", status_code=303)
 
 
 @router.post("/report-shop", response_class=HTMLResponse)

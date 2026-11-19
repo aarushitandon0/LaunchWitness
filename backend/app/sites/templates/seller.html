@@ -31,6 +31,17 @@
 {% if preview %}<div role="note" class="banner" style="background:#1f2937">Preview: only you can see this page. It isn't public.</div>{% endif %}
 {% if demo %}<div role="note" class="banner demo-banner" style="background:#7c2d12"><strong>Demo shop: orders here are not real.</strong> A sample made by LaunchWitness. <a href="/" style="color:#fff;text-decoration:underline">Back to LaunchWitness</a></div>{% endif %}
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><g id="lw-art">{% include "art/" ~ theme.art ~ ".html" %}</g></defs></svg>
+{%- macro claim_form() -%}
+<form method="post" action="{{ order.status_url }}/paid" enctype="multipart/form-data" class="claim-form">
+  {% if claim_error %}<p class="error" role="alert">{{ claim_error }}</p>{% endif %}
+  <label for="utr">UPI reference number (12 digits)</label>
+  <input id="utr" name="utr" type="text" inputmode="numeric" autocomplete="off" maxlength="24" required placeholder="4021 5678 9012">
+  <label for="shot">Screenshot of the payment (optional)</label>
+  <input id="shot" name="screenshot" type="file" accept="image/jpeg,image/png,image/webp">
+  <button class="btn btn-line" type="submit">I've paid</button>
+  <p class="hint">The shop checks its own UPI app before it marks your order paid. Your reference number and screenshot are seen only by the shop. <a href="{{ base }}/privacy">Privacy</a></p>
+</form>
+{%- endmacro -%}
 {%- macro icon(name) -%}
 {%- if name == "pin" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.1-7-11.5a7 7 0 0 1 14 0C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
 {%- elif name == "clock" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
@@ -112,10 +123,12 @@
       {% if offers.india %}<p{% if offers.pickup %} style="margin-top:10px"{% endif %}><b>Ships across India</b></p>
       <p class="hint">{{ fee_text }}{% if p.dispatch_days %}. Sent within {{ p.dispatch_days }} day{% if p.dispatch_days != 1 %}s{% endif %}{% endif %}.{% if p.shipping_note %} {{ p.shipping_note }}{% endif %}</p>{% endif %}
     </div>{% endif %}
-    {% if p.upi_id or p.accepts_cash %}<div class="tile" id="paying">
+    {% if p.upi_id or p.accepts_cash or demo %}<div class="tile" id="paying">
       <h3>How to pay</h3>
-      <p>{{ terms_text }}</p>
-      {% if p.payment_terms != "on_delivery" and p.upi_id %}<p class="hint" style="margin-top:6px">After you order, you'll get a pay link and QR code for the exact amount.</p>{% endif %}
+      {% if terms_text %}<p>{{ terms_text }}</p>{% endif %}
+      {% if demo %}<p class="hint" style="margin-top:6px">On a real shop you'll see the UPI details after ordering, with the exact amount, never on this page.</p>
+      {% elif p.payment_terms != "on_delivery" and p.upi_id %}<p class="hint" style="margin-top:6px">After you order, you'll get a pay link and QR code for the exact amount. They are shown only after you order, never on this page.</p>{% endif %}
+      {% if p.payment_terms == "on_delivery" and p.upi_id %}<p class="hint" style="margin-top:6px">If you want to pay by UPI, the UPI link and QR code appear after you order.</p>{% endif %}
     </div>{% endif %}
     {% if cancel_text %}<div class="tile" id="cancel">
       <h3>Cancellations</h3>
@@ -133,18 +146,6 @@
         {% if p.phone %}<a class="btn btn-line btn-sm" href="tel:{{ p.phone | replace(' ', '') }}">{{ icon("phone") }}Call</a>{% endif %}
         {% if whatsapp_url %}<a class="btn btn-wa btn-sm" href="{{ whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}WhatsApp</a>{% endif %}
         {% if p.instagram %}<a class="btn btn-line btn-sm" href="https://www.instagram.com/{{ p.instagram }}/" target="_blank" rel="noopener">{{ icon("ig") }}Instagram</a>{% endif %}
-      </div>
-    </div>{% endif %}
-    {% if upi %}<div class="tile wide" id="pay">
-      <h3>Pay by UPI</h3>
-      <div class="pay">
-        {{ upi_qr }}
-        <div>
-          <p>Scan with any UPI app, or <a href="{{ upi }}">open your UPI app</a>.</p>
-          <p class="upi-name">UPI ID: <span class="upi-id">{{ p.upi_id }}</span></p>
-          {% if p.upi_display_name %}<p class="upi-name">Your UPI app should show: <strong>{{ p.upi_display_name }}</strong></p>{% endif %}
-          <p class="hint" style="margin-top:6px">{% if p.payment_terms == "on_delivery" %}You can also pay by UPI when you collect or receive your order. Your order total is on the confirmation.{% else %}For an order, use the pay link you get after ordering: it has the right amount.{% endif %}</p>
-        </div>
       </div>
     </div>{% endif %}
   </div>
@@ -354,6 +355,7 @@
     <div class="paybox" id="paybox">
       {% if pay.now %}
       <p><b>Pay now: {{ pay.now | inr }}</b>{% if pay.later %} <span class="hint">(advance of {{ order.total_inr | inr }})</span>{% endif %}</p>
+      {% elif pay.uri %}<p><b>Prefer to pay by UPI? {{ pay.upi_amount | inr }}</b></p>{% endif %}
       {% if pay.uri %}<div class="pay">
         {{ pay.qr }}
         <div>
@@ -361,11 +363,20 @@
           <p class="upi-name">The payment note is already filled in: <strong>Order {{ order.ref }}</strong></p>
           {% if p.upi_display_name %}<p class="upi-name">Your UPI app should show: <strong>{{ p.upi_display_name }}</strong></p>{% endif %}
         </div>
+      </div>
+      {% if order.status_url %}<div class="claim" id="claim">
+        {% if order.claim %}<p role="status"><b>You told the shop you paid {{ pay.upi_amount | inr }}</b> (UPI reference ending {{ order.claim.last4 }}{% if order.claim.has_shot %}, with a screenshot{% endif %}). The shop will check its own UPI app and confirm. Until then it is not marked paid.</p>
+        <details><summary>Sent the wrong number? Send it again</summary>{{ claim_form() }}</details>
+        {% else %}<h3>Paid already?</h3>
+        <p class="hint">After you pay in your UPI app, tell the shop here. Enter the 12-digit UPI reference number (UTR) from your payment. A screenshot is optional.</p>
+        {{ claim_form() }}{% endif %}
       </div>{% endif %}
-      {% endif %}
-      {% if pay.later %}<p>{% if pay.now %}Still to pay{% else %}Nothing to pay now. To pay{% endif %}: <b>{{ pay.later | inr }}</b> when you {{ "receive" if pay.when == "delivery" else "collect" }} your order.{% if p.accepts_cash %} Cash is fine.{% endif %}</p>{% endif %}
+      {% elif demo %}<p class="hint">On a real shop, the UPI link and QR code for the exact amount appear here after you order, and a form to tell the shop you paid.</p>{% endif %}
+      {% if pay.later and not (pay.uri and not pay.now) %}<p>{% if pay.now %}Still to pay{% else %}Nothing to pay now. To pay{% endif %}: <b>{{ pay.later | inr }}</b> when you {{ "receive" if pay.when == "delivery" else "collect" }} your order.{% if p.accepts_cash %} Cash is fine.{% endif %}</p>
+      {% elif pay.later %}<p class="hint">Or pay <b>{{ pay.later | inr }}</b> when you {{ "receive" if pay.when == "delivery" else "collect" }} your order.{% if p.accepts_cash %} Cash is fine.{% endif %}</p>{% endif %}
     </div>
     {% else %}<p class="hint">The final amount{% if p.delivery_available %} (for example delivery){% endif %} is confirmed by the shop.</p>{% endif %}
+    {% if order.status_url %}<p class="hint" id="status-link">Keep this page: <a href="{{ order.status_url }}">your order's own page</a> (anyone with the link can see it, so don't share it). {% if order.status_label %}The shop's update: <b>{{ order.status_label }}</b>.{% endif %}</p>{% endif %}
     {% if cancel_text %}<p class="hint"><b>Cancelling:</b> {{ cancel_text }}</p>{% endif %}
     <div class="cta">{% if order_whatsapp_url %}<a class="btn btn-wa" href="{{ order_whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}Send this order to the shop</a>{% elif whatsapp_url %}<a class="btn btn-wa" href="{{ whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}Message on WhatsApp</a>{% endif %}<a class="btn btn-line" href="{{ base }}/">Back to the shop</a></div>
   </section>
@@ -380,8 +391,8 @@
     <p><strong>What we collect.</strong> When you place an order on this site we collect your name, your phone number, what you ordered, the date you want it and any note you add. If you choose delivery or shipping, we also collect your delivery address and PIN code. We don't use cookies for tracking and we don't run ads. We never ask for Aadhaar, PAN or bank details.</p>
     <p><strong>Why.</strong> Only to prepare your order and contact you about it (to confirm timing, delivery and payment).</p>
     <p><strong>Who sees it.</strong> Your order, including your delivery address, is sent by email to {{ p.name }} and shown to {{ p.name }} on their orders page. Nobody else can see your address: it is never shown on this website, and it is not in the reports or logs that LaunchWitness keeps about the shop. It is stored securely by the service that runs this website, LaunchWitness, so the order isn't lost. We never sell or share your details for marketing.</p>
-    <p><strong>Payments.</strong> This site does not take payments. If you pay by UPI, the payment happens in your own UPI app.</p>
-    <p><strong>How long.</strong> Only as long as needed to handle your order and keep the shop's records. If the shop is deleted, its orders, including addresses, are deleted with it.</p>
+    <p><strong>Payments.</strong> This site does not take payments. If you pay by UPI, the payment happens in your own UPI app, and the shop's UPI details appear only after you place an order. If you tell the shop you paid, we keep the 12-digit UPI reference number you type and, if you add one, your screenshot (we re-save it as a plain picture, so nothing hidden in the file such as a location travels with it). Only {{ p.name }} can see them, on their orders page. They are never shown on this website, and they are not in the reports or logs that LaunchWitness keeps. Telling us you paid does not mark your order paid: the shop checks its own UPI app first.</p>
+    <p><strong>How long.</strong> Only as long as needed to handle your order and keep the shop's records. Your UPI reference number and screenshot are deleted 30 days after your order is done or cancelled. If the shop is deleted, its orders, including addresses, references and screenshots, are deleted with it.</p>
     <p><strong>Your choice.</strong> To see, correct or delete your details, contact us{% if p.phone %} on {{ p.phone }}{% endif %}{% if whatsapp_url %} or <a href="{{ whatsapp_url }}" target="_blank" rel="noopener">on WhatsApp</a>{% endif %}.</p>
   </section>
 </main>

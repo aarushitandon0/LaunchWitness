@@ -782,6 +782,8 @@ fieldset.field > legend { font-weight: 600; padding: 0; margin-bottom: 0.35rem; 
 .weekdays { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 0 0.5rem; }
 .order-where { margin: 0.4rem 0; font-size: var(--fs-sm); }
 .order-pay { font-weight: 600; margin: 0.25rem 0; }
+.order-claim { margin: 0.35rem 0; padding: 0.5rem 0.75rem; border-left: 3px solid var(--lime, #b7e34a); background: rgba(0, 0, 0, 0.04); border-radius: 6px; }
+.order-claim p { margin: 0.15rem 0; }
 .pay-chip { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 999px; background: var(--surface-2, #eef2f7); font-size: var(--fs-sm); }
 
 /* S17: Describe step, one row per item with its own photo */

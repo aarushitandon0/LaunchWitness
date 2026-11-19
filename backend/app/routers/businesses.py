@@ -17,7 +17,7 @@ from app.agents.reader import MAX_IMAGE_BYTES, Profile, ReaderError, read_busine
 from app.config import Settings, get_settings
 from app.db import get_engine, get_session
 from app.integrations import Integrations, for_business, get_integrations, get_practice_integrations
-from app.models import AuditEvent, Business, Membership, Order, Plan, utcnow
+from app.models import AuditEvent, Business, Membership, Order, PaymentClaim, Plan, utcnow
 from app.safety.access import (
     ActorDep,
     csrf_for,
@@ -571,7 +571,18 @@ def preview(b: Annotated[Business, Depends(require_business_access)], actor: Act
                         headers={"X-Robots-Tag": "noindex", "Cache-Control": "no-store"})
 
 
-def order_out(o: Order, shop_name: str) -> dict:
+def claim_out(c) -> dict | None:
+    """S20: what a customer SAID about paying, for the owner only. Always a claim ("says paid"), never "paid"."""
+    from app.payclaims import show_utr
+
+    if c is None:
+        return None
+    return {"utr": show_utr(c.utr), "has_screenshot": bool(c.screenshot),
+            "says": f"Customer says paid \u00b7 UTR {show_utr(c.utr)}",
+            "at": c.updated_at.replace(tzinfo=None).isoformat() + "Z"}
+
+
+def order_out(o: Order, shop_name: str, claim=None) -> dict:
     """One order for its owner. The full phone number and the delivery address are shown here, to the owner only (audit logs
     never hold them, and neither does the shared report)."""
     from app.sites import fulfilment as ful
@@ -586,6 +597,7 @@ def order_out(o: Order, shop_name: str) -> dict:
             "note": o.note, "email_status": o.email_status, "status": o.status,
             "next_statuses": list(STATUS_STEPS.get(o.status, ())),
             "whatsapp_url": customer_whatsapp_link(shop_name, o), "tel_url": tel_link(o.customer_phone) or None,
+            "payment_claim": claim_out(claim),
             "created_at": o.created_at.replace(tzinfo=None).isoformat() + "Z"}
 
 
@@ -597,7 +609,27 @@ def list_orders(b: Annotated[Business, Depends(require_business_access)],
     if not tests:
         q = q.where(Order.is_test == False)  # noqa: E712
     rows = session.exec(q.order_by(Order.id.desc()).limit(500)).all()
-    return [order_out(o, b.name) for o in rows]
+    claims = {c.order_id: c for c in session.exec(select(PaymentClaim).where(PaymentClaim.business_id == b.id)).all()}
+    return [order_out(o, b.name, claims.get(o.id)) for o in rows]
+
+
+@router.get("/businesses/{business_id}/orders/{order_id}/payment-screenshot")
+def payment_screenshot(order_id: int, request: Request, b: Annotated[Business, Depends(require_business_access)],
+                       settings: Annotated[Settings, Depends(get_settings)],
+                       session: Annotated[Session, Depends(get_session)]) -> Response:
+    """S20: the screenshot a customer attached to "I've paid". Only the owner (the gate above), only on the app's own host
+    (never a shop host), never cached. Another shop's order, a test order or an order without one all answer 404."""
+    from app.sites.hosts import normalize_host, subdomain_label
+
+    if subdomain_label(normalize_host(request.headers.get("host", "")), settings) is not None:
+        raise HTTPException(status_code=404)
+    claim = session.exec(select(PaymentClaim).where(PaymentClaim.order_id == order_id,
+                                                    PaymentClaim.business_id == b.id)).first()
+    if claim is None or not claim.screenshot:
+        raise HTTPException(status_code=404, detail="There is no screenshot for that order.")
+    return Response(claim.screenshot, media_type="image/webp",
+                    headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
+                             "Content-Security-Policy": "default-src 'none'; sandbox", "X-Robots-Tag": "noindex"})
 
 
 class StatusChange(BaseModel):
@@ -623,7 +655,9 @@ def set_order_status(order_id: int, body: StatusChange, actor: ActorDep,
     session.refresh(o)
     audit.record(session, actor=actor.label, action="order_status", target=f"order:{o.id}", result="ok",
                  business_id=b.id, user_id=actor.user_id, detail=f"{o.ref}: {old} -> {o.status}")
-    return order_out(o, b.name)
+    from app import payclaims
+
+    return order_out(o, b.name, payclaims.claim_for(session, o.id))
 
 
 @router.get("/businesses/{business_id}/export")

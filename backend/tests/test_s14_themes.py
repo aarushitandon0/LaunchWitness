@@ -78,7 +78,7 @@ def test_every_theme_renders_every_gallery_seller_cleanly(key, stem):
         assert html.count(f'name="qty_{i}"') == 1
     assert html.count("<h1>") == 1
     assert ("WhatsApp" in html) == bool(p.whatsapp or p.phone)
-    assert ('id="pay"' in html) == bool(p.upi_id)
+    assert 'id="pay"' not in html and "upi://" not in html  # S20: the UPI details appear only after an order
 
 
 # ---------- The safety layer is the same in every theme ----------
@@ -93,8 +93,8 @@ def test_every_theme_keeps_the_marker_the_order_path_the_links_and_the_basket(ke
     assert 'name="customer_name" required' in html and 'name="customer_phone" required' in html
     assert 'class="hp" aria-hidden="true"' in html and 'name="website"' in html  # the honeypot
     assert 'href="/report-shop"' in html and 'href="/privacy"' in html
-    assert "https://wa.me/919876543210?text=" in html and "upi://pay?pa=sugarcrumb.demo@example" in html
-    assert 'aria-label="UPI payment QR code"' in html and "https://www.instagram.com/sugar.crumb/" in html
+    assert "https://wa.me/919876543210?text=" in html and "sugarcrumb.demo@example" not in html  # S20: no UPI ID on the shop page
+    assert "UPI payment QR code" not in html and "https://www.instagram.com/sugar.crumb/" in html
     assert 'id="basket"' in html and 'id="total"' in html and 'id="bar-order"' in html
     prices = re.findall(r'data-price="(\d+)"', html)  # the basket reads these: they must be the real prices
     assert prices == [str(item.price_inr) for item in p.products]
