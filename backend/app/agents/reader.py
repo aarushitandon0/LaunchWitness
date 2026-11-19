@@ -335,6 +335,8 @@ OWNER_ONLY = {"instagram", "delivery_areas", "niche", "testimonials", "selling_m
               "shipping_fee_inr", "dispatch_days", "shipping_note", "payment_terms", "advance_percent", "accepts_cash",
               "cancellation_preset", "cancellation_text", "on_break", "back_on", "days_off", "time_slots",
               "max_orders_per_day"}
+# Item fields only the owner sets (S19D): the New badge's date is hers alone, never the Reader's.
+PRODUCT_OWNER_ONLY = {"new_until"}
 
 # JSON schema sent to the API (structured output). Kept to the plain subset:
 # every field required, strings for optional values ("" when unknown).
@@ -499,6 +501,7 @@ def tidy_profile(p: Profile) -> Profile:
     p = p.model_copy(deep=True)
     kept: list[Product] = []
     for item in p.products:
+        item.new_until = ""  # S19D: only the owner marks an item New (Review), never a Reader reply
         if _DELIVERY.search(item.name) or _DELIVERY.search(item.category):
             if not p.delivery_available:
                 p.delivery_available, p.delivery_fee_inr = True, item.price_inr
