@@ -8,7 +8,6 @@ drawn in the accent colour at low opacity, and moved with transform only (see te
 
 import hashlib
 import math
-from dataclasses import dataclass
 
 from markupsafe import Markup
 
