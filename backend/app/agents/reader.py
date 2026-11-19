@@ -356,7 +356,7 @@ class Profile(BaseModel):
 OWNER_ONLY = {"instagram", "delivery_areas", "niche", "testimonials", "selling_mode", "city", "free_delivery_above_inr",
               "shipping_fee_inr", "dispatch_days", "shipping_note", "payment_terms", "advance_percent", "accepts_cash",
               "cancellation_preset", "cancellation_text", "on_break", "back_on", "days_off", "time_slots",
-              "max_orders_per_day"}
+              "max_orders_per_day", "motif", "art"}  # S20: the shop's signature is chosen by code / the owner, never by Claude
 # Item fields only the owner sets (S19D): the New badge's date is hers alone, never the Reader's.
 PRODUCT_OWNER_ONLY = {"new_until"}
 
