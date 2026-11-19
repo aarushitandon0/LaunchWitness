@@ -104,7 +104,7 @@ def seller_for_request(request: Request, settings: Settings, session: Session) -
     return b, public_profile(b)  # S19D: never an unconfirmed WhatsApp / UPI to customers
 
 
-def seller_page(path: str, request: Request, settings: Settings, session: Session) -> HTMLResponse | None:
+def seller_page(path: str, request: Request, settings: Settings, session: Session) -> Response | None:
     try:
         found = seller_for_request(request, settings, session)
     except HTTPException:
@@ -112,6 +112,8 @@ def seller_page(path: str, request: Request, settings: Settings, session: Sessio
     if found is None:
         return None
     b, profile = found
+    if path == "favicon.ico":  # S20B: browsers ask every shop for one; "nothing here" without a 404 in the console
+        return Response(status_code=204, headers={"Cache-Control": "public, max-age=86400"})
     if b.paused:
         return HTMLResponse(PAUSED, status_code=503)
     if path in ("", "index.html"):

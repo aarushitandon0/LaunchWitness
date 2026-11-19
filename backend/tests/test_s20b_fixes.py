@@ -95,3 +95,14 @@ def test_pay_on_delivery_gets_no_upi_details_and_no_claim_form(client, engine):
 
     with Session(engine) as s:
         assert s.exec(select(PaymentClaim)).first() is None
+
+
+# ---------- 7. favicon on shop hosts ----------
+
+def test_shop_host_answers_favicon_with_204_and_the_app_host_does_not(client, engine):
+    live_shop(client, engine)
+    r = client.get("/favicon.ico", headers=HOST)
+    assert r.status_code == 204 and r.content == b""
+    assert client.get("/favicon.ico").status_code != 204  # the app's own icon is untouched
+    assert client.get("/favicon.ico", headers={"host": "nobody-here.localhost"}).status_code == 404  # no such shop
+    assert client.get("/favicon.icox", headers=HOST).status_code == 404  # exactly that one path
