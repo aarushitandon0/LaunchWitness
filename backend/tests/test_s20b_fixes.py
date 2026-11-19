@@ -67,3 +67,31 @@ def test_privacy_text_says_the_team_can_open_a_screenshot_and_it_is_logged(clien
     page = client.get("/privacy", headers=HOST).text
     assert "The LaunchWitness team can also open a screenshot when it is helping the shop" in page
     assert "that is logged" in page
+
+
+# ---------- 5. pay on delivery: no UPI details at all ----------
+
+def test_pay_on_delivery_gets_no_upi_details_and_no_claim_form(client, engine):
+    from tests.conftest import publish, ready_for_real, sign_in
+    from tests.test_m3_launch import approve, meera, plan
+    from tests.test_s20_payments import UPI
+
+    sign_in(client, "meera@example.org")
+    biz = meera(client)
+    ready_for_real(client, biz["id"], payment_terms="on_delivery", upi_display_name="MEERA BAKES")
+    assert approve(client, plan(client, biz))["status"] == "done"
+    publish(engine, biz["id"])
+    assert client.get(f"/api/businesses/{biz['id']}").json()["profile"]["upi_id"] == UPI  # she does have a UPI ID
+    html, tok = place(client)
+    page = client.get(f"/order/{tok}", headers=HOST)
+    assert page.status_code == 200
+    for h in (html, page.text):
+        assert "upi://" not in h.lower() and UPI not in h and "MEERA BAKES" not in h
+        assert "UPI payment QR code" not in h
+        assert "claim-form" not in h and "/paid" not in h and 'id="claim"' not in h
+        assert "Nothing to pay now" in h  # the page still says when to pay
+    assert claim(client, tok).status_code == 409  # and a hand-made claim is refused: nothing to pay now
+    from app.models import PaymentClaim
+
+    with Session(engine) as s:
+        assert s.exec(select(PaymentClaim)).first() is None
