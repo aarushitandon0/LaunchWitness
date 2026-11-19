@@ -118,7 +118,7 @@ test("six themes x two motifs, then basket, quick view, reduced motion and a JS-
   await nojs.locator("#customer_phone").fill("98765 43210");
   await pickDate(nojs);
   await nojs.getByRole("button", { name: "Send order" }).click();
-  await expect(nojs.getByRole("heading", { name: /Thank you, Riya NoJS/ })).toBeVisible();
+  await expect(nojs.getByRole("heading", { name: /^Thank you, Riya!$/ })).toBeVisible();
   await plain.close();
   await ctx.close();
 });

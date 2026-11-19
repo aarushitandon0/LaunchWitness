@@ -52,7 +52,7 @@ test("private UPI -> order -> thank-you shows it -> says paid with UTR + screens
   await pickDate(customer);
   await customer.locator("#order-form").evaluate((f: HTMLFormElement) => f.requestSubmit());
   await customer.waitForLoadState("load");
-  await expect(customer.getByRole("heading", { name: /Thank you, Riya Payer/ })).toBeVisible();
+  await expect(customer.getByRole("heading", { name: /^Thank you, Riya!$/ })).toBeVisible();
   const href = await customer.getByRole("link", { name: "open your UPI app" }).getAttribute("href");
   expect(href).toMatch(/^upi:\/\/pay\?/);
   expect(href).toMatch(/am=\d+\.00/);

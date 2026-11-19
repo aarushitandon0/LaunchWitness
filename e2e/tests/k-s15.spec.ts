@@ -60,7 +60,7 @@ test("outside the delivery area -> told politely -> chooses pickup -> orders -> 
   await expect(customer.locator("#pay-now")).toContainText("You'll pay");
   await customer.locator("#order-form").evaluate((f: HTMLFormElement) => f.requestSubmit());
   await customer.waitForLoadState("load");
-  await expect(customer.getByRole("heading", { name: /Thank you, Riya Outside/ })).toBeVisible();
+  await expect(customer.getByRole("heading", { name: /^Thank you, Riya!$/ })).toBeVisible();
   await expect(customer.getByText(/Pay now: ₹/)).toBeVisible();
   const href = await customer.getByRole("link", { name: "open your UPI app" }).getAttribute("href");
   expect(href).toMatch(/^upi:\/\/pay\?/);

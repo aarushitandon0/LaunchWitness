@@ -186,7 +186,7 @@ def order_form(**extra):
 
 def test_order_is_stored_and_emailed(client, engine, mailer, meera, settings):
     r = client.post("/order", data=order_form(), headers={"host": MEERA})
-    assert r.status_code == 200 and "Thank you, Asha Rao!" in r.text
+    assert r.status_code == 200 and "Thank you, Asha!" in r.text and "Rao" not in r.text  # S20B: first name only
     assert "₹1,490" in r.text  # 650 + 2*420
 
     assert len(mailer.sent) == 1

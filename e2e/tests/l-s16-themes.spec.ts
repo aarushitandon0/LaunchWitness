@@ -67,7 +67,7 @@ for (const theme of THEMES) {
     if (await pickup.count()) await pickup.check();
     await shop.locator("#order-form").evaluate((f: HTMLFormElement) => f.requestSubmit());
     await shop.waitForLoadState("load");
-    await expect(shop.getByRole("heading", { name: new RegExp(`Thank you, Riya ${theme}`) })).toBeVisible();
+    await expect(shop.getByRole("heading", { name: /^Thank you, Riya!$/ })).toBeVisible();
     const csp = await shop.evaluate(() => (window as unknown as { __csp: string[] }).__csp);
     expect(csp, "no CSP violations").toEqual([]);
     expect(bad, "no console errors, failed or blocked requests").toEqual([]);
