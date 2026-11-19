@@ -363,3 +363,45 @@ def test_demo_meera_shows_the_merged_cake(client):
     r = client.post("/demo/meera/order", data={**CUSTOMER, **pickup(), "qty_0_1": "1"})
     assert r.status_code == 200 and "This is a demo" in r.text
 
+
+
+# ---------- the one-tap "Sold out today" switch ----------
+
+def test_sold_out_switch_is_owner_only_audited_and_refuses_a_changed_menu(client, new_client, engine):
+    from app.models import AuditEvent
+
+    biz = shop(client)
+    url = f"/api/businesses/{biz['id']}/sold-out"
+    name = biz["profile"]["products"][1]["name"]
+    r = client.put(url, json={"index": 1, "name": name, "sold_out": True})
+    assert r.status_code == 200 and r.json()["profile"]["products"][1]["sold_out"] is True
+    assert "Sold out today" in client.get("/", headers=HOST).text
+    assert client.put(url, json={"index": 1, "name": "Something else", "sold_out": False}).status_code == 409
+    assert client.put(url, json={"index": 99, "name": name, "sold_out": False}).status_code == 409
+    assert new_client().put(url, json={"index": 1, "name": name, "sold_out": False}).status_code in (401, 403, 404)
+    r = client.put(url, json={"index": 1, "name": name, "sold_out": False})
+    assert r.json()["profile"]["products"][1]["sold_out"] is False
+    with Session(engine) as s:
+        rows = [e.detail for e in s.exec(select(AuditEvent).where(AuditEvent.action == "item_sold_out")).all()]
+    assert rows == ["item 2: sold out today", "item 2: back on sale"]
+
+
+def test_sold_out_switch_also_reaches_a_held_edit(client, engine):
+    from app.models import Business
+
+    biz = shop(client)
+    with Session(engine) as s:
+        b = s.get(Business, biz["id"])
+        pending = Profile.model_validate_json(b.profile_json)
+        pending.tagline = "Edited and waiting"
+        b.pending_profile_json = pending.model_dump_json()
+        s.add(b)
+        s.commit()
+    name = biz["profile"]["products"][2]["name"]
+    r = client.put(f"/api/businesses/{biz['id']}/sold-out", json={"index": 2, "name": name, "sold_out": True})
+    assert r.status_code == 200
+    with Session(engine) as s:
+        b = s.get(Business, biz["id"])
+        assert Profile.model_validate_json(b.profile_json).products[2].sold_out
+        assert Profile.model_validate_json(b.pending_profile_json).products[2].sold_out
+        assert Profile.model_validate_json(b.pending_profile_json).tagline == "Edited and waiting"

@@ -4,6 +4,7 @@ import { api, ApiError, BusinessSummary, Me, session, Watch } from "./api";
 import { goTo } from "./App";
 import { ErrorBox } from "./Describe";
 import { ShopLink } from "./ShopLink";
+import { SoldOutToday } from "./SoldOut";
 import { resumeHash, resumeLabel } from "./Steps";
 
 /** The signed-in account (null while loading). The server decides what anyone may do; this is only for display. */
@@ -235,6 +236,13 @@ export function MyShopsPage() {
                       Customers still see the old one until you do.
                     </a>
                   </>
+                )}
+                {b.public && (
+                  <SoldOutToday
+                    biz={b}
+                    compact
+                    onChange={(nb) => setShops((list) => (list ?? []).map((x) => (x.id === nb.id ? { ...x, ...nb } : x)))}
+                  />
                 )}
                 {b.renewal && (
                   <>

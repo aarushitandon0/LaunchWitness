@@ -596,6 +596,9 @@ export const api = {
     request<Business>(`/api/businesses/${id}/theme`, json({ theme, accent }, "PUT")),
   setSignature: (id: number, motif: string, art: string) =>
     request<Business>(`/api/businesses/${id}/signature`, json({ motif, art }, "PUT")),
+  // S21: one item's "Sold out today" switch (named by place AND name; a changed menu answers 409)
+  setSoldOut: (id: number, index: number, name: string, sold_out: boolean) =>
+    request<Business>(`/api/businesses/${id}/sold-out`, json({ index, name, sold_out }, "PUT")),
   contact: (name: string, email: string, message: string, website: string) =>
     request<{ ok: boolean; message: string }>("/api/contact", json({ name, email, message, website })),
   // look: the picker's small inline preview; it doesn't count as "she looked at her preview" for the go-live list.

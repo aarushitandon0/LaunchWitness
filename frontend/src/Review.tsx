@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { ItemSelling } from "./ItemSelling";
 import { ShopLink } from "./ShopLink";
 import { ItemPhoto, ShopPhotos, usePhotos } from "./Photos";
 import { api, ApiError, Business, Order, Product, Profile } from "./api";
@@ -558,16 +559,20 @@ export default function Review({ id }: { id: number }) {
               <span>Item</span>
               <input value={p.name} onChange={(e) => updateProduct(i, { name: e.target.value })} />
             </label>
-            <label className="field price">
-              <span>Price (₹)</span>
-              <input
-                type="number"
-                inputMode="numeric"
-                min={0}
-                value={p.price_inr}
-                onChange={(e) => updateProduct(i, { price_inr: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
-              />
-            </label>
+            {p.options?.length ? (
+              <p className="field price muted small">Price: from each size below</p>
+            ) : (
+              <label className="field price">
+                <span>Price (₹)</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  value={p.price_inr}
+                  onChange={(e) => updateProduct(i, { price_inr: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
+                />
+              </label>
+            )}
             <label className="field">
               <span>Group</span>
               <input list="lw-groups" value={p.category} onChange={(e) => updateProduct(i, { category: e.target.value })} />
@@ -606,6 +611,7 @@ export default function Review({ id }: { id: number }) {
                 {isNew(p) && <small className="muted"> (until {niceDate(p.new_until!)})</small>}
               </span>
             </label>
+            {!p.addon && <ItemSelling p={p} n={i + 1} onChange={(patch) => updateProduct(i, patch)} />}
             <button
               type="button"
               className="btn btn-ghost remove"
