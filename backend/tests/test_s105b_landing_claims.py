@@ -46,3 +46,18 @@ def test_daily_test_order_goes_to_our_check_mailbox_as_the_page_says():
     assert "The daily test order goes to \" +\n      \"LaunchWitness's own check mailbox, not to you" in LANDING
     assert "proven at launch, and again whenever you press “Run checks \" +\n      \"now” and tap “Yes, I got it”" in LANDING
     assert "sent to our own check\n                mailbox, never the seller" in LANDING
+
+
+def test_demo_strip_says_these_are_demo_shops_and_links_only_to_real_demos():
+    """S21: the strip's words are true (they are demo shops; orders there are not real) and every card is a demo page
+    the app serves, opened in a new tab."""
+    from app.sites.demo import DEMOS
+
+    assert "See shops made with LaunchWitness" in LANDING
+    assert "Demo shops: tap one to open it. Orders there are not real." in LANDING
+    strip = (Path(__file__).resolve().parents[2] / "frontend" / "src" / "landing" / "DemoStrip.tsx").read_text(encoding="utf-8")
+    assert 'href={`/demo/${d.slug}`}' in strip and 'target="_blank"' in strip
+    data = (Path(__file__).resolve().parents[2] / "frontend" / "src" / "landing" / "demoShops.ts").read_text(encoding="utf-8")
+    import re
+
+    assert re.findall(r'slug: "([a-z]+)"', data) == list(DEMOS)

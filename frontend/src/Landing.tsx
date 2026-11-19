@@ -1,6 +1,7 @@
 import { animate, motion, MotionValue, useInView, useMotionValue, useMotionValueEvent, useSpring, useTransform } from "framer-motion";
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import "./landing/landing-motion.css";
+import { DemoStrip } from "./landing/DemoStrip";
 import { FlowLines } from "./landing/FlowLines";
 import { ellipseFromLeft, followHeroPause, HERO_PAUSE, pathLoop, useLiteHero } from "./landing/heroLoops";
 import { useEdgeProgress } from "./landing/useEdgeProgress";
@@ -314,6 +315,16 @@ export default function Landing() {
             with its time and the server that answered, and your report only claims what was saved.
           </SectionHead>
           <HopTrack />
+        </div>
+      </section>
+
+      <section className="dark dark-cont on-dark" id="demos" aria-labelledby="demos-title">
+        <PanelCap />
+        <div className="wrap">
+          <SectionHead id="demos-title" title="See shops made with LaunchWitness" label="/ demo shops">
+            Demo shops: tap one to open it. Orders there are not real.
+          </SectionHead>
+          <DemoStrip />
         </div>
       </section>
 

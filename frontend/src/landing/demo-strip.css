@@ -1,0 +1,22 @@
+/* S21: landing strip of demo shops (phone-shaped cards). A normal scroller with snap; while it drifts (JS adds
+   .drifting) snap is off so the slow scroll isn't pulled back. Cards never animate size, shadows or layout. */
+.demo-strip { position: relative; margin: 0 calc(-1 * var(--gutter)); }
+.demo-row { overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none;
+  padding: var(--s-2) var(--gutter) var(--s-4); scroll-padding-inline: var(--gutter);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); }
+.demo-row::-webkit-scrollbar { display: none; }
+.demo-row.drifting { scroll-snap-type: none; }
+.demo-list { display: flex; gap: 16px; list-style: none; margin: 0; padding: 0; width: max-content; }
+.demo-list li { scroll-snap-align: start; flex: none; }
+.demo-card { display: grid; gap: 6px; width: clamp(168px, 44vw, 210px); color: var(--on-ink); text-decoration: none; border-radius: 26px; }
+.demo-card:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+.demo-phone { display: block; aspect-ratio: 1 / 2; border-radius: 26px; border: 6px solid var(--ink-2); outline: 1px solid var(--ink-line);
+  overflow: hidden; background: var(--ink-2); transition: transform .3s ease; }
+.demo-phone img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.demo-card:hover .demo-phone, .demo-card:focus-visible .demo-phone { transform: translateY(-4px); }
+.demo-name { font-weight: var(--fw-medium); font-size: var(--fs-sm); line-height: 1.3; margin-top: 4px; }
+.demo-look { color: var(--on-ink-muted); font-size: var(--fs-xs); }
+.demo-arrows { display: none; justify-content: flex-end; gap: var(--s-2); padding: 0 var(--gutter); }
+@media (hover: hover) and (pointer: fine) { .demo-arrows { display: flex; } }
+@media (prefers-reduced-motion: reduce) { .demo-phone { transition: none; } .demo-card:hover .demo-phone { transform: none; } }
