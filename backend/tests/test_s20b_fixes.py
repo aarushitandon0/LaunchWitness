@@ -58,3 +58,12 @@ def test_thank_you_and_status_page_show_the_first_name_only(client, engine):
         assert "Sharma" not in h and "Kapoor" not in h
         assert "00077" not in h and "9123400077" not in h  # the phone was never on the page
     assert real_order(engine).customer_name == "Riya Sharma Kapoor"  # the shop still has the full name
+
+
+# ---------- 3. privacy text names the team's access ----------
+
+def test_privacy_text_says_the_team_can_open_a_screenshot_and_it_is_logged(client, engine):
+    live_shop(client, engine)
+    page = client.get("/privacy", headers=HOST).text
+    assert "The LaunchWitness team can also open a screenshot when it is helping the shop" in page
+    assert "that is logged" in page
