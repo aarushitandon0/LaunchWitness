@@ -178,6 +178,19 @@ def pay_view(profile: Profile, order: dict) -> dict | None:
             "when": "delivery" if order.get("fulfilment") == "delivery" else "pickup"}
 
 
+def share_view(profile: Profile, url: str, photos: dict) -> dict:
+    """S21: what a link preview shows (Open Graph / Twitter tags on the public shop home): the shop's name, its own
+    headline or tagline, its first photo (large, absolute URL on the shop's own host) if it has one, and its address.
+    Every value is escaped by the template like all shop text."""
+    description = (profile.section_copy.hero_line or profile.tagline or profile.about[:150]).strip()
+    first = (photos or {}).get("shop") or []
+    image = None
+    if first:
+        ph = first[0]
+        image = {"url": url.rstrip("/") + ph["large"], "w": ph["large_w"], "h": ph["large_h"], "alt": ph.get("alt", "")}
+    return {"url": url, "description": description, "image": image}
+
+
 def public_place(profile: Profile) -> str:
     """'Baner, Pune': the locality and the city, never a street address. The city is left out when the locality already has it."""
     area, city = profile.area.strip(), profile.city.strip()
@@ -199,7 +212,7 @@ def delivery_refusal(profile: Profile) -> str:
 def render_site(profile: Profile, *, page: str = "home", order: dict | None = None, form_error: str = "",
                 form_values: dict | None = None, claim_error: str = "", preview: bool = False, shop: str = "", demo: bool = False,
                 base: str = "", photos: dict | None = None, full_dates: list[str] | None = None,
-                today: "date | None" = None) -> str:
+                today: "date | None" = None, share_url: str = "") -> str:
     """page: 'home' | 'privacy' | 'thanks'. preview=True: the owner's private look at a shop that
     isn't public (banner on top, the order button is off). demo=True: a sample shop served by the app at
     `base` (e.g. /demo/meera), labelled as a demo; its form places no order."""
@@ -258,6 +271,7 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
         preview=preview,
         shop=shop,  # printed as <meta name="lw-shop">: the HTTPS check looks for it
         demo=demo,
+        share=share_view(profile, share_url, ph) if share_url and page == "home" and not (preview or demo) else None,
         base=base,  # prefix for the shop's own links ("" on a shop host)
         photos=ph,  # S12 (app/photos.py for_site); none = the placeholders stay
         # S15: where she sells, when, how she is paid. All the rules live in app/sites/fulfilment.py.

@@ -405,3 +405,33 @@ def test_sold_out_switch_also_reaches_a_held_edit(client, engine):
         assert Profile.model_validate_json(b.profile_json).products[2].sold_out
         assert Profile.model_validate_json(b.pending_profile_json).products[2].sold_out
         assert Profile.model_validate_json(b.pending_profile_json).tagline == "Edited and waiting"
+
+
+# ---------- STEP 4: link preview when the shop is shared ----------
+
+def test_public_shop_home_has_link_preview_tags_and_preview_demo_privacy_do_not(client):
+    from tests.test_s12_photos import jpeg, up
+
+    biz = shop(client, tagline='Cakes & "bakes" <b>here</b>', section_copy={"hero_line": "", "about": "", "how_ordering": ""})
+    html = client.get("/", headers=HOST).text
+    assert '<meta property="og:type" content="website">' in html
+    assert '<meta property="og:title" content="Meera&#39;s Eggless Bakes">' in html
+    assert '<meta property="og:url" content="http://meera.localhost/">' in html
+    assert '<meta property="og:description" content="Cakes &amp; &#34;bakes&#34; &lt;b&gt;here&lt;/b&gt;">' in html
+    assert '<meta name="twitter:card" content="summary">' in html and "og:image" not in html  # no photo: no image tag
+    assert '<link rel="canonical" href="http://meera.localhost/">' in html
+    r = up(client, biz, jpeg())
+    assert r.status_code == 201, r.text
+    large = r.json()["shop"][0]["large"]
+    html = client.get("/", headers=HOST).text
+    assert f'<meta property="og:image" content="http://meera.localhost{large}">' in html
+    assert '<meta name="twitter:card" content="summary_large_image">' in html
+    assert "og:" not in client.get("/privacy", headers=HOST).text
+    assert "og:" not in client.get(f"/api/businesses/{biz['id']}/preview").text
+    assert "og:" not in client.get("/demo/meera").text and client.get("/demo/meera").headers["X-Robots-Tag"] == "noindex"
+
+
+def test_link_preview_text_is_escaped(client):
+    shop(client, section_copy={"hero_line": EVIL, "about": "", "how_ordering": ""})
+    head = client.get("/", headers=HOST).text.split("</head>")[0]
+    assert "<script>alert" not in head and "<img src=x" not in head and "og:description" in head
