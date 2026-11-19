@@ -492,6 +492,11 @@ input[type="checkbox"] { accent-color: var(--ink); width: 18px; height: 18px; }
 .stepper-done .n { background: var(--success-soft); color: var(--success); }
 .stepper-todo > span { opacity: 0.55; }
 .shop-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
+.shop-address { overflow-wrap: anywhere; }
+@media (max-width: 520px) {
+  .names.shops li { flex-direction: column; align-items: stretch; }
+  .names.shops .shop-actions { justify-content: flex-start; }
+}
 .new-count { display: inline-block; margin-left: 0.4rem; padding: 0 0.5rem; border-radius: var(--r-pill); background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 600; }
 
 /* S10.5: orders inbox (mobile first) */

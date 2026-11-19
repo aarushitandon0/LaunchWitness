@@ -3,6 +3,7 @@ import { AddressFindings } from "./Findings";
 import { api, ApiError, BusinessSummary, Me, session, Watch } from "./api";
 import { goTo } from "./App";
 import { ErrorBox } from "./Describe";
+import { ShopLink } from "./ShopLink";
 import { resumeHash, resumeLabel } from "./Steps";
 
 /** The signed-in account (null while loading). The server decides what anyone may do; this is only for display. */
@@ -210,6 +211,12 @@ export function MyShopsPage() {
                 <a href={`#/b/${b.id}`}>
                   <strong>{b.name}</strong>
                 </a>
+                {b.live_url && (
+                  <>
+                    <br />
+                    <span className="small muted shop-address">{new URL(b.live_url).host}</span>
+                  </>
+                )}
                 <br />
                 <span className="muted">{shopState(b)}</span>
                 {b.renewal && (
@@ -225,6 +232,14 @@ export function MyShopsPage() {
                 )}
               </span>
               <span className="shop-actions">
+                <ShopLink
+                  businessId={b.id}
+                  siteUrl={b.live_url}
+                  isPublic={!!b.live_url}
+                  label="View shop"
+                  previewLabel="Preview"
+                  className="btn btn-ghost btn-sm"
+                />
                 <a className="btn btn-ghost btn-sm" href={`#/b/${b.id}/orders`}>
                   Orders
                   {!!b.new_orders && (

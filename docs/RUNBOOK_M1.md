@@ -49,14 +49,14 @@ ssh -i ~/.ssh/launchwitness root@<VPS_IP>
 Optional but recommended (vps): a non-root user and a firewall.
 
 ```bash
-adduser --disabled-password --gecos "" lw && usermod -aG sudo lw
-mkdir -p /home/lw/.ssh && cp ~/.ssh/authorized_keys /home/lw/.ssh/ && chown -R lw:lw /home/lw/.ssh
-echo 'lw ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/lw
+adduser --disabled-password --gecos "" lwadmin && usermod -aG sudo lwadmin
+mkdir -p /home/lwadmin/.ssh && cp ~/.ssh/authorized_keys /home/lwadmin/.ssh/ && chown -R lwadmin:lwadmin /home/lwadmin/.ssh
+echo 'lwadmin ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/lwadmin
 ufw allow OpenSSH && ufw allow 80/tcp && ufw allow 443/tcp && ufw allow 443/udp && ufw --force enable
-# from now on: ssh -i ~/.ssh/launchwitness lw@<VPS_IP>
+# from now on: ssh -i ~/.ssh/launchwitness lwadmin@<VPS_IP>
 ```
 
-**✔ Check:** `ssh -i ~/.ssh/launchwitness lw@<VPS_IP> 'whoami && sudo ufw status'` prints `lw` and shows 22/80/443 allowed.
+**✔ Check:** `ssh -i ~/.ssh/launchwitness lwadmin@<VPS_IP> 'whoami && sudo ufw status'` prints `lwadmin` and shows 22/80/443 allowed.
 
 ## 2. Install Docker
 

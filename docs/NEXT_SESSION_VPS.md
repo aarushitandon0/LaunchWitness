@@ -52,9 +52,9 @@ cat ~/.ssh/launchwitness.pub          # paste into the VPS dashboard (SSH keys),
 ssh -i ~/.ssh/launchwitness root@<VPS_IP>
 
 # (vps, as root) a normal user with your key
-adduser --disabled-password --gecos "" lw && usermod -aG sudo lw
-mkdir -p /home/lw/.ssh && cp ~/.ssh/authorized_keys /home/lw/.ssh/ && chown -R lw:lw /home/lw/.ssh && chmod 700 /home/lw/.ssh
-echo 'lw ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/lw
+adduser --disabled-password --gecos "" lwadmin && usermod -aG sudo lwadmin
+mkdir -p /home/lwadmin/.ssh && cp ~/.ssh/authorized_keys /home/lwadmin/.ssh/ && chown -R lwadmin:lwadmin /home/lwadmin/.ssh && chmod 700 /home/lwadmin/.ssh
+echo 'lwadmin ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/lwadmin
 
 # key login only
 sed -i -E 's/^#?PasswordAuthentication .*/PasswordAuthentication no/; s/^#?PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd_config
@@ -70,14 +70,14 @@ Note: Docker-published ports go **around** ufw. That's fine for Caddy's 80/443 (
 more reason **port 8000 must never be published** (`deploy/README.md`, "Rules").
 
 **✔ Check** from a NEW laptop terminal (keep the root one open until this works):
-`ssh -i ~/.ssh/launchwitness lw@<VPS_IP> 'whoami; sudo ufw status | head -8'` prints `lw` and 22/80/443 ALLOW, and
+`ssh -i ~/.ssh/launchwitness lwadmin@<VPS_IP> 'whoami; sudo ufw status | head -8'` prints `lwadmin` and 22/80/443 ALLOW, and
 `ssh root@<VPS_IP>` is refused.
 
-## 2. Docker (vps, as lw)
+## 2. Docker (vps, as lwadmin)
 
 ```bash
 curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker lw && newgrp docker
+sudo usermod -aG docker lwadmin && newgrp docker
 ```
 
 **✔ Check:** `docker run --rm hello-world` and `docker compose version` (v2.x).
@@ -180,7 +180,7 @@ crontab -l
 ```
 
 **Manual TODO for the owner:** an off-server copy. Nothing does it automatically (no cloud service was chosen). Weekly from
-the laptop: `scp -i ~/.ssh/launchwitness -r lw@<VPS_IP>:LaunchWitness/backups ./lw-backups-$(date +%F)`. Backups
+the laptop: `scp -i ~/.ssh/launchwitness -r lwadmin@<VPS_IP>:LaunchWitness/backups ./lw-backups-$(date +%F)`. Backups
 hold customers' names and phone numbers: keep that folder private.
 
 ## 10. The first real GoDaddy write: one shop A record, through the app

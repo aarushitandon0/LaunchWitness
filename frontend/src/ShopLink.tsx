@@ -12,11 +12,15 @@ export function ShopLink({
   siteUrl,
   isPublic,
   label = "Open my shop",
+  previewLabel = "Preview my shop",
+  className = "btn btn-ghost",
 }: {
   businessId: number;
   siteUrl: string | null;
   isPublic: boolean;
   label?: string;
+  previewLabel?: string;
+  className?: string;
 }) {
   const [html, setHtml] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -45,7 +49,7 @@ export function ShopLink({
 
   if (isPublic && siteUrl) {
     return (
-      <a className="btn btn-ghost" href={siteUrl} target="_blank" rel="noreferrer">
+      <a className={className} href={siteUrl} target="_blank" rel="noopener noreferrer">
         {label}
       </a>
     );
@@ -66,8 +70,8 @@ export function ShopLink({
 
   return (
     <>
-      <button className="btn btn-ghost" type="button" onClick={open} disabled={busy}>
-        {busy ? "Opening…" : "Preview my shop"}
+      <button className={className} type="button" onClick={open} disabled={busy}>
+        {busy ? "Opening…" : previewLabel}
       </button>
       {error && (
         <p className="error" role="alert">

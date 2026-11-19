@@ -36,6 +36,8 @@ services:
       USER_DESCRIBES_PER_DAY: "50"
       VISITOR_DESCRIBES_PER_DAY: "50"
       VISITOR_LAUNCHES_PER_DAY: "50"
+      # Every e2e run adds real (pretend-GoDaddy) live shops to this stack's database; production keeps 40.
+      MAX_LIVE_SHOPS: "1000"
     depends_on:
       - mailpit
 

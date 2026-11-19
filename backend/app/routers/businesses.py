@@ -81,12 +81,28 @@ def business_out(b: Business, settings: Settings, session: Session | None = None
         "status": b.status,
         "practice": b.practice,
         "public": is_public(b) and not b.paused,  # false = only the owner sees it, through the preview
+        "live_url": live_url(session, settings, b),  # S19D: "View shop" on My shops; None = practice/draft (preview only)
         "owner_email": owners[0] if owners else "",  # the sign-in address orders and alerts go to
         "profile": json.loads(b.profile_json),
         "theme": theme_out(b),
         "description": b.description,  # S17: her own words, so Describe can open with them again
         "price_list": b.price_list_text,
     }
+
+
+def live_url(session: Session | None, settings: Settings, b: Business) -> str | None:
+    """The shop's real public address, only for a real launched shop (paused or held too: its own page says so).
+    Built here from the launch plan / subdomain and APP_DOMAIN, never from anything typed. Practice and draft
+    shops are not on the internet, so they get None and the owner uses the private preview."""
+    if not is_public(b):
+        return None
+    if session is not None:
+        from app.agents.launch_check import latest_launched_plan
+
+        plan = latest_launched_plan(session, b.id)
+        if plan is not None and plan.mode == "full" and plan.site_host:
+            return f"https://{plan.site_host}/"
+    return site_url(b.subdomain, settings) if b.subdomain else None
 
 
 def theme_out(b: Business) -> dict:
