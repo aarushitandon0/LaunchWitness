@@ -19,10 +19,20 @@ from app.sites.orders import OrderInvalid, parse_order_form
 from app.sites.render import render_site
 
 router = APIRouter(tags=["demo"])
-FIXTURES = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "claude"
-DEMOS = {"meera": "reader_meera_cakes", "imran": "reader_tailor", "sunita": "reader_tiffin_service"}
-# S14: each demo shop shows the theme that fits it (the same choice the Reader fixtures carry).
-DEMO_LOOKS = {"meera": ("bakery", "raspberry"), "imran": ("tailor", "navy"), "sunita": ("kitchen", "turmeric")}
+FIXTURES = Path(__file__).resolve().parents[2] / "tests" / "fixtures"
+# S21: eight demo shops, so every one of the six looks has at least one (the landing page's strip links to each).
+# The first three are saved Reader replies; the rest are the site-gallery sellers (made-up shops, no real people).
+DEMOS = {"meera": "claude/reader_meera_cakes", "imran": "claude/reader_tailor", "sunita": "claude/reader_tiffin_service",
+         "sugarcrumb": "site_gallery/cake_studio", "zari": "site_gallery/tailor_studio", "ember": "site_gallery/candle_maker",
+         "giftgarden": "site_gallery/gift_hampers", "greencorner": "site_gallery/plant_shop"}
+# S14: each demo shop shows the theme (and accent) that fits it.
+DEMO_LOOKS = {"meera": ("bakery", "raspberry"), "imran": ("tailor", "navy"), "sunita": ("kitchen", "turmeric"),
+              "sugarcrumb": ("bakery", "caramel"), "zari": ("tailor", "thread"), "ember": ("handmade", "clay"),
+              "giftgarden": ("gifts", "ruby"), "greencorner": ("general", "forest")}
+# S21: each demo's signature (motif, arrangement); none = chosen by code from the shop's name as before, so the three
+# older demos look exactly as they did. Every demo has a different motif.
+DEMO_SIGNATURES = {"sugarcrumb": ("cherries", "scatter"), "zari": ("buttons", "scatter"), "ember": ("dots", "corner"),
+                   "giftgarden": ("ribbons", "scatter"), "greencorner": ("sparks", "corner")}
 HEADERS = {"X-Robots-Tag": "noindex"}
 
 
@@ -38,8 +48,16 @@ def demo_profile(name: str) -> Profile:
                                       "theme": theme, "accent": accent, "products": group_sizes(profile.products)})
 
 
+@cache
+def demo_shop(name: str) -> Profile:
+    """S21: what a demo page shows: the sample profile with its own signature, and without anything that could point
+    at a real person (no Instagram handle, no pasted customer messages; phone, WhatsApp and UPI are already gone)."""
+    motif, art = DEMO_SIGNATURES.get(name, ("", ""))
+    return demo_profile(name).model_copy(update={"motif": motif, "art": art, "instagram": "", "testimonials": []})
+
+
 def page(name: str, which: str = "home", **kw) -> HTMLResponse:
-    html = render_site(demo_profile(name), page=which, demo=True, base=f"/demo/{name}", **kw)
+    html = render_site(demo_shop(name), page=which, demo=True, base=f"/demo/{name}", **kw)
     return HTMLResponse(html, headers=HEADERS)
 
 
@@ -57,7 +75,7 @@ def demo_privacy(name: str) -> HTMLResponse:
 async def demo_order(name: str, request: Request) -> HTMLResponse:
     """Nothing is stored, emailed or counted. A valid form shows "This is a demo"; an invalid one
     shows the same plain error a real shop would, so the demo behaves like the real thing."""
-    profile = demo_profile(name)
+    profile = demo_shop(name)
     form = {k: v for k, v in (await request.form()).items() if isinstance(v, str)}
     try:
         data = parse_order_form(form, profile)

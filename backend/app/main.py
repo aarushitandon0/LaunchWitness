@@ -6,6 +6,7 @@ own domain in the DB) get that seller's pages; everything else gets the app.
 
 import logging
 import os
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated
@@ -38,6 +39,10 @@ BRAND_FILES = {
     "logo-mark-128.png": "image/png",
     "site.webmanifest": "application/manifest+json",
 }
+
+# S21: thumbnails of the demo shops for the landing strip (frontend/public/demos, made by scripts/make_demo_thumbs.js).
+# App host only, like the icons: a shop host never reaches this (seller_page answers first).
+DEMO_THUMB = re.compile(r"demos/[a-z]{1,20}\.webp")
 
 BUILD_COMING_SOON = """<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>How LaunchWitness was built</title>""" + ICON_LINKS + """
@@ -171,6 +176,9 @@ def create_app(*, frontend_dist: Path = FRONTEND_DIST, replay_page: Path = REPLA
             return page
         if path in BRAND_FILES and (frontend_dist / path).is_file():
             return FileResponse(frontend_dist / path, media_type=BRAND_FILES[path],
+                                headers={"Cache-Control": "public, max-age=86400"})
+        if DEMO_THUMB.fullmatch(path) and (frontend_dist / path).is_file():  # S21: the landing strip's demo pictures
+            return FileResponse(frontend_dist / path, media_type="image/webp",
                                 headers={"Cache-Control": "public, max-age=86400"})
         if path.rstrip("/") == "build":
             if replay_page.is_file():
