@@ -13,7 +13,7 @@ from markupsafe import Markup
 
 from app.agents.reader import Product, Profile
 from app.sites import fulfilment as ful
-from app.sites import themes
+from app.sites import motifs, themes
 
 TEMPLATES = Path(__file__).parent / "templates"
 _env = Environment(loader=FileSystemLoader(TEMPLATES), autoescape=select_autoescape(["html"]))
@@ -201,6 +201,7 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
     isn't public (banner on top, the order button is off). demo=True: a sample shop served by the app at
     `base` (e.g. /demo/meera), labelled as a demo; its form places no order."""
     theme, accent = themes.resolve(profile)
+    motif, art_variant = motifs.signature(theme.key, profile.name, profile.motif, profile.art)
     cats = group_products(profile.products)
     sc = profile.section_copy
     tagline = profile.tagline.strip()
@@ -219,6 +220,10 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
         theme=theme,
         accent=accent,
         css=themes.css_for(theme, accent),
+        motif=motif,
+        art_variant=art_variant,
+        motion=motifs.MOTION[art_variant],
+        motif_svg=motifs.svg_for(motif, art_variant, profile.name),
         font_base="/shop-assets/fonts/",
         headline=headline,
         lede=lede,

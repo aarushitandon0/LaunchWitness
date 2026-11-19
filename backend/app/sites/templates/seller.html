@@ -22,6 +22,7 @@
   {{ css.root | safe }}
   :root { --focus: var(--accent); }
 {% include "css/base.css" %}
+{% include "css/fx.css" %}
 {% include "css/hero_" ~ theme.hero ~ ".css" %}
 {% include "css/menu_" ~ theme.menu ~ ".css" %}
 </style>
@@ -168,6 +169,7 @@
 {% if page == "home" %}
 <main class="wrap" id="main">
   <section class="hero hero-{{ theme.hero }}" id="top">
+    <div class="motif-wrap motion-{{ motion }}" data-motif="{{ motif }}" data-art="{{ art_variant }}" aria-hidden="true">{{ motif_svg }}</div>
     <div class="hero-text">
       {% if eyebrow %}<p class="eyebrow">{{ eyebrow }}</p>{% endif %}
       <h1>{{ headline }}</h1>
@@ -405,6 +407,9 @@
   </div>
 </footer>
 {% if page == "home" %}
+<script>
+{% include "js/fx.js" %}
+</script>
 <script>
 /* Basket: enhances the plain quantity boxes (the form works without this). Totals here are for display;
    the server works out the real total from the menu. */

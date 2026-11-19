@@ -64,6 +64,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/businesses/{business_id}/export"): OWNER,
     ("POST", "/api/businesses/{business_id}/describe-problem"): OWNER,  # S12: symptom → Doctor (data), 5/day per user
     ("PUT", "/api/businesses/{business_id}/theme"): OWNER,  # S14: the owner's look; fixed keys only, audited
+    ("PUT", "/api/businesses/{business_id}/signature"): OWNER,  # S20: motif + arrangement keys, audited
     ("GET", "/api/businesses/{business_id}/photos"): OWNER,  # S12 product photos
     ("POST", "/api/businesses/{business_id}/photos"): OWNER,  # content-checked, re-encoded, stripped, 60/day per shop
     ("DELETE", "/api/businesses/{business_id}/photos/{photo_id}"): OWNER,

@@ -28,7 +28,7 @@ from app.safety.access import (
     user_describes_today,
     visitor_id,
 )
-from app.sites import live_contact, themes
+from app.sites import live_contact, motifs, themes
 from app.sites.hosts import is_public, site_url, slug_problem
 from app.sites.orders import STATUS_LABELS, STATUS_STEPS, can_move, customer_whatsapp_link, tel_link
 from app.sites.render import render_site, upi_qr_svg, upi_uri
@@ -113,8 +113,14 @@ def theme_out(b: Business) -> dict:
     """The look this shop is drawn with (S14): the valid choice on the profile, else the rule-based one."""
     profile = Profile.model_validate_json(b.profile_json)
     theme, accent = themes.resolve(profile)
+    motif, art = motifs.signature(theme.key, profile.name, profile.motif, profile.art)
     return {"key": theme.key, "accent": accent.key, "suggested": themes.rule_choice(profile),
-            "chosen": bool(themes.clean_theme_key(profile.theme))}
+            "chosen": bool(themes.clean_theme_key(profile.theme)),
+            # S20: the shop's signature, drawn by code from keys only (live thumbnails for the picker)
+            "motif": motif, "art": art, "motif_chosen": bool(motifs.clean_motif(theme.key, profile.motif)),
+            "art_chosen": bool(motifs.clean_arrangement(profile.art)),
+            "motifs": motifs.thumbnails(theme.key, profile.name, art),
+            "arts": motifs.arrangement_thumbnails(motif, profile.name)}
 
 
 @router.get("/themes")
@@ -126,6 +132,39 @@ def theme_catalog() -> list[dict]:
 class ThemeChoice(BaseModel):
     theme: str
     accent: str = ""
+
+
+class SignatureChoice(BaseModel):
+    motif: str = ""
+    art: str = ""
+
+
+@router.put("/businesses/{business_id}/signature")
+def set_signature(body: SignatureChoice, actor: ActorDep, b: Annotated[Business, Depends(require_business_access)],
+                  settings: Annotated[Settings, Depends(get_settings)],
+                  session: Annotated[Session, Depends(get_session)]) -> dict:
+    """S20: the owner's choice of motif and arrangement. Keys from the fixed lists only; saved on the profile and audited."""
+    profile = Profile.model_validate_json(b.profile_json)
+    theme = themes.resolve(profile)[0]
+    motif, art = motifs.clean_motif(theme.key, body.motif), motifs.clean_arrangement(body.art)
+    if (body.motif.strip() and not motif) or (body.art.strip() and not art):
+        raise HTTPException(status_code=422, detail="Please pick one of the choices on the list.")
+    before = "/".join(motifs.signature(theme.key, profile.name, profile.motif, profile.art))
+    profile.motif, profile.art = (motif or profile.motif), (art or profile.art)
+    if profile.theme:
+        profile.motif = motifs.clean_motif(theme.key, profile.motif)
+    b.profile_json = profile.model_dump_json()
+    if b.pending_profile_json:
+        pending = Profile.model_validate_json(b.pending_profile_json)
+        pending.motif, pending.art = profile.motif, profile.art
+        b.pending_profile_json = pending.model_dump_json()
+    session.add(b)
+    session.commit()
+    session.refresh(b)
+    audit.record(session, actor="owner", action="signature_changed", target=f"business:{b.id}", result="ok",
+                 business_id=b.id, user_id=actor.user_id,
+                 detail=f"{before} -> {'/'.join(motifs.signature(theme.key, profile.name, profile.motif, profile.art))}")
+    return business_out(b, settings, session)
 
 
 @router.put("/businesses/{business_id}/theme")
@@ -142,6 +181,7 @@ def set_theme(body: ThemeChoice, actor: ActorDep, b: Annotated[Business, Depends
     profile = Profile.model_validate_json(b.profile_json)
     before = f"{themes.resolve(profile)[0].key}/{themes.resolve(profile)[1].key}"
     profile.theme, profile.accent = key, accent
+    profile.motif = motifs.clean_motif(key, profile.motif)  # S20: a motif belongs to one theme
     b.profile_json = profile.model_dump_json()
     if b.pending_profile_json:  # S19D: a held edit keeps the look she just picked when the team publishes it
         pending = Profile.model_validate_json(b.pending_profile_json)

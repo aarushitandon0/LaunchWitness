@@ -35,6 +35,8 @@ export type Profile = {
   niche: "" | "food" | "handmade" | "custom";
   theme: string; // a key from /api/themes ("" = the suggested look)
   accent: string;
+  motif: string; // S20 signature keys ("" = chosen from the shop's name)
+  art: string;
   section_copy: { hero_line: string; about: string; how_ordering: string };
   testimonials: { name: string; text: string }[]; // real comments she pasted: never written by us
   // S15: where she sells, when, and how she is paid
@@ -71,7 +73,19 @@ export type ThemeInfo = {
   art: string;
   accents: ThemeAccent[];
 };
-export type ThemeChoice = { key: string; accent: string; suggested: string; chosen: boolean };
+export type SignatureOption = { key: string; label: string; svg: string }; // svg: drawn by our own code from numbers only
+export type ThemeChoice = {
+  key: string;
+  accent: string;
+  suggested: string;
+  chosen: boolean;
+  motif: string; // S20: the shop's signature (picked from its name unless she chose)
+  art: string;
+  motif_chosen: boolean;
+  art_chosen: boolean;
+  motifs: SignatureOption[];
+  arts: SignatureOption[];
+};
 
 export type GoLiveItem = { key: string; label: string; done: boolean; hint: string };
 
@@ -570,6 +584,8 @@ export const api = {
   themes: () => request<ThemeInfo[]>("/api/themes"),
   setTheme: (id: number, theme: string, accent: string) =>
     request<Business>(`/api/businesses/${id}/theme`, json({ theme, accent }, "PUT")),
+  setSignature: (id: number, motif: string, art: string) =>
+    request<Business>(`/api/businesses/${id}/signature`, json({ motif, art }, "PUT")),
   contact: (name: string, email: string, message: string, website: string) =>
     request<{ ok: boolean; message: string }>("/api/contact", json({ name, email, message, website })),
   // look: the picker's small inline preview; it doesn't count as "she looked at her preview" for the go-live list.

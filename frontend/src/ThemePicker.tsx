@@ -71,6 +71,20 @@ export function ThemePicker({ biz, onSaved }: { biz: Business; onSaved: (b: Busi
     }
   }
 
+  async function sign(motif: string, art: string) {
+    setBusy(true);
+    setError("");
+    try {
+      const b = await api.setSignature(id, motif, art);
+      onSaved(b);
+      await loadPreview();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "We couldn't change that. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!list.length) return null;
   const active = list.find((t) => t.key === current.key) ?? list[0];
   return (
@@ -113,6 +127,44 @@ export function ThemePicker({ biz, onSaved }: { biz: Business; onSaved: (b: Busi
           >
             <span className="swatch" style={{ background: a.color }} aria-hidden="true" />
             {a.label}
+          </button>
+        ))}
+      </div>
+      <p className="muted small" style={{ marginTop: 12 }}>
+        Your shop's own touch: the little drawings in the top of your page. We picked these from your shop's name; choose
+        another any time.
+      </p>
+      <div className="sig-row" role="radiogroup" aria-label="Drawings">
+        {current.motifs.map((m) => (
+          <button
+            type="button"
+            key={m.key}
+            role="radio"
+            aria-checked={m.key === current.motif}
+            aria-label={m.label}
+            className={"sig-opt" + (m.key === current.motif ? " on" : "")}
+            disabled={busy}
+            onClick={() => sign(m.key, "")}
+          >
+            <span dangerouslySetInnerHTML={{ __html: m.svg }} />
+            <small>{m.label}</small>
+          </button>
+        ))}
+      </div>
+      <div className="sig-row" role="radiogroup" aria-label="Where the drawings sit">
+        {current.arts.map((a) => (
+          <button
+            type="button"
+            key={a.key}
+            role="radio"
+            aria-checked={a.key === current.art}
+            aria-label={a.label}
+            className={"sig-opt" + (a.key === current.art ? " on" : "")}
+            disabled={busy}
+            onClick={() => sign("", a.key)}
+          >
+            <span dangerouslySetInnerHTML={{ __html: a.svg }} />
+            <small>{a.label}</small>
           </button>
         ))}
       </div>

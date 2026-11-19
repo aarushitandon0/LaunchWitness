@@ -157,6 +157,9 @@ class Profile(BaseModel):
     # choice, see themes.resolve). The Reader picks them; the owner can change them on the Review page.
     theme: str = ""
     accent: str = ""
+    # S20 signature: keys from app/sites/motifs.py ("" = chosen from the shop's name by code). Never from Claude's prose.
+    motif: str = ""
+    art: str = ""
     section_copy: SectionCopy = Field(default_factory=SectionCopy)
     testimonials: list[Testimonial] = Field(default_factory=list, max_length=6)  # owner-only: real ones she pasted
     # S15: where she sells and how she is paid. Old profiles have none of these: they load with the defaults below.
@@ -189,6 +192,25 @@ class Profile(BaseModel):
     @classmethod
     def _accent_text(cls, v):
         return v if isinstance(v, str) else ""
+
+    @field_validator("art", mode="before")
+    @classmethod
+    def _art(cls, v):
+        from app.sites.motifs import clean_arrangement
+
+        return clean_arrangement(v)
+
+    @field_validator("motif", mode="before")
+    @classmethod
+    def _motif_text(cls, v):
+        return v if isinstance(v, str) else ""
+
+    @model_validator(mode="after")
+    def _motif_fits_theme(self):
+        from app.sites.motifs import clean_motif
+
+        self.motif = clean_motif(self.theme, self.motif)  # a motif belongs to one theme; with none chosen any known key stays
+        return self
 
     @model_validator(mode="after")
     def _accent_fits_theme(self):
