@@ -138,7 +138,7 @@ echo "$unknown" | grep -q '404' && pass "no certificate for a shop that doesn't 
 if [ -n "$SHOP" ]; then
   SB="https://$SHOP.$APP_DOMAIN"
   page="$("${CURL[@]}" "$SB/" 2>&1)"
-  echo "$page" | grep -q 'name="lw-shop"' && pass "$SB opens over HTTPS with its lw-shop marker" || fail "$SB: no lw-shop marker"
+  grep -q 'name="lw-shop"' <<< "$page" && pass "$SB opens over HTTPS with its lw-shop marker" || fail "$SB: no lw-shop marker"
   bad=""
   for p in /api/health /internal/tls-ask /build /r/x /assets/x.js; do
     code="$("${CURL[@]}" -o /dev/null -w '%{http_code}' "$SB$p")"; [ "$code" = "404" ] || bad="$bad $p=$code"
@@ -336,7 +336,8 @@ if ! $LOCAL; then
   else
     # -f <(...) keeps the password off every command line (ps can't see it).
     git grep -qF -f <(printf '%s\n' "$PW") -- . 2>/dev/null && fail "SMTP password found in a tracked file" || pass "SMTP password not in any tracked file"
-    git log -p --all 2>/dev/null | grep -qF -f <(printf '%s\n' "$PW") && fail "SMTP password found in git history" || pass "SMTP password not in any commit"
+    # (no pipe: under pipefail, grep -q stopping early would SIGPIPE git and turn a hit into a "pass")
+    grep -qF -f <(printf '%s\n' "$PW") < <(git log -p --all 2>/dev/null) && fail "SMTP password found in git history" || pass "SMTP password not in any commit"
   fi
   unset PW
 fi
