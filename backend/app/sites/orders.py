@@ -200,23 +200,34 @@ def parse_order_form(form: dict[str, str], profile: Profile, *, test: bool = Fal
             "pay_now_inr": pay_now, "pay_later_inr": pay_later}
 
 
+TEST_SUBJECT = "TEST, not a real order:"  # S19B: every test email's subject starts with this
+TEST_BANNER = ("This is a check from LaunchWitness. No customer placed this order. You don't need to do anything "
+               "except tap 'Yes, I got it' if asked.")  # its body's first line (a grey banner in the HTML layout)
+
+
 def order_email(business: Business, profile: Profile, order: Order, items: list[dict],
                 confirm_url: str = "", orders_url: str = "") -> tuple[str, str]:
+    """A customer's order email, or (S19B) a test email that can't be mistaken for one: the subject starts with
+    TEST_SUBJECT and keeps the one-time code (the inbox match needs it), the body opens with TEST_BANNER, and there
+    are no buttons to call or WhatsApp a "customer"."""
     from app.sites.render import format_inr
 
-    test = "[TEST] " if order.is_test else ""
-    code = f" [{order.nonce}]" if order.nonce else ""
-    subject = f"{test}New order for {profile.name} from {order.customer_name} ({order.ref}){code}"
-    lines = [f"New order {order.ref} for {profile.name}", "", f"Customer: {order.customer_name}",
-             f"Phone: {order.customer_phone}"]
-    if tel := tel_link(order.customer_phone):
-        lines.append(f"Call: {tel}")
-    if wa := customer_whatsapp_link(profile.name, order):
-        lines.append(f"WhatsApp the customer: {wa}")
-    lines.append("")
-    if order.nonce:
-        lines[1:1] = ["", "This is an automatic test order from LaunchWitness. No customer is waiting.",
-                      f"Test code: {order.nonce}"]
+    if order.is_test:
+        code = f" [{order.nonce}]" if order.nonce else ""
+        subject = f"{TEST_SUBJECT} {profile.name} ({order.ref}){code}"
+        lines = [TEST_BANNER, "", f"Test order {order.ref} for {profile.name}, placed through your shop's order form."]
+        if order.nonce:
+            lines.append(f"Test code: {order.nonce}")
+        lines.append("")
+    else:
+        subject = f"New order for {profile.name} from {order.customer_name} ({order.ref})"
+        lines = [f"New order {order.ref} for {profile.name}", "", f"Customer: {order.customer_name}",
+                 f"Phone: {order.customer_phone}"]
+        if tel := tel_link(order.customer_phone):
+            lines.append(f"Call: {tel}")
+        if wa := customer_whatsapp_link(profile.name, order):
+            lines.append(f"WhatsApp the customer: {wa}")
+        lines.append("")
     lines += [f"- {it['qty']} x {it['name']} @ {format_inr(it['price_inr'])} = {format_inr(it['qty'] * it['price_inr'])}"
               for it in items] or ["(no items chosen; see note)"]
     if order.fee_inr:
@@ -228,7 +239,9 @@ def order_email(business: Business, profile: Profile, order: Order, items: list[
                      else "Nothing asked to be paid now.")
         if order.pay_later_inr:
             lines.append(f"Due on {'delivery' if order.fulfilment == 'delivery' else 'pickup'}: {format_inr(order.pay_later_inr)}")
-    if order.fulfilment == "pickup":
+    if order.fulfilment == "pickup" and order.is_test:
+        lines += ["", "How: pickup (test)."]
+    elif order.fulfilment == "pickup":
         lines += ["", "How: PICKUP. Send the exact address on WhatsApp once you confirm the order."]
     elif order.fulfilment == "delivery":
         lines += ["", "How: " + ("SHIPPING across India" if ful.offers(profile)["india"] else "LOCAL DELIVERY"),
@@ -238,13 +251,13 @@ def order_email(business: Business, profile: Profile, order: Order, items: list[
     if order.wanted_date:
         d = ful.parse_date(order.wanted_date)
         lines.append(f"Wanted by: {ful.nice_date(d) if d else order.wanted_date}" + (f", {order.time_slot}" if order.time_slot else ""))
-    if cancel := ful.cancellation_line(profile):
+    if (cancel := ful.cancellation_line(profile)) and not order.is_test:
         lines += ["", f"Your cancellation rule shown to the customer: {cancel}"]
     if order.note:
         lines += ["", "Note from customer:", order.note]
     if confirm_url:
         lines += ["", "Did this email reach you? Tap here to say so (it proves your orders reach you):", confirm_url]
-    if orders_url:
+    if orders_url and not order.is_test:  # test orders are never on the Orders page
         lines += ["", f"See and update all your orders: {orders_url}"]
     lines += ["", f"Placed: {order.created_at:%Y-%m-%d %H:%M} UTC", "Sent by LaunchWitness"]
     return subject, "\n".join(lines)
@@ -260,6 +273,19 @@ def order_recipients(session: Session, settings: Settings, business: Business) -
         if settings.smtp_user.lower() not in {a.lower() for a in out}:
             out.append(settings.smtp_user)
     return out
+
+
+def test_audience(trigger: str) -> str:
+    """S19B: who a check run's test email goes to. Monitoring (daily run, its re-check) never emails the seller:
+    it goes to LaunchWitness's own check mailbox ("check"). Launch, "Check again" and "Describe the problem" go to
+    the shop's order address (""): she asked for the check."""
+    return "check" if trigger.startswith("monitor_") else ""
+
+
+def test_recipients(session: Session, settings: Settings, business: Business, audience: str) -> list[str]:
+    if audience == "check" and settings.smtp_user:
+        return [settings.smtp_user]
+    return order_recipients(session, settings, business)
 
 
 REF_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"  # no 0/O/1/I
@@ -314,7 +340,7 @@ def order_view(order: Order) -> dict:
 
 def place_order(session: Session, mailer: Mailer, settings: Settings, *, business: Business, profile: Profile,
                 data: dict, is_test: bool = False, nonce: str = "", visitor: str = "", token: str = "",
-                confirm_url: str = "", channel: str = "smtp") -> Order:
+                confirm_url: str = "", channel: str = "smtp", recipients: list[str] | None = None) -> Order:
     """Store the order, then email it to `order_recipients` through the outbox. The launch check's test order and
     a customer's order both come through here, so a passing test order proves the real path.
 
@@ -339,7 +365,7 @@ def place_order(session: Session, mailer: Mailer, settings: Settings, *, busines
                  detail=f"{len(data['items'])} item(s), total {data['total_inr']}"
                  + (f", {data['fulfilment']}" if data.get("fulfilment") else ""))
 
-    recipients = order_recipients(session, settings, business)
+    recipients = recipients or order_recipients(session, settings, business)
     orders_url = f"{settings.app_base_url.rstrip('/')}/#/b/{business.id}/orders"
     subject, body = order_email(business, profile, order, data["items"], confirm_url, orders_url)
     kind = "test_order" if is_test else "order"
@@ -386,9 +412,12 @@ def accept_order_form(session: Session, settings: Settings, mailer: Mailer, *, b
         order = place_order(session, mailer, settings, business=business, profile=profile, data=data, visitor=visitor,
                             token=token, channel=channel)
     else:
-        confirm_url = proof.issue_confirm_link(session, settings, ticket)
+        # S19B: a monitoring test goes to our check mailbox and has no "Yes, I got it" link (a tap there would
+        # claim her inbox got it when it didn't)
+        confirm_url = "" if ticket.audience == "check" else proof.issue_confirm_link(session, settings, ticket)
         order = place_order(session, mailer, settings, business=business, profile=profile, data=data, is_test=True,
-                            nonce=ticket.nonce, visitor="", token=token, confirm_url=confirm_url, channel=channel)
+                            nonce=ticket.nonce, visitor="", token=token, confirm_url=confirm_url, channel=channel,
+                            recipients=test_recipients(session, settings, business, ticket.audience))
         proof.ticket_used(session, ticket, order)
     return 200, render_site(profile, page="thanks", order=order_view(order))
 

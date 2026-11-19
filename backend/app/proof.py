@@ -58,8 +58,8 @@ def evidence_for_run(session: Session, run_id: int) -> list[Evidence]:
 
 # ---------- test-order tickets ----------
 
-def new_ticket(session: Session, business: Business, run_id: int | None) -> TestTicket:
-    t = TestTicket(business_id=business.id, run_id=run_id, nonce=secrets.token_hex(8))
+def new_ticket(session: Session, business: Business, run_id: int | None, audience: str = "") -> TestTicket:
+    t = TestTicket(business_id=business.id, run_id=run_id, nonce=secrets.token_hex(8), audience=audience)
     session.add(t)
     session.commit()
     session.refresh(t)
@@ -220,8 +220,13 @@ def iso(v: datetime | None) -> str | None:
     return v.replace(tzinfo=None).isoformat() + "Z" if v else None
 
 
+CHECK_MAILBOX = "LaunchWitness's check mailbox, not the owner's inbox"  # S19B: imap_seen of a monitoring test
+
+
 def evidence_out(e: Evidence) -> dict:
     title = STEP_TITLES.get(e.step, e.step)
+    if e.step == "imap_seen" and e.answer.startswith(CHECK_MAILBOX):
+        title = "In LaunchWitness's check mailbox"
     if e.step == "public_resolvers":  # S13b: the plain summary IS the title ("Reachable from 3 of 3 public resolvers")
         title = e.answer.split(" | ", 1)[0] or title
     return {"check": e.check, "step": e.step, "title": title, "at": iso(e.at),

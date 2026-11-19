@@ -189,11 +189,12 @@ GoDaddy's APIs have no webhooks, so LaunchWitness re-runs its checks on a timer:
 | How often | What is checked |
 |---|---|
 | **Every 15 minutes** | The site opens, HTTPS is valid, the shop marker is present. |
-| **Daily** | Address and email settings still match the launch; days left on the certificate and domain; a fresh test order; answers from three public resolvers. |
+| **Daily** | Address and email settings still match the launch; days left on the certificate and domain; a fresh test order, sent to LaunchWitness's own check mailbox (never to the owner) and found there over IMAP; answers from three public resolvers. |
 | **On demand** | "Run checks now" on the report. |
 
 Rules it follows:
 
+- **A seller only gets a test email when she asked for one** (at launch, "Run checks now" or "Describe the problem"). Every test email's subject starts with `TEST, not a real order:` and opens with a grey "This is a check" banner, with no customer call or WhatsApp buttons. Test orders never appear on the Orders page or count against her daily limit.
 - A failure is re-checked a minute later to rule out a blip before anything happens.
 - Something that needs money or the owner's action (a renewal) is an **alert only**, sent 30, 7 and 1 days ahead.
 - A check that has been fixed 3 times in a day and breaks again is no longer fixed automatically. The owner gets one "keeps breaking" email.

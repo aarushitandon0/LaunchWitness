@@ -58,7 +58,7 @@ def test_full_launch_all_checks_green(client, integ, engine, settings):
     assert all(o.passed for o in outs), [(o.check, o.detail) for o in outs]
     assert len(ctx.session.exec(select(CheckResult).where(CheckResult.run_id == None)).all()) == 7  # noqa: E711
     test_order = ctx.session.exec(select(Order).where(Order.is_test).order_by(Order.id.desc())).first()
-    assert integ.inbox.find(subject_contains=test_order.nonce)[0].subject.startswith("[TEST] New order")
+    assert integ.inbox.find(subject_contains=test_order.nonce)[0].subject.startswith("TEST, not a real order: ")
 
 
 def test_sandbox_runs_the_same_checks_and_reads_the_app_mail_settings(client, integ, engine, settings):

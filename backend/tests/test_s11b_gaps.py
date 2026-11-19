@@ -41,7 +41,7 @@ def monitor(engine, settings, integ, claude):
 
 def told(integ) -> list[dict]:
     """Emails to the owner about a problem (not the test-order emails a check sends)."""
-    return [m for m in integ.mailer.sent if "[TEST]" not in m["subject"]]
+    return [m for m in integ.mailer.sent if "TEST, not a real order:" not in m["subject"]]
 
 
 def last_run(engine) -> CheckRun:

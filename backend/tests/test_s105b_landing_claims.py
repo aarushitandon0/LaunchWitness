@@ -35,3 +35,14 @@ def test_no_jargon_in_the_main_watch_copy():
     main = LANDING.split("const WATCH", 1)[1].split("];", 1)[0]
     for word in ("MX", "DMARC", "SPF", "DKIM", "A record", "DNS"):
         assert word not in main, word
+
+
+def test_daily_test_order_goes_to_our_check_mailbox_as_the_page_says():
+    """S19B: the daily run's test email never goes to the seller; the page says so, in both places."""
+    from app.sites.orders import test_audience
+
+    assert test_audience("monitor_daily") == test_audience("monitor_recheck") == "check"
+    assert test_audience("launch") == test_audience("manual") == ""
+    assert "The daily test order goes to \" +\n      \"LaunchWitness's own check mailbox, not to you" in LANDING
+    assert "proven at launch, and again whenever you press “Run checks \" +\n      \"now” and tap “Yes, I got it”" in LANDING
+    assert "sent to our own check\n                mailbox, never the seller" in LANDING

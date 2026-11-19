@@ -202,23 +202,31 @@ def one_shop(client, engine, settings, integ, claude):
     return biz["id"], Monitor(engine, settings, lambda _b: integ, claude), waits
 
 
+def item_mailbox(mon) -> str:
+    (job,) = [j for j in mon.scheduler.get_jobs() if j.id.startswith("inbox-")]
+    return job.args[2].get("mailbox", "")
+
+
 def test_daily_round_records_accepted_now_and_looks_for_seen_later(one_shop, engine, integ):
     bid, mon, waits = one_shop
     assert mon.check_business(bid, "daily") == []
     assert 20 not in waits  # no 20-second inbox waits inside the round any more
     row = results(engine, bid, "test_order")[-1]
-    assert row["passed"] and row["waiting"] and "look for it in the inbox again" in row["plain"]
+    assert row["passed"] and row["waiting"] and "look for it in LaunchWitness's check mailbox again" in row["plain"]
+    assert item_mailbox(mon) == "check"  # S19B: the daily test never goes to the seller
     (job,) = [j for j in mon.scheduler.get_jobs() if j.id.startswith("inbox-")]
     _bid, run_id, item, n = job.args
     assert n == 1
-    integ.inbox.deliver(sender="hello@example.com", to="meera@example.org", subject=f"[TEST] {item['nonce']}",
-                        body="")
+    integ.inbox.deliver(sender="hello@example.com", to="hello@example.com",
+                        subject=f"TEST, not a real order: Shop [{item['nonce']}]", body="")
     assert mon.inbox_pass(*job.args) == "seen"
     row = results(engine, bid, "test_order")[-1]
-    assert row["passed"] and not row["waiting"] and row["plain"] == "A test order reached your inbox."
+    assert row["passed"] and not row["waiting"] and "reached LaunchWitness's check mailbox" in row["plain"]
+    assert row["mailbox"] == "check"
     with Session(engine) as s:
         seen = s.exec(select(Evidence).where(Evidence.run_id == run_id, Evidence.step == "imap_seen")).all()
         assert len(seen) == 1 and seen[0].nonce == item["nonce"]
+        assert seen[0].answer.startswith("LaunchWitness's check mailbox")
         assert chain.verify(s, bid)["intact"]
 
 

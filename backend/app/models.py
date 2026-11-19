@@ -283,6 +283,9 @@ class TestTicket(SQLModel, table=True):
     run_id: int | None = Field(default=None, index=True)
     nonce: str = Field(index=True, unique=True)
     confirm_hash: str = Field(default="", index=True)
+    # S19B: who gets the test email. "" = the shop's order address (launch, "Check again": she asked for it);
+    # "check" = LaunchWitness's own check mailbox (monitoring: never the seller, and no "Yes, I got it" link)
+    audience: str = ""
     order_id: int | None = None
     used_at: datetime | None = None  # the form POST used it
     confirmed_at: datetime | None = None  # the owner tapped "Yes, I got it"

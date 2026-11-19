@@ -32,7 +32,7 @@ WHY = {
     "login": "You got this because someone entered this address on launchwitness.com.",
     "delete": "You got this because someone asked to delete the LaunchWitness account for this address.",
     "order": "You got this because your shop on LaunchWitness sends its orders to this address.",
-    "test_order": "You got this because LaunchWitness checks that your shop's orders reach this address.",
+    "test_order": "You got this because LaunchWitness checks that your shop's orders reach this address. It was a check, not an order.",
     "alert": "You got this because LaunchWitness keeps checking your shop and tells you when something needs you.",
     "watch": "You got this because you asked LaunchWitness to watch this address every day.",
     "team": "You got this because you run or use LaunchWitness.",
@@ -129,7 +129,23 @@ def render(*, heading: str, lead: str, button: tuple[str, str] | None, after: st
     return text, _page(heading, inner, why)
 
 
+TEST_BG = "#ecebe7"  # S19B: the neutral grey banner of a test email (never the order styling)
+TEST_EDGE = "#8a857b"
+
+
+def _test_banner(text: str) -> str:
+    return (f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0">'
+            f'<tr><td bgcolor="{TEST_BG}" style="background:{TEST_BG};border-left:4px solid {TEST_EDGE};border-radius:8px;'
+            f'padding:12px 14px;font-family:{FONT};font-size:15px;line-height:1.45;color:{TEXT}" data-lw="test-banner">'
+            f"{_linkify(text)}</td></tr></table>")
+
+
 def wrap(kind: str | None, subject: str, body: str) -> str:
     """HTML for a plain-text email: the same words, in the branded layout. The subject is the heading, so a
-    seller's order email keeps the shop's name as its subject; LaunchWitness appears only in the header band."""
-    return _page(subject, _paragraphs(body), WHY.get(kind or "", DEFAULT_WHY))
+    seller's order email keeps the shop's name as its subject; LaunchWitness appears only in the header band.
+    A test order's first paragraph (its "this is a check" line) is shown as a grey banner instead (S19B)."""
+    inner = _paragraphs(body)
+    if kind == "test_order":
+        first, _sep, rest = body.strip().partition("\n\n")
+        inner = _test_banner(" ".join(first.split())) + _paragraphs(rest)
+    return _page(subject, inner, WHY.get(kind or "", DEFAULT_WHY))

@@ -198,8 +198,14 @@ def one_run(seed: int, make_settings) -> dict:
             if json.loads(row.detail).get("unfinished"):
                 assert not row.passed, (why, "invariant 10: an unfinished check counted as passed", row.check)
                 assert not s.get(CheckRun, row.run_id).passed, (why, "invariant 10: a run with an unfinished check passed")
-        assert all(m["to"] == OWNER for m in good_mailer.sent), (why, "invariant 5: mail to someone else",
-                                                                 {m["to"] for m in good_mailer.sent})
+        # S19B: the one exception is monitoring's test email, which goes to OUR check mailbox only (never the owner)
+        from app.sites.orders import TEST_SUBJECT
+
+        def allowed(m: dict) -> bool:
+            return m["to"] == OWNER or (m["subject"].startswith(TEST_SUBJECT) and m["to"] == settings.smtp_user)
+
+        assert all(allowed(m) for m in good_mailer.sent), (why, "invariant 5: mail to someone else",
+                                                           {(m["to"], m["subject"][:30]) for m in good_mailer.sent})
         # 6. the order's status only moved along allowed steps
         if expected_status is not None:
             assert s.exec(select(Order).where(Order.business_id == shop.id, Order.is_test == False)).one().status == expected_status, why  # noqa: E712

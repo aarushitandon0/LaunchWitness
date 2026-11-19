@@ -68,7 +68,10 @@ def run_out(session: Session, run: CheckRun) -> dict:
         d = json.loads(r.detail) if r.detail.startswith("{") else {"plain": r.detail, "detail": ""}
         first = checks.get(r.check, {}).get("first_passed", r.passed)
         waiting = bool(d.get("waiting"))
-        checks[r.check] = {"check": r.check, "title": TITLES.get(r.check, r.check), "passed": r.passed,
+        title = TITLES.get(r.check, r.check)
+        if d.get("mailbox") == "check":  # S19B: a monitoring test order proves our check mailbox, not hers
+            title = "A test order reached LaunchWitness's check mailbox"
+        checks[r.check] = {"check": r.check, "title": title, "passed": r.passed, "mailbox": d.get("mailbox", ""),
                            "plain": d.get("plain", ""), "detail": d.get("detail", ""), "at": iso(r.created_at),
                            "attempt": r.attempt, "first_passed": first, "fixed": r.passed and not first,
                            "waiting": waiting, "doctor": checks.get(r.check, {}).get("doctor")}

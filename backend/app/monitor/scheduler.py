@@ -298,6 +298,7 @@ class Monitor:
         and the run's test-order row says so. Still missing after the last look: the row says so and the usual
         re-check (blocking look, Doctor, alert) takes over. Returns "seen" | "later" | "missing" | "gone"."""
         from app import proof
+        from app.agents.checker import missing_text, seen_text
         from app.models import CheckResult
 
         found = self._context(business_id)
@@ -314,18 +315,23 @@ class Monitor:
             row = s.exec(select(CheckResult).where(CheckResult.run_id == run_id, CheckResult.check == "test_order")
                          .order_by(CheckResult.id.desc())).first()
             biz = s.get(Business, business_id)
+            mailbox = item.get("mailbox", "")  # S19B: "check" = our check mailbox, never "your inbox"
             if seen:
                 proof.add(s, business=biz, run_id=run_id, check="test_order", step="imap_seen",
                           practice=bool(integ.fake or biz.practice), nonce=item["nonce"],
                           server="pretend inbox" if integ.fake else self.settings.imap_host,
-                          source=self.settings.imap_user)
-                plain, ok = "A test order reached your inbox.", True
+                          source=self.settings.imap_user,
+                          **({"answer": proof.CHECK_MAILBOX} if mailbox == "check" else {}))
+                plain, ok = seen_text(mailbox), True
                 detail = f"order {item['ref']} code {item['nonce']} found (look {n})"
             else:
-                plain, ok = "A test order was sent but hasn't arrived in your inbox.", False
+                plain, ok = missing_text(mailbox), False
                 detail = f"order {item['ref']} code {item['nonce']} not found after {n} looks"
             if row is not None:
-                row.passed, row.detail = ok, json.dumps({"plain": plain, "detail": detail, "waiting": False})
+                row.passed, row.detail = ok, json.dumps({"plain": plain, "detail": detail, "waiting": False,
+                                                         **({"mailbox": mailbox} if mailbox else {}),
+                                                         # missing from OUR check mailbox: our side, not hers
+                                                         **({"unfinished": True} if not ok and mailbox == "check" else {})})
                 s.add(row)
                 if not ok:
                     run = s.get(CheckRun, run_id)

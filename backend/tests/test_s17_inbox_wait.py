@@ -138,7 +138,7 @@ def _reader(monkeypatch, make_settings, fake):
 
 def test_header_scan_finds_mail_the_search_misses(monkeypatch, make_settings):
     old = [_raw(f"Other mail {i}", "hello") for i in range(25)]
-    new = _raw("[TEST] New order for Meera's Eggless Bakes from LaunchWitness test (LW-1) [2523c0b518ae6a89]",
+    new = _raw("TEST, not a real order: Meera's Eggless Bakes (LW-1) [2523c0b518ae6a89]",
                "Test order\ncode 2523c0b518ae6a89\n")
     fake = FakeImap(old + [new], search_works=False)
     found = _reader(monkeypatch, make_settings, fake).find(subject_contains="2523c0b518ae6a89")
@@ -147,7 +147,7 @@ def test_header_scan_finds_mail_the_search_misses(monkeypatch, make_settings):
 
 
 def test_search_and_scan_together_never_return_a_message_twice(monkeypatch, make_settings):
-    new = _raw("[TEST] order (LW-2) [aaaabbbbccccdddd]", "code aaaabbbbccccdddd")
+    new = _raw("TEST, not a real order: Shop (LW-2) [aaaabbbbccccdddd]", "code aaaabbbbccccdddd")
     found = _reader(monkeypatch, make_settings, FakeImap([new], search_works=True)).find(subject_contains="aaaabbbbccccdddd")
     assert len(found) == 1
 

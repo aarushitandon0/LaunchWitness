@@ -118,7 +118,7 @@ def test_imap_reader_reads_the_plain_part_of_branded_mail(monkeypatch, make_sett
     from app.mail import imap
 
     msg = EmailMessage()
-    msg["Subject"] = "[TEST] New order for Meera's Eggless Bakes (LW-1 code 2523c0b518ae6a89)"
+    msg["Subject"] = "TEST, not a real order: Meera's Eggless Bakes (LW-1) [2523c0b518ae6a89]"
     msg["From"], msg["To"] = "hello@launchwitness.com", "hello@launchwitness.com"
     msg.set_content("Test order\ncode 2523c0b518ae6a89\n")
     msg.add_alternative(layout.wrap("test_order", msg["Subject"], "Test order"), subtype="html")

@@ -40,11 +40,11 @@ def launched_shop(client, engine, owner_email: str | None = None) -> tuple[dict,
 
 def test_b1_real_and_test_orders_share_recipients(client, engine, integ, settings):
     biz, _p = launched_shop(client, engine, owner_email="meera@example.org")
-    test_mail = next(m for m in integ.mailer.sent if "[TEST]" in m["subject"])
+    test_mail = next(m for m in integ.mailer.sent if "TEST, not a real order:" in m["subject"])
     r = client.post("/order", data=ORDER, headers=HOST)
     assert r.status_code == 200, r.text
     real_mail = integ.mailer.sent[-1]
-    assert "[TEST]" not in real_mail["subject"]
+    assert "TEST, not a real order:" not in real_mail["subject"]
     assert real_mail["to"] == test_mail["to"] == "meera@example.org"  # her verified sign-in address, nobody else
     with Session(engine) as s:
         assert order_recipients(s, settings, s.get(Business, biz["id"])) == ["meera@example.org"]
@@ -195,10 +195,10 @@ def test_b5_test_order_has_a_nonce_and_old_mail_does_not_pass(client, engine, in
         first = s.exec(select(Order).where(Order.is_test)).first()
         next_id = s.exec(select(Order).order_by(Order.id.desc())).first().id + 1
     assert len(first.nonce) >= 16
-    mail = next(m for m in integ.mailer.sent if "[TEST]" in m["subject"])
+    mail = next(m for m in integ.mailer.sent if "TEST, not a real order:" in m["subject"])
     assert first.nonce in mail["subject"] and first.nonce in mail["body"]
     # An old email whose subject matches the NEXT order id (as after a database reset) must not count.
-    integ.inbox.deliver(sender="x", to=settings.smtp_user, subject=f"[TEST] New order (#{next_id})", body="old",
+    integ.inbox.deliver(sender="x", to=settings.smtp_user, subject=f"TEST, not a real order: Shop (#{next_id})", body="old",
                         at=utcnow() - timedelta(days=2))
     integ.mailer.drop = True  # the new test order's email never arrives
     ctx = ctx_for(engine, settings, integ, p["id"])

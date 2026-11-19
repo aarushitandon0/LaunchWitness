@@ -199,6 +199,15 @@ Light monitoring is core; full only if time permits. It re-runs launch checks on
   stop a thread, so the late call keeps running until its own timeout; nobody waits for it and it can't write proof.
 - The daily test order records "accepted" at once and looks for "seen" in up to three later one-minute passes; still
   missing after the last one, it fails and the usual re-check / Doctor / alert path takes over.
+- **Test emails (S19B): a seller only receives one when she asked for it.** Launch, "Run checks now" and "Describe the
+  problem" send the test order to the shop's order address (with the "Yes, I got it" link). Monitoring (the daily run and
+  its re-check) sends it to LaunchWitness's own check mailbox (`SMTP_USER`), never to the seller and without a "Yes, I got
+  it" link; it is found there over IMAP and the report/evidence say "LaunchWitness's check mailbox", never "your inbox"
+  (her own inbox is proven only at launch / "Run checks now"). A daily test missing from our mailbox is our side:
+  "couldn't check", no alert. Every test email: subject `TEST, not a real order: <shop> (<ref>) [<code>]`, body opening
+  with a grey banner "This is a check from LaunchWitness. No customer placed this order...", no customer call/WhatsApp
+  links, no Orders link. Real order emails are unchanged. Test orders are evidence only (not on Orders, not "new", no
+  capacity used).
 - All GoDaddy API calls in the process share one limit (50 a minute; GoDaddy allows 60 per endpoint).
 - **Public resolvers (S13b):** the daily run also asks Google 8.8.8.8, Cloudflare 1.1.1.1 and Quad9 9.9.9.9 for each
   live shop's address and saves the answers as evidence ("Reachable from 3 of 3 public resolvers"). It is information
@@ -322,8 +331,8 @@ receipt that somebody saved earlier would not match.
   "Yes, I got it") under "Checked by you", apart from machine-proven hops.
 - **Landing (S10.5b).** Only claims what the code does (`test_s105b_landing_claims.py` pins the numbers to
   `monitor/scheduler.py` and `renewals.py`). Sections: How it works · How the proof works (the six hops) · We keep watching
-  after launch (every 15 min: opens securely; daily: the whole order path incl. a test order proving form → mail server,
-  delivery proven at launch and on "Yes, I got it"; renewals 30/7/1 days, certificate 7/1; failures re-checked after a minute,
+  after launch (every 15 min: opens securely; daily: the whole order path incl. a test order to our own check mailbox,
+  never the seller; her own inbox proven at launch and on "Run checks now" + "Yes, I got it"; renewals 30/7/1 days, certificate 7/1; failures re-checked after a minute,
   a safe Doctor fix if allowed, one email per problem; money never spent) · Security & privacy · Check any address · Who
   it's for. A **Product menu** in the top bar (What it does · Who it's for · Free tools · Learn), a full-screen sheet on phones.
 - **Hero.** The six rounded layers in SVG from S10.5 (transform-only motion). A three.js "witness" scene was built in
@@ -431,6 +440,7 @@ Never buy a second domain on camera. Record a backup run. Rehearse proof + fix u
 | Can a scammer launch a fake shop? | The owner's email is verified before a real launch, a policy check can hold a shop for review, every shop has "Report this shop", and the team can pause it. |
 | Can a salon or tutor use it? | Not yet: v1 is for sellers who take orders. The Reader says so plainly instead of building a half-working shop. |
 | Who pays renewal next year? | The seller, to GoDaddy, on her own account. We warn her at 30 / 7 / 1 days. |
+| Won't sellers get annoyed by test emails? | A seller gets a test only when she launches or asks for a check, and it's clearly marked TEST. Our daily checks send their test order to LaunchWitness's own mailbox. |
 
 ---
 

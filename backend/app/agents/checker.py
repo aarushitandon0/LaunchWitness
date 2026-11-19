@@ -22,7 +22,7 @@ from app.agents.reader import Profile
 from app.checks.dns_resolver import lookup
 from app.mail.providers import provider_for
 from app.models import CheckResult, CheckRun, Order, Outbox, utcnow
-from app.sites.orders import order_recipients
+from app.sites.orders import test_audience, test_recipients
 
 
 @dataclass
@@ -34,6 +34,7 @@ class Outcome:
     waiting: bool = False  # passed as far as we can see, but delivery still needs the owner's "Yes, I got it"
     unfinished: bool = False  # we couldn't complete it (our lookup failed, or time ran out): not passed, not her fault
     keeps_breaking: bool = False  # fixed several times today and broken again: automatic fixing has stopped
+    mailbox: str = ""  # S19B test order: "check" = it went to LaunchWitness's check mailbox, not the owner's inbox
 
 
 class CouldntCheck(Exception):
@@ -217,7 +218,7 @@ def check_email_dmarc(ctx: Ctx) -> Outcome:
 
 
 TEST_CUSTOMER = {"customer_name": "LaunchWitness test", "customer_phone": "0000000000",
-                 "note": "Automatic test order from your launch check. No action needed."}
+                 "note": "Automatic test order from a LaunchWitness check. No action needed."}
 
 
 def check_test_order(ctx: Ctx) -> Outcome:
@@ -236,7 +237,9 @@ def check_test_order(ctx: Ctx) -> Outcome:
     field = f"qty_{index}"
     if field not in form.qty_fields:
         return Outcome("test_order", False, "We couldn't find an item to order on your page.", f"{field} not in form")
-    ticket = proof.new_ticket(ctx.session, ctx.business, ctx.run_id)
+    run = ctx.session.get(CheckRun, ctx.run_id) if ctx.run_id else None
+    audience = test_audience(run.trigger if run else "")
+    ticket = proof.new_ticket(ctx.session, ctx.business, ctx.run_id, audience)
     started = utcnow()
     fields = {**form.hidden, **TEST_CUSTOMER, field: "1", "lw_test": ticket.nonce}
     sent = web.post(urljoin(url, form.action), fields)
@@ -262,8 +265,13 @@ def check_test_order(ctx: Ctx) -> Outcome:
     evidence(ctx, "test_order", "smtp_accepted", message_id=sent_row.message_id, nonce=ticket.nonce,
              server="pretend mail server" if fake else ctx.settings.smtp_host, source="our mail server",
              answer=f"outbox {sent_row.id}, try {sent_row.attempts}")
-    recipients = [r.lower() for r in order_recipients(ctx.session, ctx.settings, ctx.business)]
+    recipients = [r.lower() for r in test_recipients(ctx.session, ctx.settings, ctx.business, audience)]
     readable = fake or ctx.settings.imap_user.lower() in recipients
+    where = "LaunchWitness's check mailbox" if audience == "check" else "your inbox"
+    if not readable and audience == "check":  # our check mailbox isn't the one we read: "accepted" is all we know
+        return Outcome("test_order", True, "The mail server accepted our daily test order (sent to LaunchWitness's "
+                       "check mailbox, not to you).", f"order {order.ref} code {ticket.nonce}: check mailbox not "
+                       "readable here", waiting=True, mailbox=audience)
     if not readable:  # her own inbox: only she can prove it arrived
         return Outcome("test_order", True, "The mail server accepted a test order for you. Tap “Yes, I got it” "
                        "in that email to prove it reached your inbox.", f"order {order.ref} code {ticket.nonce}",
@@ -275,9 +283,10 @@ def check_test_order(ctx: Ctx) -> Outcome:
         while True:
             if ctx.integ.inbox.find(subject_contains=ticket.nonce, since=started - timedelta(minutes=2)):
                 evidence(ctx, "test_order", "imap_seen", nonce=ticket.nonce,
-                         server="pretend inbox" if fake else ctx.settings.imap_host, source=ctx.settings.imap_user)
-                return Outcome("test_order", True, "A test order reached your inbox.",
-                               f"order {order.ref} code {ticket.nonce} found")
+                         server="pretend inbox" if fake else ctx.settings.imap_host, source=ctx.settings.imap_user,
+                         **({"answer": proof.CHECK_MAILBOX} if audience == "check" else {}))
+                return Outcome("test_order", True, seen_text(audience), f"order {order.ref} code {ticket.nonce} found",
+                               mailbox=audience)
             if not gaps:
                 break
             ctx.integ.sleep(gaps.pop(0))
@@ -286,13 +295,30 @@ def check_test_order(ctx: Ctx) -> Outcome:
             run_waiting(ctx, None)
     if not ctx.inbox_wait:  # S13 B (monitoring): "accepted" is recorded; "seen" is looked for in a later short pass
         ctx.pending_inbox.append({"nonce": ticket.nonce, "since": (started - timedelta(minutes=2)).isoformat(),
-                                  "ref": order.ref})
-        return Outcome("test_order", True, "The mail server accepted a test order for you. We'll look for it in "
-                       "the inbox again in a minute.", f"order {order.ref} code {ticket.nonce}: accepted, "
-                       "inbox looked at once, looking again later", waiting=True)
-    return Outcome("test_order", False, "A test order was sent but hasn't arrived in your inbox.",
+                                  "ref": order.ref, "mailbox": audience})
+        return Outcome("test_order", True, "The mail server accepted a test order. We'll look for it in "
+                       f"{where} again in a minute.", f"order {order.ref} code {ticket.nonce}: accepted, "
+                       "inbox looked at once, looking again later", waiting=True, mailbox=audience)
+    # a monitoring test missing from OUR mailbox is our side (our sending or our inbox), not hers: "couldn't check",
+    # so it never alerts her
+    return Outcome("test_order", False, missing_text(audience),
                    f"order {order.ref} code {ticket.nonce} not found in {ctx.settings.imap_user} "
-                   f"after {INBOX_WAIT_S} s")
+                   f"after {INBOX_WAIT_S} s", mailbox=audience, unfinished=audience == "check")
+
+
+def seen_text(audience: str) -> str:
+    """S19B: honest about WHICH inbox: a monitoring test is proven in our check mailbox, never in hers."""
+    if audience == "check":
+        return ("Our daily test order reached LaunchWitness's check mailbox: your order form and our sending work. "
+                "(Your own inbox is checked at launch and whenever you press “Run checks now”.)")
+    return "A test order reached your inbox."
+
+
+def missing_text(audience: str) -> str:
+    if audience == "check":
+        return ("Our daily test order was sent but hasn't arrived in LaunchWitness's own check mailbox yet. That is on "
+                "our side, not yours; we'll look again on the next round.")
+    return "A test order was sent but hasn't arrived in your inbox."
 
 
 # S17: how long a launch / "Check again" waits for the test email: a look at once, then every 5 s for the first 30 s,
@@ -420,7 +446,8 @@ def run_check_watched(engine, ctx: Ctx, name: str, seconds: float) -> Outcome:
 def save(session: Session, ctx: Ctx, out: Outcome, attempt: int) -> None:
     session.add(CheckResult(business_id=ctx.business.id, plan_id=ctx.plan.id, run_id=ctx.run_id, check=out.check, passed=out.passed,
                             detail=json.dumps({"plain": out.plain, "detail": out.detail, "waiting": out.waiting,
-                                               **({"unfinished": True} if out.unfinished else {})}),
+                                               **({"unfinished": True} if out.unfinished else {}),
+                                               **({"mailbox": out.mailbox} if out.mailbox else {})}),
                             attempt=attempt))
     if out.check.startswith("email_") and out.passed:
         evidence(ctx, out.check, "dns_answer", answer=out.detail[:200], server=dns_server(ctx),

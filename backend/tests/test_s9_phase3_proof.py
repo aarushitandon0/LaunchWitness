@@ -103,7 +103,7 @@ def test_accepted_is_not_delivered_until_the_owner_taps(make_settings, engine, m
         test = next(x for x in rep["run"]["checks"] if x["check"] == "test_order")
         assert test["state"] == "needs_you" and "accepted" in test["plain"]
         assert "arrived" not in test["plain"] and rep["ready"] is False
-        mail = next(m for m in server.mailer.sent if "[TEST]" in m["subject"])
+        mail = next(m for m in server.mailer.sent if "TEST, not a real order:" in m["subject"])
         token = mail["body"].split("#/got-it?token=", 1)[1].split()[0]
         assert c.get("/").status_code == 200  # opening the link's page uses nothing up
         assert c.post("/api/proof/confirm", json={"token": token}).status_code == 200

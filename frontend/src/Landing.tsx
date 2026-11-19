@@ -105,9 +105,10 @@ const WATCH: { when: string; title: string; text: string }[] = [
     title: "The whole order path",
     text:
       "Everything above, plus: the settings that keep order emails out of spam are still there, nothing we set at " +
-      "launch has changed, and a real test order goes through your order form. The daily run proves your form took " +
-      "the order and the mail server accepted it. That it reached your inbox is proven at launch, and again whenever " +
-      "you tap “Yes, I got it”.",
+      "launch has changed, and a real test order goes through your order form. The daily test order goes to " +
+      "LaunchWitness's own check mailbox, not to you, so it proves your form and our sending work without filling " +
+      "your inbox. That orders reach your own inbox is proven at launch, and again whenever you press “Run checks " +
+      "now” and tap “Yes, I got it”.",
   },
   {
     when: "Before things run out",
@@ -282,8 +283,9 @@ export default function Landing() {
               <li>Every 15 minutes: the shop's A record points at our server, and HTTPS answers with a valid certificate.</li>
               <li>
                 Daily: the same, plus MX, SPF, DKIM and DMARC records, a comparison of the DNS records against the backup
-                taken at launch, and a test order with a fresh code through the public form (proof: form POST accepted,
-                SMTP accepted; IMAP or the owner's tap for delivery).
+                taken at launch, and a test order with a fresh code through the public form, sent to our own check
+                mailbox, never the seller (proof: form POST accepted, SMTP accepted, found in that mailbox over IMAP).
+                The seller's own inbox is proven at launch and on “Run checks now” (IMAP or the owner's tap).
               </li>
               <li>
                 Failures are re-checked after 60 seconds. The Doctor (Claude) only chooses from a fixed playbook in code:
