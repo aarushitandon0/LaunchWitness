@@ -161,9 +161,12 @@ def match_item(typed: str, names: list[str]) -> list[str]:
     for name in names:
         have = _tokens(name)
         common = want & have
-        if not any(not _is_size(w) for w in common):
+        words = {w for w in want if not _is_size(w)}
+        if not words & have:
             continue
-        coverage = len(common) / len(want)
+        # S21B: coverage counts her real words only. The Reader may move a size out of the name ("Pineapple cake 1/2 kg"
+        # -> "Pineapple cake", "½ kg" in its description); sizes still break ties below (1 kg vs 1/2 kg).
+        coverage = len(words & have) / len(words)
         if coverage < 0.6:
             continue
         scored.append((coverage + 0.1 * len(common) / len(want | have), name))

@@ -2,7 +2,7 @@
 // straight back to Describe; Back/Forward and refresh keep the page; unknown pages say "Page not found"; the demo shop
 // opens logged out and places no order.
 import { expect, test } from "@playwright/test";
-import { describe, signIn, unique } from "./helpers";
+import { describe, pickDate, signIn, unique } from "./helpers";
 
 test("Start asks to sign in, then returns to Describe", async ({ page }) => {
   await page.goto("/");
@@ -48,6 +48,7 @@ test("the demo shop works logged out and places no order", async ({ page }) => {
   await page.getByRole("button", { name: "Add" }).first().click();
   await page.getByLabel("Your name").fill("Asha");
   await page.getByLabel("Your phone number").fill("98765 43210");
+  await pickDate(page); // S21B: Meera asks for 2 days notice (live Reader)
   await page.getByRole("button", { name: "Send order" }).click();
   await expect(page.getByRole("heading", { name: "This is a demo" })).toBeVisible();
 });

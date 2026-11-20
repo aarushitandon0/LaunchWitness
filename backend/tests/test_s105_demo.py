@@ -3,6 +3,7 @@
 from sqlmodel import Session, func, select
 
 from app.models import AuditEvent, Business, Order
+from tests.conftest import pickup
 
 
 def test_demo_shop_is_served_logged_out_and_labelled(client):
@@ -26,7 +27,8 @@ def test_unknown_demo_is_404(client):
 
 def test_demo_order_places_nothing(client, engine, mailer):
     before = len(getattr(mailer, "sent", []))
-    r = client.post("/demo/meera/order", data={"customer_name": "Asha", "customer_phone": "98765 43210", "qty_0_0": "1"})
+    r = client.post("/demo/meera/order", data={"customer_name": "Asha", "customer_phone": "98765 43210", "qty_0_0": "1",
+                                                       **pickup()})  # S21B: live reply has 2 days' notice
     assert r.status_code == 200
     assert "This is a demo" in r.text and "no order was placed" in r.text
     with Session(engine) as s:

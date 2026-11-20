@@ -119,7 +119,7 @@ def test_meera_localhost_shows_her_site(client, meera):
     assert "Meera&#39;s Eggless Bakes</span>" in html and 'class="eyebrow">Meera&#39;s Eggless Bakes' in html
     for section in ('id="menu"', 'id="about"', 'id="info"', 'id="order"', 'href="/privacy"'):
         assert section in html
-    assert "10am to 8pm, closed on Tuesdays" in html
+    assert "10am to 8pm. Closed on Tuesdays." in html  # S21B: the live reply's wording
     assert "https://wa.me/919876543210?text=Hi%20Meera%27s%20Eggless%20Bakes" in html
     assert "UPI payment QR code" not in html and "okaxis" not in html and "upi://" not in html  # S20: UPI details only after an order
 

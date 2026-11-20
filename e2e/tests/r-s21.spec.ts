@@ -173,7 +173,7 @@ test("crochet roses: min 5 refused at 3, colour required, a bouquet by pack; Rev
     await page.goto(`/#/b/${id}`);
     const editor = page.locator(".product").nth(1).locator("details.sell-how");
     await editor.evaluate((d: HTMLDetailsElement) => { d.open = true; });
-    await expect(editor.getByLabel("Item 2 size 2", { exact: true })).toHaveValue("12 roses");
+    await expect(editor.getByLabel("Item 2 size 2", { exact: true })).toHaveValue("12 flowers");
     await expect(editor.getByLabel("Item 2 choice 4", { exact: true })).toHaveValue("Yellow");
     await editor.scrollIntoViewIfNeeded();
     await shot(page, `review-options-editor-${width}`, editor);
@@ -248,9 +248,9 @@ test("landing: a strip of at least 6 demo shops, each opens its labelled demo wi
         const hrefs = await cards.evaluateAll((els) => els.map((e) => (e as HTMLAnchorElement).getAttribute("href")!));
         for (const href of hrefs) {
           expect(href).toMatch(/^\/demo\/[a-z]+$/);
-          const r = await page.request.get(href);
-          expect(r.status(), href).toBe(200);
-          const html = await r.text();
+          const r = await page.evaluate(async (u) => { const x = await fetch(u); return { s: x.status, html: await x.text() }; }, href); // S21B: in the page (Node cannot resolve *.localhost on Windows)
+          expect(r.s, href).toBe(200);
+          const html = r.html;
           expect(html).toContain("Demo shop: orders here are not real");
           expect(html).not.toMatch(/upi:\/\/|[A-Za-z0-9._-]+@ok(axis|icici|sbi|hdfcbank)/);
         }
@@ -298,15 +298,14 @@ test("landing strip: every picture is a real image, laptop frames on a laptop, p
       expect([info.w, info.h]).toEqual(laptop ? [960, 600] : [390, 780]);
       const ratio = info.box.width / info.box.height;
       if (laptop) expect(ratio).toBeGreaterThan(1.4); else expect(ratio).toBeLessThan(0.7);
-      const r = await page.request.get(info.src);
-      expect(r.status(), info.src).toBe(200);
-      expect(r.headers()["content-type"], info.src).toMatch(/^image\//);
+      const r = await page.evaluate(async (u) => { const x = await fetch(u); return { s: x.status, t: x.headers.get("content-type") || "" }; }, info.src); // in the page: Node cannot resolve *.localhost on Windows
+      expect(r.s, info.src).toBe(200);
+      expect(r.t, info.src).toMatch(/^image\//);
     }
     const alts = await strip.locator('a.demo-card:not([tabindex="-1"]) img').evaluateAll((els) => els.map((e) => (e as HTMLImageElement).alt));
     expect(alts.every((a) => a.length > 3)).toBe(true); // alt = the shop's name
     if (!laptop) expect(fetched.filter((u) => u.includes("-laptop"))).toEqual([]);
-    const missing = await page.request.get("/demos/nobody.webp");
-    expect(missing.status()).toBe(404);
+    expect(await page.evaluate(async () => (await fetch("/demos/nobody.webp")).status)).toBe(404);
     await shot(page, `landing-strip-frames-${width}`, strip);
     await ctx.close();
   }

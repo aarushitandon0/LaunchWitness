@@ -24,7 +24,7 @@ def test_icons_are_files_with_their_types(tmp_path, client):
         assert c.get("/apple-touch-icon.png").headers["content-type"] == "image/png"
         assert c.get("/site.webmanifest").headers["content-type"].startswith("application/manifest+json")
         assert c.head("/favicon-32.png").status_code == 200
-        assert "spa" in c.get("/favicon.png").text  # not on the list: still the app's page, not a file
+        assert c.get("/favicon.png").status_code == 404  # S21B: not on the list and file-like: 404, never the app page
 
 
 def test_shops_never_get_launchwitness_icons(tmp_path, client):
