@@ -22,11 +22,32 @@ MS="${2:?milestone, e.g. m2}"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PROJECTS="${CLAUDE_PROJECTS_DIR:-$HOME/.claude/projects}"
 SRC="${3:-}"
+# A Python that really runs (on Windows `python3` can be the Store stub): $PYTHON, the repo's venv, then the PATH.
+PY="${PYTHON:-}"
+if [ -z "$PY" ]; then
+  for c in "$REPO/.venv/Scripts/python" "$REPO/.venv/bin/python" python3 python; do
+    if "$c" -c "import sys" >/dev/null 2>&1; then PY="$c"; break; fi
+  done
+fi
+[ -n "$PY" ] || { echo "No working python found (set PYTHON=...)" >&2; exit 1; }
 
 if [ -z "$SRC" ]; then
-  SRC="$(python3 - "$PROJECTS" "$REPO" <<'PY'
-import json, os, sys
-root, repo = sys.argv[1], sys.argv[2]
+  SRC="$("$PY" - "$PROJECTS" "$REPO" <<'PY'
+import json, os, re, sys
+
+
+def norm(p: str) -> str:
+    """One spelling for a path on any OS: Git Bash /c/Users/x and the c-colon-backslash form are one folder."""
+    p = p.replace(chr(92), "/").rstrip("/")
+    m = re.match(r"^/([A-Za-z])(/.*)?$", p)
+    if m:
+        p = m.group(1) + ":" + (m.group(2) or "/")
+    if re.match(r"^[A-Za-z]:", p):
+        p = p.lower()  # Windows paths are case-insensitive (the drive letter's case varies)
+    return p
+
+
+root, repo = sys.argv[1], norm(sys.argv[2])
 best = None
 for dirpath, _, names in os.walk(root):
     if "subagents" in dirpath.split(os.sep):
@@ -38,10 +59,10 @@ for dirpath, _, names in os.walk(root):
         with open(p, encoding="utf-8", errors="replace") as f:
             for line in f:
                 try:
-                    cwd = json.loads(line).get("cwd") or ""
+                    cwd = norm(json.loads(line).get("cwd") or "")
                 except Exception:
                     continue
-                if cwd == repo or cwd.startswith(repo + os.sep):
+                if cwd and (cwd == repo or cwd.startswith(repo + "/")):
                     m = os.path.getmtime(p)
                     if best is None or m > best[0]:
                         best = (m, p)
@@ -59,7 +80,7 @@ DEST="$DEST_DIR/$(date +%F)-s${N}-${MS}.jsonl"
 EMAILS="${REDACT_EMAILS:-$(git -C "$REPO" config user.email 2>/dev/null || true)}"
 # Redact (emails + secret values -> [REDACTED]), re-scan, and refuse to save if
 # anything real-looking remains. Values are never printed. See transcript_scrub.py.
-if ! python3 "$REPO/scripts/transcript_scrub.py" "$SRC" "$DEST" "$EMAILS"; then
+if ! "$PY" "$REPO/scripts/transcript_scrub.py" "$SRC" "$DEST" "$EMAILS"; then
   rm -f "$DEST"
   echo "Transcript NOT saved — do not commit it." >&2
   exit 1
