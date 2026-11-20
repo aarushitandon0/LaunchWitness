@@ -4,6 +4,26 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
+**Session 21B (Nov 20, Opus, laptop): S21 reviewed, fixed, live Reader, strip pictures, deployed `5a03c34`.** S21 (PR #19:
+items sold by size / pack / unit / minimum / choice / notice, "Sold out today", link previews, Share my shop + poster, eight
+demo shops and the landing strip) was already merged on GitHub (`325485e`). On top: the Reader gets 3000 output tokens
+(strong tier only; a cut-off reply is never saved: one retry, then "Your menu is long, please check the items"); 10 Reader
+fixtures re-captured live ($0.2134) so the strict live-fixture gate passes 46/46 (first time since S14); the clock-dependent
+outbox test freezes its clock; the strip's broken pictures fixed at the root (a missing file answered 200 with the app page;
+now 404) and laptop frames from 1024 px (`<picture>`, 960 x 600 pictures; phones never fetch them); an item photo now
+follows her real words when the Reader moves a size out of the name. All checks green, deployed, live checks green
+(7 of 7, `/verify` intact). **Next: owner's call on Meera's live menu (two truffle items -> one with sizes), the real UPI
+order with the owner, demo video, README / project brief / judge Q&A, submission (10 PM IST).**
+
+Decisions (S21B): a reply cut off twice shows the plain message on Describe (a first reading has no shop, so no Review page
+to land on; nothing is built from a cut-off reply); "Read it again" leaves the shop as it was. `CLAUDE_READER_MAX_TOKENS`
+(3000) is a separate ceiling for the strong tier; `CLAUDE_MAX_TOKENS` (1500) still caps the cheap tier; daily cap unchanged
+(VPS: $2, no `.env` change needed). Unit wording stays a fixed list ("per rose" -> "per piece"). Any file-like path (image,
+font, script, style, manifest...) that isn't served is a 404, never the SPA page. Live Reader differences adopted as correct
+(Meera: 2 days' notice from her words, hours "10am to 8pm. Closed on Tuesdays.", the delivery fee is not a menu item, one-size
+cakes keep the size in the description). Grouping still never rewrites a saved menu, so the live demo shop shows two truffle
+items until the owner merges them on Review.
+
 **Session 20B (Nov 20, Opus, laptop): S20 reviewed, fixed, verified and deployed.** S20 (PR #18, private UPI + "customer
 says paid" + each shop's signature) was already merged on GitHub (`d8e01bc`); reviewed it, then on top: status-link token stored
 as SHA-256; thank-you/status page shows the first name only; privacy text names the team's logged access to a screenshot;

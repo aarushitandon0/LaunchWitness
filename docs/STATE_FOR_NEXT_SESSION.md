@@ -1,4 +1,19 @@
-# State for the next session (written 2026-11-20 IST, end of Session 20B)
+# State for the next session (written 2026-11-20 IST, end of Session 21B)
+
+## Session 21B (Opus, 2026-11-20, laptop): S21 reviewed + fixed + deployed
+
+**VPS = `main` = `5a03c34`** (plus docs commits). Rollback target: `git checkout 55109b2` + rebuild (20B, what ran before).
+- S21 code map + S21B notes: `docs/S21.md`. Reader: `CLAUDE_READER_MAX_TOKENS` (3000, strong tier), `ClaudeCutOff`,
+  `reader.LONG_MENU`. Missing file-like paths 404: `main.FILE_LIKE`. Strip: `landing/DemoStrip.tsx` (`<picture>`),
+  `demoShops.ts` (`laptopThumb`, `LAPTOP_MIN` 1024), thumbnails `frontend/public/demos/<slug>[-laptop].webp` made by
+  `cd e2e && NODE_PATH=$(pwd)/node_modules node ../scripts/make_demo_thumbs.js <base>`.
+- All Reader fixtures are now live captures; `REQUIRE_LIVE_FIXTURES=1 pytest tests/test_s6_agents.py` passes.
+- **Live demo shop menu is unchanged** (saved data): two truffle items ("1/2 kg", "1 kg"). One item with sizes needs the
+  owner's edit on Review (Sizes, minimum, choices), which goes through the live-edit hold -> team Publish.
+- **Still to do with the owner:** one real order on the demo shop (pickup + pay upfront -> UPI link on the phone -> fake UTR
+  -> Orders "Customer says paid" -> cancel); confirm the order email in the real mailbox.
+- e2e on Windows: fetch `*.localhost` URLs inside the page (`page.evaluate(fetch)`), never `page.request`.
+
 
 ## Session 20B (Opus, 2026-11-20, laptop): S20 reviewed + fixed + deployed
 

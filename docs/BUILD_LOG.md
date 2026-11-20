@@ -423,3 +423,36 @@ One entry per Claude Code session, newest last. This is what judges read to unde
   marker, no UPI ID/QR, strip + basket work, no console/CSP/HTTP errors (bundled Chromium and full Chrome, 390 + 1440),
   favicon 204; "Run checks now" 7/7 proven; shared report `/verify` intact.
 - Next: the real order with the owner; demo video; submission.
+
+### Session 21 — 2026-11-20 — Items sold the way she sells them, link previews, Share my shop, demo strip (cloud)
+- Goal: real menus (sizes, packs, minimums, a colour choice, "sold out today") without Claude ever writing page code.
+- Asked Claude to: extend the Reader's per-item keys (code validates and draws them), the order form and totals, the
+  checker's test order, owner tools; add Open Graph tags, a share line + QR poster; eight demo shops on a landing strip.
+- Claude built: `app/sites/items.py`, `orders.order_lines`, option rows in all six looks, `ItemSelling.tsx`, `SoldOut.tsx`,
+  `PUT .../sold-out`, `render.share_view`, `/poster`, `landing/DemoStrip.tsx`, `scripts/make_demo_thumbs.js`; 97 new tests,
+  `r-s21.spec.ts`; `docs/S21.md` (audit table + 12 decisions). Fixed its own strip regression (frame loop ran off screen).
+- I changed / rejected: merged PR #19; left the Reader's token budget and the placeholder re-capture for the laptop.
+- Result: 1675 passed + 2 skipped (sandbox), e2e 41 + 1 skipped on the dev server; no Docker in the cloud.
+- Next: laptop review, live re-capture, Docker, deploy.
+
+### Session 21B — 2026-11-20 — Review, Reader budget, live fixtures, strip pictures, deploy (Opus, laptop)
+- Goal: check S21, fix its flagged items, verify everything live, deploy before the 3 PM cut-off.
+- Asked Claude to: review PR #19 (no proof/chain/deploy changes), raise the Reader to 3000 tokens and never save a cut-off
+  reply, fix the clock-dependent outbox test, re-capture the placeholders live (cap $0.25), fix the strip's broken images at
+  the root and show laptop frames on desktop, run every check, merge + deploy, live checks.
+- Claude found: the PR was already merged; the only proof change (`find_order_form` without boxes) is still guarded by the
+  checker; Meera's live reply used 1490 output tokens (old cap 1500); the outbox test failed in the last 15 min of the UTC
+  day; a missing thumbnail answered 200 with the app's page (an S21 test asserted it); live replies changed four tests and
+  exposed a real photo bug (a photo was dropped when the Reader moved "1/2 kg" out of an item's name); a crochet e2e saw a
+  stale in-memory menu after a hash-only navigation.
+- Claude built: `ClaudeCutOff`, `CLAUDE_READER_MAX_TOKENS`, `reader.LONG_MENU`, `test_s21b_reader_budget.py` (20-item
+  fixture); frozen-clock outbox test at 5 hours; `main.FILE_LIKE` 404; laptop frames + `<picture>`, two thumbnail sizes;
+  `photos.match_item` coverage over real words; e2e strip-picture test at 390/1023/1024/1440.
+- I changed / rejected: set the plan, cut-off and budget; kept "per piece".
+- Result: backend 1684 passed, 3 skipped (S13 scale deselected); strict live gate 46/46; ruff, tsc, build clean; Docker
+  prod-like + `check_m1.sh --local` all pass; Docker e2e 42 passed + the crochet flow passing after its fix (43/43);
+  secret scan clean; hero trace no worse than main. Deployed `5a03c34`; VPS `check_m1.sh` all pass; live: strip pictures
+  (phone 390 / laptop 960), 8 demos open, basket maths right, no UPI ID, og tags, HTTPS both hosts, no console/CSP errors,
+  manual check 7 of 7 through the inbox, `/verify` intact (366 rows). Claude API this session: $0.2134.
+- Next: the real UPI order with the owner; Meera's live menu (one truffle item with sizes) if the owner wants it on camera.
+
