@@ -33,28 +33,28 @@
 ## Contents
 
 1. [Overview](#overview)
-2. [Screenshots](#screenshots)
-3. [The Problem](#the-problem)
-4. [What LaunchWitness Does](#what-launchwitness-does)
-5. [Try It in Two Minutes (for Judges)](#try-it-in-two-minutes-for-judges)
-6. [The Seller's Journey](#the-sellers-journey)
-7. [How a Customer Orders](#how-a-customer-orders)
-8. [How Launches Are Verified](#how-launches-are-verified)
-9. [Automatic Repair (the Doctor)](#automatic-repair-the-doctor)
-10. [Monitoring After Launch](#monitoring-after-launch)
-11. [Seller Shop Features](#seller-shop-features)
-12. [Safety Controls](#safety-controls)
-13. [How GoDaddy Is Used](#how-godaddy-is-used)
-14. [Hackathon Requirements](#hackathon-requirements)
-15. [How Claude Is Used](#how-claude-is-used)
-16. [Architecture](#architecture)
-17. [Tech Stack](#tech-stack)
-18. [Repository Layout](#repository-layout)
-19. [Running It Yourself](#running-it-yourself)
-20. [Testing](#testing)
-21. [Security](#security)
-22. [Current Status and Limitations](#current-status-and-limitations)
-23. [How It Was Built](#how-it-was-built)
+2. [The Problem](#the-problem)
+3. [What LaunchWitness Does](#what-launchwitness-does)
+4. [Try It in Two Minutes (for Judges)](#try-it-in-two-minutes-for-judges)
+5. [The Seller's Journey](#the-sellers-journey)
+6. [How a Customer Orders](#how-a-customer-orders)
+7. [How Launches Are Verified](#how-launches-are-verified)
+8. [Automatic Repair (the Doctor)](#automatic-repair-the-doctor)
+9. [Monitoring After Launch](#monitoring-after-launch)
+10. [Seller Shop Features](#seller-shop-features)
+11. [Safety Controls](#safety-controls)
+12. [How GoDaddy Is Used](#how-godaddy-is-used)
+13. [Hackathon Requirements](#hackathon-requirements)
+14. [How Claude Is Used](#how-claude-is-used)
+15. [Architecture](#architecture)
+16. [Tech Stack](#tech-stack)
+17. [Repository Layout](#repository-layout)
+18. [Running It Yourself](#running-it-yourself)
+19. [Testing](#testing)
+20. [Security](#security)
+21. [Current Status and Limitations](#current-status-and-limitations)
+22. [How It Was Built](#how-it-was-built)
+23. [Screenshots](#screenshots)
 24. [What's Next](#whats-next)
 25. [FAQ](#faq)
 26. [Further Reading](#further-reading)
@@ -74,16 +74,6 @@ Many tools will build a small business a website. Almost none tell the owner whe
 5. **Keeps checking** after launch, and emails the owner before something breaks or expires.
 
 The report says **"Your business is ready for customers."** only when every check has passed, and every claim on it is backed by stored, tamper-evident evidence.
-
----
-
-## Screenshots
-
-| Landing page | A live shop on a phone (390 px) |
-|---|---|
-| <img src="docs/screenshots/s22/live/hero-1440.png" alt="LaunchWitness landing page: From business idea to customer-ready, with Start and Try it without an account" width="420" /> | <img src="docs/screenshots/s21b/live-shop-390.png" alt="Meera's Eggless Bakes shop on a phone, with menu, WhatsApp and Call buttons" width="220" /> |
-| **Demo shops strip on the landing page** | **A shared proof report** (practice run, showing the Doctor's repair timeline) |
-| <img src="docs/screenshots/s21b/live-landing-strip-1440.png" alt="See shops made with LaunchWitness: a scrolling row of demo shop cards" width="420" /> | <img src="docs/screenshots/s12/11-shared-report-1440.png" alt="Shared proof report listing each check, its time, the Doctor's findings and the Verify button" width="420" /> |
 
 ---
 
@@ -263,7 +253,7 @@ Every seller's site comes from **one rendering engine and one template**, server
 - **Product photos** re-encoded to WebP from the pixels alone, so no location or camera data survives.
 - **Accessibility and safety:** every colour combination passes WCAG AA (tested), every seller-supplied field is HTML-escaped (tested with hostile input in every field and every look), and shop pages send a strict Content-Security-Policy.
 
-Screenshots of every look: [`docs/screenshots/s14/contact-sheet.png`](docs/screenshots/s14/contact-sheet.png).
+All six looks are shown under [Screenshots](#screenshots).
 
 ---
 
@@ -564,6 +554,33 @@ The whole product was built in **Claude Code** over recorded sessions, each foll
 Product decisions (scope, safety rules, budget, what to postpone) stayed with the human. When the spec didn't answer something, the simplest option was chosen and recorded under "Decisions". Hard rules held across every session: no secrets in the repo, Claude Code never spends money, GoDaddy defaults to the sandbox, and live Claude calls during development were kept to a minimum by using saved responses.
 
 Every feature session ended with a check in a real browser at phone width, which caught real bugs. The full record is replayed at **https://launchwitness.com/build**, and a human-written summary of each session is in [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md).
+
+---
+
+## Screenshots
+
+**The landing page**
+
+<img src="docs/screenshots/s22/live/hero-1440.png" alt="LaunchWitness landing page: From business idea to customer-ready, with the Start button and Try it without an account" width="720" />
+
+**Six looks for home businesses**, all drawn by code from one template
+
+<img src="docs/screenshots/s14/contact-sheet.png" alt="Six shop looks side by side on laptop and phone: bakery, home kitchen, handmade, tailoring, gifts and general" width="720" />
+
+**A live shop**, on a laptop and a phone
+
+<p>
+  <img src="docs/screenshots/s21b/live-shop-1440.png" alt="Meera's Eggless Bakes on a laptop: headline, location, hours, and See menu and order, WhatsApp and Call buttons" width="520" />
+  <img src="docs/screenshots/s21b/live-shop-390.png" alt="Meera's Eggless Bakes on a phone" width="180" />
+</p>
+
+**Ordering by size**, with the total worked out from the menu
+
+<img src="docs/screenshots/s21b/live-demo-basket-1440.png" alt="Chocolate truffle cake ordered in half kilo and one kilo sizes, with the order total and pickup or delivery choice" width="720" />
+
+**Demo shops on the landing page**
+
+<img src="docs/screenshots/s21b/live-landing-strip-1440.png" alt="See shops made with LaunchWitness: a scrolling row of demo shop cards" width="720" />
 
 ---
 
