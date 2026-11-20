@@ -6,7 +6,7 @@ CLAUDE_MODE=live calls the API. Only Reader uses the strong model; Namer and
 Doctor use the cheap one.
 
 Live-mode guards (every call):
-- `max_tokens` is never above CLAUDE_MAX_TOKENS.
+- `max_tokens` is never above CLAUDE_MAX_TOKENS (cheap tier) / CLAUDE_READER_MAX_TOKENS (strong tier: the Reader).
 - Before the call, today's recorded spend + a worst-case estimate for this call
   (estimated input + full max_tokens output) must fit under
   CLAUDE_DAILY_SPEND_CAP_USD, otherwise the call is refused (ClaudeBudgetExceeded).
@@ -53,6 +53,10 @@ class ClaudeError(RuntimeError):
 
 class ClaudeBadJson(ClaudeError):
     """The model's reply was not valid JSON (or was cut off / refused)."""
+
+
+class ClaudeCutOff(ClaudeBadJson):
+    """S21B: the reply hit max_tokens, so its JSON is unfinished. Never used; the Reader says the menu is long."""
 
 
 class ClaudeBudgetExceeded(ClaudeError):
@@ -132,6 +136,7 @@ class LiveClaudeClient:
         self._engine = engine
         self._models = {"strong": settings.claude_model_strong, "cheap": settings.claude_model_cheap}
         self._max_tokens = settings.claude_max_tokens
+        self._reader_max_tokens = settings.claude_reader_max_tokens  # S21B: the strong tier is the Reader only
         self._cap = settings.claude_daily_spend_cap_usd
         self.last_raw: dict | None = None  # last reply (text, stop_reason, tokens), for debugging without a re-call
 
@@ -146,7 +151,8 @@ class LiveClaudeClient:
         max_tokens: int | None = None,
     ) -> dict:
         model = self._models[tier]
-        limit = min(max_tokens or self._max_tokens, self._max_tokens)
+        ceiling = self._reader_max_tokens if tier == "strong" else self._max_tokens
+        limit = min(max_tokens or ceiling, ceiling)
 
         with Session(self._engine) as session:
             if model not in PRICES_PER_MTOK:
@@ -194,8 +200,10 @@ class LiveClaudeClient:
         text = "".join(b.text for b in msg.content if b.type == "text").strip()
         self.last_raw = {"model": model, "stop_reason": msg.stop_reason, "input_tokens": in_tok,
                          "output_tokens": out_tok, "cost_usd": cost, "text": text}
-        if msg.stop_reason in ("refusal", "max_tokens"):
-            raise ClaudeBadJson(f"Reply stopped early ({msg.stop_reason})")
+        if msg.stop_reason == "max_tokens":
+            raise ClaudeCutOff("Reply stopped early (max_tokens)")
+        if msg.stop_reason == "refusal":
+            raise ClaudeBadJson("Reply stopped early (refusal)")
         if text.startswith("```"):
             text = text.strip("`").removeprefix("json").strip()
         try:

@@ -135,7 +135,8 @@ def dry_run(plans, settings) -> int:
     models = {"strong": settings.claude_model_strong, "cheap": settings.claude_model_cheap}
     total = 0.0
     for target, _fixture, kw, _v in plans:
-        limit = min(kw.get("max_tokens") or settings.claude_max_tokens, settings.claude_max_tokens)
+        ceiling = settings.claude_reader_max_tokens if kw["tier"] == "strong" else settings.claude_max_tokens
+        limit = min(kw.get("max_tokens") or ceiling, ceiling)  # same rule as LiveClaudeClient
         est_in = estimate_input_tokens(kw["system"], kw["user"])
         worst = call_cost_usd(models[kw["tier"]], est_in, limit)
         total += worst

@@ -77,7 +77,8 @@ class Settings(BaseSettings):
     claude_mode: Literal["fixture", "live"] = "fixture"
     claude_model_strong: str = "claude-sonnet-5-5"
     claude_model_cheap: str = "claude-haiku-5-5"
-    claude_max_tokens: int = 1500
+    claude_max_tokens: int = 1500  # Namer, Doctor, policy (each asks for far less)
+    claude_reader_max_tokens: int = 3000  # S21B: the Reader's long menus (each item has ~8 keys)
     claude_daily_spend_cap_usd: float = 3.0
 
     # --- GoDaddy ---
