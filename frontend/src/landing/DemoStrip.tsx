@@ -18,7 +18,7 @@ export function DemoStrip() {
   const calm = useCalm();
   const row = useRef<HTMLDivElement>(null);
   const [auto, setAuto] = useState(!calm);
-  const hold = useRef({ hover: false, focus: false, until: 0, visible: false });
+  const hold = useRef({ hover: false, focus: false, until: 0 });
 
   useEffect(() => {
     setAuto(!calm);
@@ -35,7 +35,7 @@ export function DemoStrip() {
       const dt = last ? Math.min(t - last, 64) : 0;
       last = t;
       const h = hold.current;
-      if (h.hover || h.focus || !h.visible || document.hidden || Date.now() < h.until) {
+      if (h.hover || h.focus || document.hidden || Date.now() < h.until) {
         el.classList.remove("drifting");
         return;
       }
@@ -47,15 +47,23 @@ export function DemoStrip() {
       const half = el.scrollWidth / 2;
       el.scrollLeft = el.scrollLeft + step >= half ? el.scrollLeft + step - half : el.scrollLeft + step;
     };
-    const io = new IntersectionObserver(([e]) => {
-      hold.current.visible = e.isIntersecting;
-    });
-    io.observe(el);
-    raf = requestAnimationFrame(tick);
-    return () => {
+    // The frame loop runs ONLY while the strip is on screen: off screen it costs nothing (the hero stays as fast as before).
+    const start = () => {
+      if (!raf) {
+        last = 0;
+        raf = requestAnimationFrame(tick);
+      }
+    };
+    const stop = () => {
       cancelAnimationFrame(raf);
-      io.disconnect();
+      raf = 0;
       el.classList.remove("drifting");
+    };
+    const io = new IntersectionObserver(([e]) => (e.isIntersecting ? start() : stop()));
+    io.observe(el);
+    return () => {
+      stop();
+      io.disconnect();
     };
   }, [auto]);
 
