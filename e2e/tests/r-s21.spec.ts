@@ -171,9 +171,10 @@ test("crochet roses: min 5 refused at 3, colour required, a bouquet by pack; Rev
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(`/#/b/${id}`);
+    await page.reload(); // S21B: a hash-only goto keeps the app's in-memory copy of Meera's menu from describe()
     const editor = page.locator(".product").nth(1).locator("details.sell-how");
     await editor.evaluate((d: HTMLDetailsElement) => { d.open = true; });
-    await expect(editor.getByLabel("Item 2 size 2", { exact: true })).toHaveValue("12 flowers");
+    await expect(editor.getByLabel("Item 2 size 2", { exact: true })).toHaveValue("12 roses");
     await expect(editor.getByLabel("Item 2 choice 4", { exact: true })).toHaveValue("Yellow");
     await editor.scrollIntoViewIfNeeded();
     await shot(page, `review-options-editor-${width}`, editor);
