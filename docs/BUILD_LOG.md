@@ -456,3 +456,16 @@ One entry per Claude Code session, newest last. This is what judges read to unde
   manual check 7 of 7 through the inbox, `/verify` intact (366 rows). Claude API this session: $0.2134.
 - Next: the real UPI order with the owner; Meera's live menu (one truffle item with sizes) if the owner wants it on camera.
 
+### Session 22 — 2026-11-20 — Final: hero copy, demo WhatsApp page, custom orders, submission docs (Opus, laptop)
+- Goal: last feature deploy before the 6:30 PM IST cut-off, then submission docs and files (10 PM IST).
+- Asked Claude to: new landing hero copy; a safe WhatsApp button on demo shops; custom orders (note + one reference photo
+  through the existing upload gate); verify everything, deploy, then write the judge-facing docs and build the zip/PDF.
+- Claude built: the hero (one H1, an H2, new description and meta); `/demo/<slug>/whatsapp`; custom orders end to end
+  (Reader flag from her words, Review toggle, form fields shown only for ordered custom items, JS-off multipart, photo
+  re-encoded with no metadata, owner-only route, Orders page, email, thank-you, WhatsApp line, privacy, 30-day purge,
+  demo items); 28 + 13 backend tests and 3 e2e flows; Windows-safe transcript scripts; brief, judge Q&A, submission text.
+- I changed / rejected: rejected the rewritten README (kept the previous one). Truffle merge and the real UPI and
+  photo-cake orders stay with me (they need my sign-in and phone).
+- Result: all checks green (one flaky e2e passed on rerun), deployed `a1def82`, live checks green, 7 of 7 proven.
+- Next: submit on HackerEarth.
+

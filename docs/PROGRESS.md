@@ -4,6 +4,28 @@ Claude Code reads this at the start of every session and updates it at the end. 
 
 ## Current milestone
 
+**Session 22 (Nov 20, Opus, laptop, FINAL): hero copy, demo WhatsApp page, custom orders, deployed `a1def82`.**
+Landing hero: H1 "From business idea to customer-ready.", H2 "Be ready before your first customer arrives.", new
+description + meta description (390/1024/1440 checked, no overlap with the 3D stack; laptop headline 10% smaller to fit).
+Demo shops show the WhatsApp button where a real shop has it, linking to `/demo/<slug>/whatsapp` (plain page, no number,
+noindex, no script). Custom orders: `Product.custom` ("Takes custom requests": Reader from her words only, Review toggle,
+not a word change), per-item "Tell us what you want" note (500 chars, plain text) + ONE reference photo per order (5 MB,
+the S20 screenshot gate via `payclaims.process_reference`, HEIC refused politely), `Order.ref_photo*`, owner-only
+`GET /api/businesses/{id}/orders/{oid}/reference-photo`, Orders page shows note + photo, email has notes + "open it in
+Orders", thank-you/status show notes never the photo, WhatsApp line carries notes, privacy line, purge with payment notes
+after 30 days; demos mark Meera's photo print / topper, both tailors' stitching, gift hampers (+ Sugarcrumb photo cake)
+in code (no fixture re-capture). Transcript scripts find Windows sessions. Live: hero, demo WhatsApp, demo custom order
+(nothing stored), manual check run 168 = 7 of 7, `/verify` intact. **Still with the owner: (a) merge the two live truffle
+items on Review + Team Publish, (b) real UPI order, (c) real photo-cake order (tick "Takes custom requests" on "Photo
+print on cake" first).** README kept at the previous version at the owner's request; new `docs/JUDGE_QA.md`,
+`docs/SUBMISSION.md`, rewritten `docs/PROJECT_BRIEF.md`.
+
+Decisions (S22): the custom note is one line (line breaks become spaces), cut at 500; a photo sent with no custom item in
+the basket is dropped (never stored); a body over 5 MB + 128 KB is refused before it is read (413, form shown again);
+without JavaScript every custom box shows (labelled "only if you order it"), with it they show only for ordered items;
+the photo field must be chosen again after a form error (browsers never refill file inputs); a demo says the photo was
+"checked and thrown away". Outside statistics removed from the brief (no cited URL in hand).
+
 **Session 21B (Nov 20, Opus, laptop): S21 reviewed, fixed, live Reader, strip pictures, deployed `5a03c34`.** S21 (PR #19:
 items sold by size / pack / unit / minimum / choice / notice, "Sold out today", link previews, Share my shop + poster, eight
 demo shops and the landing strip) was already merged on GitHub (`325485e`). On top: the Reader gets 3000 output tokens

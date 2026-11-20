@@ -1,4 +1,21 @@
-# State for the next session (written 2026-11-20 IST, end of Session 21B)
+# State for the next session (written 2026-11-20 IST, end of Session 22)
+
+## Session 22 (Opus, 2026-11-20, laptop, FINAL): hero copy, demo WhatsApp, custom orders, deployed
+
+**VPS = `main` = `a1def82`** (plus docs commits). Rollback target: `git checkout 5a03c34` + rebuild (21B). VPS backup
+taken before deploy: `backups/daily/launchwitness-20261120-113203.db`.
+- Code map: hero `frontend/src/Landing.tsx` (`.hero-sub`), demo WhatsApp `sites/demo.py::demo_whatsapp` + page "whatsapp"
+  in `seller.html`; custom orders `Product.custom` (reader.py), `orders.custom_note/custom_notes`, `CUSTOM_NOTE_MAX`,
+  `payclaims.process_reference/process_image/REF_PHOTO_BYTES`, `routes.read_order_form` (shared with demo),
+  `Order.ref_photo/_w/_h`, `businesses.reference_photo`, `demo.DEMO_CUSTOM/mark_custom`, `ItemSelling.tsx` toggle,
+  `Orders.tsx` note + photo. Tests `tests/test_s22_custom_orders.py`, `test_s22_demo_whatsapp.py`; e2e `s-s22.spec.ts`.
+- Ran: backend 1721 passed + 3 fixed after (3 failures were S22 test fallout, fixed: 114/114 on the touched files),
+  3 skipped, `test_s13_scale.py` deselected; ruff, tsc, build; Docker prod-like + `check_m1.sh --local` all PASS; full
+  e2e on Docker 45/46, the 1 failure (`r-s21` strip picture load) passed 6/6 on rerun alone; secret scan clean; hero
+  trace local S22 vs live main: same range (390 CLS 0.004 vs 0.0006).
+- Live: hero 390/1024/1440, demo WhatsApp e2e on live, demo custom order no console errors, run 168 7/7, chain intact.
+- **With the owner, open:** truffle merge, real UPI order, real photo-cake order.
+
 
 ## Session 21B (Opus, 2026-11-20, laptop): S21 reviewed + fixed + deployed
 

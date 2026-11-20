@@ -1,67 +1,78 @@
-# LaunchWitness: from description to a proven, live business
+# LaunchWitness: from business idea to customer-ready
 
-*GoDaddy Inclusive Innovation Hackathon 2026 · Open Innovation · one-page brief (draft for the PDF)*
+*GoDaddy Inclusive Innovation Hackathon 2026 · Round 2 · Open Innovation*
 
-> **Describe your business. LaunchWitness launches it on GoDaddy and proves everything works before your first customer arrives.**
+> **A real order reaches you, proven.** LaunchWitness puts a home seller's shop online on GoDaddy, places a real test
+> order through the shop's own form, and shows her it arrived in her inbox before her first customer does. It fixes
+> what breaks and keeps checking.
 
-## Problem
+Live: https://launchwitness.com · A real launched shop: https://meeras-eggless-bakes.launchwitness.com ·
+Its proof report: https://launchwitness.com/r/GsZj7gOAoCydSauqdNpoaWksKHVW-HSz · Build replay: https://launchwitness.com/build
 
-Small sellers like Meera, who bakes cakes at home and takes orders in Instagram messages, either never get online or end up with a setup that is quietly broken.
-- **Setup is technical.** A GoDaddy survey found 63% of India's small businesses had no website. Of those planning one, 30% wanted someone to build and manage it for them. *(Older survey: background only. A 2025–26 figure is still to find.)*
-- **Half-working setups go unnoticed.** Only 44.9% of small businesses use DMARC, against 75.3% of large enterprises (March 2026). In a scan of small-business domains, 36% had no SPF record. The result is that order emails land in spam, and the owner just thinks business is slow.
-- **AI could do the setup, but isn't trusted to.** It means spending money and changing email settings for someone who can't check the work.
+## The problem
 
-## Solution
+Home sellers in India (cakes, tiffins, tailoring, crafts, gift hampers) take orders in Instagram and WhatsApp
+messages. A website could bring them customers, but setting one up is technical, and nobody checks it end to end.
+A missing email setting sends orders to spam; an address stops pointing at the shop. There is no error message. The
+seller just gets fewer orders. Her first sale becomes her first problem.
 
-Meera types two lines and pastes her price list.
-- **Reader:** LaunchWitness builds her mobile site (menu in ₹, WhatsApp button, UPI QR, order form).
-- **Namer:** it suggests real, available domain names with their prices.
-- **Approval card:** one card shows every step, every setting as before and after, and the exact cost. Nothing happens until she approves.
+## The user
 
-Then it **launches and proves**. It points the domain, sets up her business email and turns on HTTPS. Then it checks every part for real: the address, the HTTPS certificate, the four email settings, and **a real test order arriving in her inbox**. A failed check is explained in one plain sentence ("Order emails could land in spam: a protection setting is missing"), fixed from a safe playbook, and re-checked to green.
+**Meera** bakes eggless cakes at home in Pune. She has a phone, a price list and customers who message her. She does
+not know what DNS is. She needs one answer: if a customer orders, will I get it?
 
-The report says **"Your business is ready for customers"**, with the time each check passed. After launch it keeps watching:
-- every 15 minutes: the site and HTTPS
-- daily: the email settings and the days left on the domain and certificate
+## The solution
 
-Warnings go to her personal email.
+1. **Describe.** She types a few lines and pastes her price list, or photographs it. Claude reads it into a shop.
+2. **Review.** She checks it as an ordinary form with a private preview, adds photos, picks one of six looks.
+3. **Launch on GoDaddy.** One approval card shows every change and the cost. Code backs up DNS, writes the shop's
+   record through the GoDaddy API, and HTTPS is issued for the shop.
+4. **Prove.** The checker places a real test order through her public order form and follows it: form accepted →
+   mail server accepted → found in the inbox over IMAP (or she taps "Yes, I got it"). It also checks the address
+   (asking GoDaddy's own nameservers), HTTPS and the email settings. Only when every check passes does the report say
+   "ready for customers". Every claim is stored as evidence in a tamper-evident hash chain that anyone with the link
+   can re-verify.
+5. **Fix and keep watching.** A failed check is explained in one plain sentence and repaired from five fixes written
+   in code, then checked again. After launch: the site every 15 minutes, settings and expiry dates daily.
 
-## How GoDaddy is used
+Around the proof, the shop does what her customers need: a menu in ₹ with sizes, pickup or delivery, a date picker
+that knows her notice and days off, UPI payment shown only after an order (with "Customer says paid" for her to check),
+custom requests with a reference photo for photo cakes and tailoring, and an Orders page.
 
-GoDaddy is the engine, not decoration:
-- **Domains:** availability and price for the suggested names. Purchase stays with the owner on godaddy.com and is adopted after her approval.
-- **DNS API:**
-  - a backup of the zone before any change
-  - scoped record writes (A, MX, SPF, DKIM, DMARC)
-  - undo from the backup
-  - checks asked of GoDaddy's authoritative nameservers
-- **Email (Titan):** creates or adopts the business mailbox, then sends and receives orders through `smtpout.secureserver.net` / IMAP.
-- **Docker VPS:** hosts everything. Caddy issues HTTPS for every seller site on demand, but only for domains in the app's database.
+## Demo flow (about three minutes)
 
-Sandbox launches use free subdomains of the app's own domain, so judges can try the real flow without buying anything.
+1. Landing page → **Try it without an account** → pick Meera → her shop appears on Review.
+2. Run a practice launch: watch each step and each check; open the report.
+3. Open the real launched shop and its shared report; press **Verify** to recompute the evidence chain.
+4. Place an order on the shop; it appears on the Orders page and in the email.
+5. Use the demo fault switch: a check fails, the Doctor explains it in one sentence, applies a playbook fix, and the
+   check turns green again.
 
 ## How Claude is used
 
-Claude **decides and explains**; code **acts and checks**. There are three Claude roles:
-- **Reader** (strong model, 1 call): description, price list or photo → a strict profile schema.
-- **Namer** (cheap model): suggests about 10 names, which code then checks.
-- **Doctor** (cheap model): one plain sentence for a failed check, plus a fix id. The fix must come from a fixed playbook, and code applies it.
+Claude **decides and explains**; plain code **acts and checks**. The Reader (strong model) turns her words into a
+validated shop profile. The Namer suggests names; code checks availability and price. The Doctor investigates a
+failed check with read-only tools and picks a fix id from a fixed playbook, or says "needs you". The policy check can
+only hold a shop for a human. Claude never spends money and never writes DNS. Calls are capped by `max_tokens` and a
+daily budget; if Claude is unavailable, plain rules take over and the policy check fails closed.
 
-A launch costs about 3 calls plus 1 per failed check, with `max_tokens` limits and a daily spend cap. The whole product was also **built with Claude Code** in recorded sessions. A planned, tested and documented session ritual is replayed at `/build`, with a summary of each session in `BUILD_LOG.md`.
+## How GoDaddy is used
 
-## Safety
+GoDaddy is load-bearing. The domain `launchwitness.com`; the **DNS API** for each shop's record, always backed up
+first and limited to the app's own domains; **GoDaddy's authoritative nameservers** as the source of truth for the
+address check; one **GoDaddy VPS** running Docker (Caddy for HTTPS, the FastAPI app); and a **GoDaddy Professional
+Email** mailbox that sends every email over SMTP and is read over IMAP to prove the test order arrived.
 
-- **Approve before spending.** Purchases are off by default, have a hard spend cap and need the owner's approval record.
-- **Preview before changing.** Every DNS change is shown as before and after.
-- **Back up, then undo.** Writes without a backup are refused.
-- **Scoped actions.** A launch only touches its own domain, one record at a time. The Doctor can't act outside its 5-fix playbook (max 3 attempts, never spends money); anything else is refused and logged.
-- **Full audit log** in every report.
-- **Safe public link:** practice mode for visitors, per-visitor limits, a secret owner link per business, and no secrets in the repo.
+## Impact
+
+A home seller gets a shop she can share with confidence, because she has seen proof that an order reaches her, and
+she hears about a problem before her customers do. She keeps taking payments by UPI as she does today, and she never
+has to learn what an MX record is. Practice mode lets anyone try the full flow without an account or any spending.
 
 ## What's next
 
-1. Go live on the GoDaddy VPS and app domain; launch Meera's real domain on camera.
-2. Full monitoring: a daily real test order, and change detection ("Was this you? Tap to restore") instead of silent fixes.
-3. A `/verify` page backed by a DNS TXT record, so buyers can spot fake shops using her name.
-4. Run on the seller's own GoDaddy account, where monitoring matters most.
-5. More languages for the description, and a template per trade (food, tailoring, tuition).
+- Launches on the seller's own domain and a mailbox per seller, through the guarded purchase path and GoDaddy's email API.
+- Running on the seller's own GoDaddy account, so she owns everything.
+- "Was this you?" when a setting changes, instead of a silent fix.
+- Bookings for salons and tutors, and more Indian languages for the description.
+- Card payments through a gateway once a seller has done KYC.
