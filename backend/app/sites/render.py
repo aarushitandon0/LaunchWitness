@@ -213,7 +213,7 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
                 form_values: dict | None = None, claim_error: str = "", preview: bool = False, shop: str = "", demo: bool = False,
                 base: str = "", photos: dict | None = None, full_dates: list[str] | None = None,
                 today: "date | None" = None, share_url: str = "") -> str:
-    """page: 'home' | 'privacy' | 'thanks'. preview=True: the owner's private look at a shop that
+    """page: 'home' | 'privacy' | 'thanks' | 'whatsapp' (demo only). preview=True: the owner's private look at a shop that
     isn't public (banner on top, the order button is off). demo=True: a sample shop served by the app at
     `base` (e.g. /demo/meera), labelled as a demo; its form places no order."""
     theme, accent = themes.resolve(profile)
@@ -261,7 +261,8 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
         badges=badges(profile),
         monogram=monogram(profile.name),
         show_area=bool(profile.area.strip()) and not area_is_repeated(profile),
-        whatsapp_url=whatsapp_link(profile),
+        # demo shops: the button sits where a real shop has it, but only opens a plain "this is a demo" page
+        whatsapp_url=f"{base}/whatsapp" if demo else whatsapp_link(profile),
         order_whatsapp_url=order_whatsapp_link(profile, order) if page == "thanks" else None,
         order=order,
         form_error=form_error,

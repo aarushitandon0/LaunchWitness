@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 {% if shop %}<meta name="lw-shop" content="{{ shop }}">
-{% endif %}<title>{% if page == "privacy" %}Privacy · {% elif page == "thanks" %}Order received · {% endif %}{{ p.name }}</title>
+{% endif %}<title>{% if page == "privacy" %}Privacy · {% elif page == "whatsapp" %}WhatsApp (demo) · {% elif page == "thanks" %}Order received · {% endif %}{{ p.name }}</title>
 <meta name="description" content="{{ p.tagline or p.about[:150] }}">
 {% if share %}{# S21: the link preview when someone shares the shop (public shop home only; never preview or demo) #}
 <meta property="og:type" content="website">
@@ -169,7 +169,7 @@
       {% if p.phone %}<p>{{ p.phone }}</p>{% endif %}
       <div class="links">
         {% if p.phone %}<a class="btn btn-line btn-sm" href="tel:{{ p.phone | replace(' ', '') }}">{{ icon("phone") }}Call</a>{% endif %}
-        {% if whatsapp_url %}<a class="btn btn-wa btn-sm" href="{{ whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}WhatsApp</a>{% endif %}
+        {% if whatsapp_url %}<a class="btn btn-wa btn-sm" href="{{ whatsapp_url }}"{% if not demo %} target="_blank" rel="noopener"{% endif %}>{{ icon("wa") }}WhatsApp</a>{% endif %}
         {% if p.instagram %}<a class="btn btn-line btn-sm" href="https://www.instagram.com/{{ p.instagram }}/" target="_blank" rel="noopener">{{ icon("ig") }}Instagram</a>{% endif %}
       </div>
     </div>{% endif %}
@@ -205,7 +205,7 @@
       {% if badges %}<ul class="badges" aria-label="About ordering">{% for b in badges %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
       <div class="cta">
         <a class="btn btn-primary" href="#menu">See menu &amp; order</a>
-        {% if whatsapp_url %}<a class="btn btn-wa" href="{{ whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}WhatsApp</a>{% endif %}
+        {% if whatsapp_url %}<a class="btn btn-wa" href="{{ whatsapp_url }}"{% if not demo %} target="_blank" rel="noopener"{% endif %}>{{ icon("wa") }}WhatsApp</a>{% endif %}
         {% if p.phone %}<a class="btn btn-line" href="tel:{{ p.phone | replace(' ', '') }}">{{ icon("phone") }}Call</a>{% endif %}
       </div>
     </div>
@@ -405,9 +405,21 @@
     {% else %}<p class="hint">The final amount{% if p.delivery_available %} (for example delivery){% endif %} is confirmed by the shop.</p>{% endif %}
     {% if order.status_url %}<p class="hint" id="status-link">Keep this page: <a href="{{ order.status_url }}">your order's own page</a> (anyone with the link can see it, so don't share it). {% if order.status_label %}The shop's update: <b>{{ order.status_label }}</b>.{% endif %}</p>{% endif %}
     {% if cancel_text %}<p class="hint"><b>Cancelling:</b> {{ cancel_text }}</p>{% endif %}
-    <div class="cta">{% if order_whatsapp_url %}<a class="btn btn-wa" href="{{ order_whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}Send this order to the shop</a>{% elif whatsapp_url %}<a class="btn btn-wa" href="{{ whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}Message on WhatsApp</a>{% endif %}<a class="btn btn-line" href="{{ base }}/">Back to the shop</a></div>
+    <div class="cta">{% if order_whatsapp_url %}<a class="btn btn-wa" href="{{ order_whatsapp_url }}" target="_blank" rel="noopener">{{ icon("wa") }}Send this order to the shop</a>{% elif whatsapp_url %}<a class="btn btn-wa" href="{{ whatsapp_url }}"{% if not demo %} target="_blank" rel="noopener"{% endif %}>{{ icon("wa") }}Message on WhatsApp</a>{% endif %}<a class="btn btn-line" href="{{ base }}/">Back to the shop</a></div>
   </section>
   {% endif %}
+  <div style="height:40px"></div>
+</main>
+
+{% elif page == "whatsapp" %}
+<main class="wrap narrow" id="main">
+  <div class="plain-hero">
+    <div>
+      <h1>WhatsApp</h1>
+      <p class="lede" role="status">This is a demo website. On a real shop, this button opens a WhatsApp chat with the seller.</p>
+    </div>
+  </div>
+  <div class="cta"><a class="btn btn-line" href="{{ base }}/">Back to the shop</a></div>
   <div style="height:40px"></div>
 </main>
 
@@ -420,7 +432,7 @@
     <p><strong>Who sees it.</strong> Your order, including your delivery address, is sent by email to {{ p.name }} and shown to {{ p.name }} on their orders page. Nobody else can see your address: it is never shown on this website, and it is not in the reports or logs that LaunchWitness keeps about the shop. It is stored securely by the service that runs this website, LaunchWitness, so the order isn't lost. We never sell or share your details for marketing.</p>
     <p><strong>Payments.</strong> This site does not take payments. If you pay by UPI, the payment happens in your own UPI app, and the shop's UPI details appear only after you place an order. If you tell the shop you paid, we keep the 12-digit UPI reference number you type and, if you add one, your screenshot (we re-save it as a plain picture, so nothing hidden in the file such as a location travels with it). Only {{ p.name }} can see them, on their orders page. The LaunchWitness team can also open a screenshot when it is helping the shop with a problem, and each time it does, that is logged. They are never shown on this website, and they are not in the reports or logs that LaunchWitness keeps. Telling us you paid does not mark your order paid: the shop checks its own UPI app first.</p>
     <p><strong>How long.</strong> Only as long as needed to handle your order and keep the shop's records. Your UPI reference number and screenshot are deleted 30 days after your order is done or cancelled. If the shop is deleted, its orders, including addresses, references and screenshots, are deleted with it.</p>
-    <p><strong>Your choice.</strong> To see, correct or delete your details, contact us{% if p.phone %} on {{ p.phone }}{% endif %}{% if whatsapp_url %} or <a href="{{ whatsapp_url }}" target="_blank" rel="noopener">on WhatsApp</a>{% endif %}.</p>
+    <p><strong>Your choice.</strong> To see, correct or delete your details, contact us{% if p.phone %} on {{ p.phone }}{% endif %}{% if whatsapp_url %} or <a href="{{ whatsapp_url }}"{% if not demo %} target="_blank" rel="noopener"{% endif %}>on WhatsApp</a>{% endif %}.</p>
   </section>
 </main>
 {% endif %}

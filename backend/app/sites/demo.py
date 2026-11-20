@@ -71,6 +71,12 @@ def demo_privacy(name: str) -> HTMLResponse:
     return page(name, "privacy")
 
 
+@router.get("/demo/{name}/whatsapp", response_class=HTMLResponse)
+def demo_whatsapp(name: str) -> HTMLResponse:
+    """S22: a demo's WhatsApp button lands here: no number, never opens WhatsApp."""
+    return page(name, "whatsapp")
+
+
 @router.post("/demo/{name}/order", response_class=HTMLResponse)
 async def demo_order(name: str, request: Request) -> HTMLResponse:
     """Nothing is stored, emailed or counted. A valid form shows "This is a demo"; an invalid one

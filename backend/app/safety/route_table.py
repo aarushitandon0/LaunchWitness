@@ -36,6 +36,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/photos/{file}"): PUBLIC,  # S12: on a shop host only its own photos; on the app host by random name
     ("GET", "/demo/{name}"): PUBLIC,
     ("GET", "/demo/{name}/privacy"): PUBLIC,
+    ("GET", "/demo/{name}/whatsapp"): PUBLIC,  # S22: plain "this is a demo" page; no number, no WhatsApp
     ("POST", "/demo/{name}/order"): PUBLIC,
     # --- sign-in ---
     ("POST", "/api/auth/request-link"): PUBLIC,
