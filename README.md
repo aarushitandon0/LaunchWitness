@@ -53,10 +53,9 @@
 20. [Security](#security)
 21. [Current Status and Limitations](#current-status-and-limitations)
 22. [How It Was Built](#how-it-was-built)
-23. [Screenshots](#screenshots)
-24. [What's Next](#whats-next)
-25. [FAQ](#faq)
-26. [Further Reading](#further-reading)
+23. [What's Next](#whats-next)
+24. [FAQ](#faq)
+25. [Further Reading](#further-reading)
 
 ---
 
@@ -553,33 +552,6 @@ The whole product was built in **Claude Code** over recorded sessions, each foll
 Product decisions (scope, safety rules, budget, what to postpone) stayed with the human. When the spec didn't answer something, the simplest option was chosen and recorded under "Decisions". Hard rules held across every session: no secrets in the repo, Claude Code never spends money, GoDaddy defaults to the sandbox, and live Claude calls during development were kept to a minimum by using saved responses.
 
 Every feature session ended with a check in a real browser at phone width, which caught real bugs. The full record is replayed at **https://launchwitness.com/build**, and a human-written summary of each session is in [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md).
-
----
-
-## Screenshots
-
-**The landing page**
-
-<img src="docs/screenshots/s22/live/hero-1440.png" alt="LaunchWitness landing page: From business idea to customer-ready, with the Start button and Try it without an account" width="720" />
-
-**Six looks for home businesses**, all drawn by code from one template
-
-<img src="docs/screenshots/s14/contact-sheet.png" alt="Six shop looks side by side on laptop and phone: bakery, home kitchen, handmade, tailoring, gifts and general" width="720" />
-
-**A live shop**, on a laptop and a phone
-
-<p>
-  <img src="docs/screenshots/s21b/live-shop-1440.png" alt="Meera's Eggless Bakes on a laptop: headline, location, hours, and See menu and order, WhatsApp and Call buttons" width="520" />
-  <img src="docs/screenshots/s21b/live-shop-390.png" alt="Meera's Eggless Bakes on a phone" width="180" />
-</p>
-
-**Ordering by size**, with the total worked out from the menu
-
-<img src="docs/screenshots/s21b/live-demo-basket-1440.png" alt="Chocolate truffle cake ordered in half kilo and one kilo sizes, with the order total and pickup or delivery choice" width="720" />
-
-**Demo shops on the landing page**
-
-<img src="docs/screenshots/s21b/live-landing-strip-1440.png" alt="See shops made with LaunchWitness: a scrolling row of demo shop cards" width="720" />
 
 ---
 
