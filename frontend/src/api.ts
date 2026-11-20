@@ -17,6 +17,7 @@ export type Product = {
   choices?: string[];
   notice_days?: number;
   sold_out?: boolean; // "Sold out today": hers alone
+  custom?: boolean; // S22: "Takes custom requests" (photo cake, tailoring...): note + one reference photo on the order form
 };
 
 export type Profile = {
@@ -230,7 +231,7 @@ export type Order = {
   tel_url: string | null;
   customer_name: string;
   customer_phone: string;
-  items: { name: string; qty: number; price_inr: number; option_label?: string; choice?: string }[]; // S21: size / pick
+  items: { name: string; qty: number; price_inr: number; option_label?: string; choice?: string; custom_note?: string }[]; // S21: size / pick; S22: what she asked for
   total_inr: number;
   note: string;
   email_status: string;
@@ -249,6 +250,7 @@ export type Order = {
   paid_action: string; // what the "paid" button says
   // S20: what the customer SAID about paying (a claim, never "paid"); screenshot served to the owner only
   payment_claim: { utr: string; says: string; has_screenshot: boolean; at: string } | null;
+  has_ref_photo?: boolean; // S22: a custom order's reference photo, served to the owner only
 };
 
 export type Step = {

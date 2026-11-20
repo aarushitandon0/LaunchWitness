@@ -33,7 +33,17 @@ DEMO_LOOKS = {"meera": ("bakery", "raspberry"), "imran": ("tailor", "navy"), "su
 # older demos look exactly as they did. Every demo has a different motif.
 DEMO_SIGNATURES = {"sugarcrumb": ("cherries", "scatter"), "zari": ("buttons", "scatter"), "ember": ("dots", "corner"),
                    "giftgarden": ("ribbons", "scatter"), "greencorner": ("sparks", "corner")}
+# S22: the items that take custom requests on each demo (matched in the item's name or its category, lower case). The
+# saved Reader replies keep custom = false (nothing is re-captured); a real shop gets it from her words or Review.
+DEMO_CUSTOM = {"meera": ("photo print", "theme topper"), "imran": ("stitching",), "zari": ("stitching",),
+               "giftgarden": ("hamper",), "sugarcrumb": ("photo cake",)}
 HEADERS = {"X-Robots-Tag": "noindex"}
+
+
+def mark_custom(name: str, products: list) -> list:
+    words = DEMO_CUSTOM.get(name, ())
+    return [x.model_copy(update={"custom": True}) if any(w in f"{x.name} {x.category}".lower() for w in words) else x
+            for x in products]
 
 
 @cache
@@ -45,7 +55,8 @@ def demo_profile(name: str) -> Profile:
     theme, accent = DEMO_LOOKS[name]
     # S21: the same code-side grouping a Reader reply gets ("X ½ kg" + "X 1 kg" -> one item with two sizes)
     return profile.model_copy(update={"phone": "", "whatsapp": "", "upi_id": "", "upi_display_name": "",
-                                      "theme": theme, "accent": accent, "products": group_sizes(profile.products)})
+                                      "theme": theme, "accent": accent,
+                                      "products": mark_custom(name, group_sizes(profile.products))})
 
 
 @cache
@@ -81,11 +92,25 @@ def demo_whatsapp(name: str) -> HTMLResponse:
 async def demo_order(name: str, request: Request) -> HTMLResponse:
     """Nothing is stored, emailed or counted. A valid form shows "This is a demo"; an invalid one
     shows the same plain error a real shop would, so the demo behaves like the real thing."""
+    from app import payclaims
+    from app.sites.routes import read_order_form
+
     profile = demo_shop(name)
-    form = {k: v for k, v in (await request.form()).items() if isinstance(v, str)}
+    # S22: the same multipart reader as a real shop; the photo is checked like a real one (so the demo behaves the same)
+    # and then dropped: nothing is stored. The parsed form is closed inside read_order_form.
+    form, photo, photo_error = await read_order_form(request)
     try:
         data = parse_order_form(form, profile)
+        if any(it.get("custom") for it in data["items"]) and (photo or photo_error):
+            if photo_error:
+                raise OrderInvalid(photo_error)
+            try:
+                payclaims.process_reference(photo)
+            except payclaims.ClaimRefused as e:
+                raise OrderInvalid(str(e)) from None
+            data["has_ref_photo"] = True
     except OrderInvalid as e:
         return HTMLResponse(render_site(profile, form_error=str(e), form_values=form, demo=True,
                                         base=f"/demo/{name}"), status_code=422, headers=HEADERS)
+    data.pop("ref_photo", None)
     return page(name, "thanks", order={**data, "ref": ""})

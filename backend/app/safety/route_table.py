@@ -63,6 +63,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("PUT", "/api/businesses/{business_id}/sold-out"): OWNER,  # S21: one item's "Sold out today" switch (no words: no policy check)
     ("GET", "/api/businesses/{business_id}/orders"): OWNER,
     ("GET", "/api/businesses/{business_id}/orders/{order_id}/payment-screenshot"): OWNER,  # S20: only the owner, app host only
+    ("GET", "/api/businesses/{business_id}/orders/{order_id}/reference-photo"): OWNER,  # S22: custom order photo, same rules
     ("POST", "/api/businesses/{business_id}/orders/{order_id}/status"): OWNER,  # S10.5: New → Confirmed → Paid → Done
     ("GET", "/api/businesses/{business_id}/export"): OWNER,
     ("POST", "/api/businesses/{business_id}/describe-problem"): OWNER,  # S12: symptom → Doctor (data), 5/day per user

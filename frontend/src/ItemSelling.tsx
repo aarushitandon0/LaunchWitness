@@ -180,6 +180,15 @@ export function ItemSelling({ p, n, onChange }: { p: Product; n: number; onChang
         )}
       </fieldset>
       <label className="check">
+        <input
+          type="checkbox"
+          data-testid="custom-toggle"
+          checked={!!p.custom}
+          onChange={(e) => onChange({ custom: e.target.checked })}
+        />
+        <span>Takes custom requests (the order form asks what they want and allows one reference photo)</span>
+      </label>
+      <label className="check">
         <input type="checkbox" checked={!!p.sold_out} onChange={(e) => onChange({ sold_out: e.target.checked })} />
         <span>Sold out today (customers can't order it until you untick this)</span>
       </label>

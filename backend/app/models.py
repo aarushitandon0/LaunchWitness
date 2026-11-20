@@ -240,6 +240,12 @@ class Order(SQLModel, table=True):
     # S20: SHA-256 of the unguessable token in this order's status link (/order/<token>); the raw token is never stored
     # (S20B). "" = an older order or a test order
     status_token: str = Field(default="", index=True)
+    # S22: ONE optional reference photo for an order with a custom item (photo cake, design, tailoring). Re-encoded WebP,
+    # no metadata (payclaims.process_image, the S20 screenshot gate). Owner-only; never in audit rows, evidence, the
+    # shared report, the email (only "open it in Orders") or a public page; deleted 30 days after the order is closed.
+    ref_photo: bytes | None = None
+    ref_photo_w: int = 0
+    ref_photo_h: int = 0
     # S10.5: the owner's own progress on the order (sites/orders.py STATUS_STEPS). Only the owner sets it.
     status: str = Field(default="new", index=True)  # new | confirmed | paid | done | cancelled
     status_changed_at: datetime | None = None
