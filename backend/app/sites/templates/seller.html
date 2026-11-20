@@ -334,7 +334,7 @@
       <div class="custom-box" id="custom-box">
         {% for i, x in custom_items %}<div class="field" id="custom_{{ i }}_f">
           <label for="custom_{{ i }}">Tell us what you want: {{ x.name }} <span class="hint">(only if you order it)</span></label>
-          <textarea id="custom_{{ i }}" name="custom_{{ i }}" rows="2" maxlength="500" placeholder="e.g. message on the cake, design, colours, measurements">{{ form.get('custom_' ~ i, '') }}</textarea>
+          <textarea id="custom_{{ i }}" name="custom_{{ i }}" rows="2" maxlength="500" placeholder="e.g. the name or message you want, design, colours, measurements">{{ form.get('custom_' ~ i, '') }}</textarea>
         </div>{% endfor %}
         <div class="field">
           <label for="reference_photo">Reference photo <span class="hint">(optional: one JPG, PNG or WebP photo, up to 5 MB)</span></label>
