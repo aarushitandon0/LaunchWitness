@@ -463,7 +463,7 @@ One entry per Claude Code session, newest last. This is what judges read to unde
 - Claude built: the hero (one H1, an H2, new description and meta); `/demo/<slug>/whatsapp`; custom orders end to end
   (Reader flag from her words, Review toggle, form fields shown only for ordered custom items, JS-off multipart, photo
   re-encoded with no metadata, owner-only route, Orders page, email, thank-you, WhatsApp line, privacy, 30-day purge,
-  demo items); 28 + 13 backend tests and 3 e2e flows; Windows-safe transcript scripts; brief, judge Q&A, submission text.
+  demo items); 28 + 12 backend tests and 3 e2e flows; Windows-safe transcript scripts; brief, judge Q&A, submission text.
 - I changed / rejected: rejected the rewritten README (kept the previous one). Truffle merge and the real UPI and
   photo-cake orders stay with me (they need my sign-in and phone).
 - Result: all checks green (one flaky e2e passed on rerun), deployed `a1def82`, live checks green, 7 of 7 proven.

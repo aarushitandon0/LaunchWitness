@@ -99,9 +99,10 @@ if os.path.isdir(root):
                 if r:
                     by_session.setdefault(r[1], (r[0], p))
 for _, p in sorted(by_session.values()):
-    print(p)
+    print(p.replace(chr(92), "/"))
 PY
 )
+FILES=("${FILES[@]%[[:cntrl:]]}")  # Windows python ends lines with CRLF: drop the trailing CR
 
 COUNT=${#FILES[@]}
 if [ "$COUNT" -eq 0 ]; then
