@@ -1,21 +1,39 @@
 {
-  "_note": "S21 placeholder, re-capture on the laptop: the per-item S21 fields (options, option_kind, unit, min_qty, max_qty, choice_label, choices, notice_days) are hand-written from the seller's own words; everything else is the saved reply. Command in docs/S21.md.",
-  "_s21_placeholder": true,
   "name": "Meera's Eggless Bakes",
-  "tagline": "Fresh eggless cakes and cupcakes from Baner, Pune",
-  "about": "I'm Meera, and I bake eggless cakes and cupcakes in my home kitchen in Baner, Pune. I started 3 years back for friends and family, and now we take orders from all over Pune. Everything is made fresh to order with no preservatives, using real butter and Belgian chocolate. Custom birthday and anniversary cakes with photo print or theme toppers are also possible.",
+  "tagline": "Fresh eggless cakes and cupcakes, baked to order",
+  "about": "I'm Meera, and I bake eggless cakes and cupcakes from my home kitchen in Baner, Pune. I started 3 years back for friends and family, and now I take orders from all over Pune. Everything is made fresh to order with no preservatives, using real butter and Belgian chocolate.",
   "area": "Baner, Pune",
-  "hours": "Open 10am to 8pm, closed on Tuesdays. Please order at least 2 days before. Orders mostly on WhatsApp.",
+  "hours": "10am to 8pm. Closed on Tuesdays.",
   "phone": "",
   "whatsapp": "",
   "upi_id": "",
   "tone": "homely",
+  "selling_point": "100% eggless",
+  "min_notice_days": 2,
+  "pickup_available": true,
+  "delivery_available": true,
+  "delivery_fee_inr": 80,
+  "allow_item_message": false,
+  "upi_display_name": "",
+  "fssai_number": "",
+  "kind": "orders",
+  "not_supported_reason": "",
+  "allergens": "",
+  "theme": "bakery",
+  "accent": "caramel",
+  "section_copy": {
+    "hero_line": "Fresh eggless cakes and cupcakes, baked to order in Baner",
+    "about": "I'm Meera, and I bake eggless cakes and cupcakes from my home kitchen in Baner, Pune. Everything is made fresh to order with no preservatives, using real butter and Belgian chocolate. Custom birthday and anniversary cakes with photo print or theme toppers are possible too.",
+    "how_ordering": "Please order at least 2 days ahead on WhatsApp, then pick up from Baner or get delivery within 10 km for an extra charge."
+  },
   "products": [
     {
       "name": "Chocolate truffle cake",
       "price_inr": 650,
-      "description": "Eggless, made fresh to order",
+      "description": "",
       "category": "Cakes",
+      "addon": false,
+      "price_from": false,
       "food_mark": "veg",
       "options": [
         {
@@ -36,10 +54,12 @@
       "notice_days": 0
     },
     {
-      "name": "Pineapple cake 1/2 kg",
+      "name": "Pineapple cake",
       "price_inr": 550,
-      "description": "Eggless, made fresh to order",
+      "description": "½ kg",
       "category": "Cakes",
+      "addon": false,
+      "price_from": false,
       "food_mark": "veg",
       "options": [],
       "option_kind": "",
@@ -51,10 +71,12 @@
       "notice_days": 0
     },
     {
-      "name": "Red velvet cake with cream cheese 1/2 kg",
+      "name": "Red velvet cake with cream cheese",
       "price_inr": 750,
-      "description": "Eggless, with cream cheese frosting",
+      "description": "½ kg",
       "category": "Cakes",
+      "addon": false,
+      "price_from": false,
       "food_mark": "veg",
       "options": [],
       "option_kind": "",
@@ -66,10 +88,12 @@
       "notice_days": 0
     },
     {
-      "name": "Rasmalai cake 1 kg",
+      "name": "Rasmalai cake",
       "price_inr": 1400,
-      "description": "Festive special",
+      "description": "1 kg, festive special",
       "category": "Cakes",
+      "addon": false,
+      "price_from": false,
       "food_mark": "veg",
       "options": [],
       "option_kind": "",
@@ -83,12 +107,14 @@
     {
       "name": "Cupcakes box of 6",
       "price_inr": 420,
-      "description": "Assorted flavours",
+      "description": "Assorted",
       "category": "Cupcakes & brownies",
+      "addon": false,
+      "price_from": false,
       "food_mark": "veg",
       "options": [],
       "option_kind": "",
-      "unit": "",
+      "unit": "box",
       "min_qty": 1,
       "max_qty": 0,
       "choice_label": "",
@@ -98,12 +124,14 @@
     {
       "name": "Brownies box of 9",
       "price_inr": 480,
-      "description": "Box of 9 brownies",
+      "description": "",
       "category": "Cupcakes & brownies",
+      "addon": false,
+      "price_from": false,
       "food_mark": "veg",
       "options": [],
       "option_kind": "",
-      "unit": "",
+      "unit": "box",
       "min_qty": 1,
       "max_qty": 0,
       "choice_label": "",
@@ -113,8 +141,10 @@
     {
       "name": "Photo print on cake",
       "price_inr": 250,
-      "description": "Extra charge on top of the cake price",
+      "description": "Added on top of your cake",
       "category": "Add-ons",
+      "addon": true,
+      "price_from": false,
       "food_mark": "",
       "options": [],
       "option_kind": "",
@@ -128,23 +158,10 @@
     {
       "name": "Theme topper",
       "price_inr": 300,
-      "description": "Price starts from ₹300",
+      "description": "Added on top of your cake",
       "category": "Add-ons",
-      "food_mark": "",
-      "options": [],
-      "option_kind": "",
-      "unit": "",
-      "min_qty": 1,
-      "max_qty": 0,
-      "choice_label": "",
-      "choices": [],
-      "notice_days": 0
-    },
-    {
-      "name": "Delivery within 10 km",
-      "price_inr": 80,
-      "description": "Delivery charge for orders within 10 km; pickup from Baner is also available",
-      "category": "Delivery",
+      "addon": true,
+      "price_from": true,
       "food_mark": "",
       "options": [],
       "option_kind": "",
@@ -155,13 +172,5 @@
       "choices": [],
       "notice_days": 0
     }
-  ],
-  "theme": "bakery",
-  "accent": "caramel",
-  "section_copy": {
-    "hero_line": "Fresh eggless cakes and cupcakes, baked to order in Baner",
-    "about": "I'm Meera, and I bake eggless cakes and cupcakes from my home kitchen in Baner, Pune. Everything is made fresh to order with no preservatives, using real butter and Belgian chocolate. Custom birthday and anniversary cakes with photo print or theme toppers are possible too.",
-    "how_ordering": "Please order at least 2 days ahead on WhatsApp. Pick up from Baner or get delivery within 10 km for an extra charge."
-  },
-  "allergens": ""
+  ]
 }

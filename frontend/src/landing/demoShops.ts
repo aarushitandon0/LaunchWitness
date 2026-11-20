@@ -14,6 +14,13 @@ export const DEMO_SHOPS: DemoShop[] = [
   { slug: "greencorner", name: "Green Corner Nursery", look: "General", thumb: "/demos/greencorner.webp" },
 ];
 
-/** Thumbnail size (the files are 390 x 780, the first screen of each demo on a phone). */
+/** Phone thumbnail size (the files are 390 x 780, the first screen of each demo on a phone). */
 export const THUMB_W = 390;
 export const THUMB_H = 780;
+
+/** S21B: laptop thumbnail (the first screen of each demo in a 1440 x 900 window, saved at 960 x 600, 16:10).
+ * Same name with "-laptop"; shown only at >= LAPTOP_MIN px wide (a <picture> source, so a phone never downloads it). */
+export const LAPTOP_W = 960;
+export const LAPTOP_H = 600;
+export const LAPTOP_MIN = 1024;
+export const laptopThumb = (d: DemoShop) => d.thumb.replace(/\.webp$/, "-laptop.webp");

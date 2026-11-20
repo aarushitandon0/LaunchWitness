@@ -109,7 +109,8 @@ def test_meeras_truffle_cake_becomes_one_item_with_two_sizes():
     assert [(o.label, o.price_inr) for o in cake.options] == [("½ kg", 650), ("1 kg", 1200)]
     assert p.products.index(cake) == 0  # it takes the first one's place
     single = next(x for x in p.products if x.name.startswith("Pineapple"))  # only one size listed: left alone
-    assert single.name == "Pineapple cake 1/2 kg" and not single.options
+    # S21B live reply: the one listed size stays in the item's words, it is not made into a size option
+    assert single.name == "Pineapple cake" and "kg" in single.description and not single.options
     assert tidy_profile(p) == p  # running it again changes nothing
 
 
@@ -452,7 +453,7 @@ def test_poster_is_owner_only_for_a_live_shop_with_a_qr_and_no_script(client, ne
     assert client.get(f"/api/businesses/{draft['id']}/poster").status_code == 404
 
 
-# ---------- STEP 2: the Reader (saved replies; the S21 fields are hand-written placeholders until re-captured) ----------
+# ---------- STEP 2: the Reader (saved live replies, re-captured in S21B) ----------
 
 def test_reader_crochet_reply_keeps_her_minimum_packs_and_colours():
     from app.agents.claude_client import FixtureClaudeClient
@@ -465,7 +466,7 @@ def test_reader_crochet_reply_keeps_her_minimum_packs_and_colours():
     roses, bouquet = p.products
     assert (roses.price_inr, roses.unit, roses.min_qty, roses.choice_label, roses.choices) == \
         (40, "piece", 5, "Colour", ["Red", "Pink", "White", "Yellow"])
-    assert [(o.label, o.price_inr) for o in bouquet.options] == [("6 roses", 260), ("12 roses", 480)]
+    assert [(o.label, o.price_inr) for o in bouquet.options] == [("6 flowers", 260), ("12 flowers", 480)]
     assert bouquet.price_inr == 260 and not any(x.sold_out for x in p.products)
 
 
@@ -480,9 +481,10 @@ def test_reader_schema_asks_only_for_keys_code_can_check_and_never_sold_out():
 
 
 @pytest.mark.parametrize("name", ["reader_meera_cakes", "reader_tiffin_service", "reader_prompt_injection", "reader_crochet"])
-def test_s21_placeholders_are_marked_for_the_laptop_recapture(name):
+def test_s21_replies_are_live_captures_with_every_item_key(name):
+    # S21B: re-captured live on the laptop (the S21 hand-written placeholders are gone)
     data = json.loads((FIX / "claude" / f"{name}.json").read_text(encoding="utf-8"))
-    assert "S21 placeholder, re-capture on the laptop" in data["_note"]
+    assert "_s21_placeholder" not in data and "placeholder" not in data.get("_note", "").lower()
     for x in data["products"]:  # every per-item key the schema asks for is present
         assert {"options", "option_kind", "unit", "min_qty", "max_qty", "choice_label", "choices", "notice_days"} <= set(x)
 

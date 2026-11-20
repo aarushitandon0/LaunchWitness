@@ -42,7 +42,10 @@ BRAND_FILES = {
 
 # S21: thumbnails of the demo shops for the landing strip (frontend/public/demos, made by scripts/make_demo_thumbs.js).
 # App host only, like the icons: a shop host never reaches this (seller_page answers first).
-DEMO_THUMB = re.compile(r"demos/[a-z]{1,20}\.webp")
+DEMO_THUMB = re.compile(r"demos/[a-z]{1,20}(-laptop)?\.webp")  # S21B: phone (390 x 780) and laptop (16:10) sizes
+# S21B: a file-like path that isn't there answers 404, never the app's page with a 200: an <img> given HTML shows a
+# broken picture with no error anywhere (that is how a stale build broke every card on the landing strip).
+FILE_LIKE = re.compile(r".*\.(webp|png|jpe?g|gif|svg|ico|avif|js|mjs|css|map|json|txt|xml|webmanifest|woff2?|ttf)", re.I)
 
 BUILD_COMING_SOON = """<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>How LaunchWitness was built</title>""" + ICON_LINKS + """
@@ -180,6 +183,8 @@ def create_app(*, frontend_dist: Path = FRONTEND_DIST, replay_page: Path = REPLA
         if DEMO_THUMB.fullmatch(path) and (frontend_dist / path).is_file():  # S21: the landing strip's demo pictures
             return FileResponse(frontend_dist / path, media_type="image/webp",
                                 headers={"Cache-Control": "public, max-age=86400"})
+        if FILE_LIKE.fullmatch(path):
+            raise HTTPException(status_code=404)
         if path.rstrip("/") == "build":
             if replay_page.is_file():
                 return FileResponse(replay_page, media_type="text/html")

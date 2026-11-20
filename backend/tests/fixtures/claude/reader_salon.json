@@ -25,7 +25,8 @@
       "description": "",
       "category": "Threading",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": ""
     },
     {
       "name": "Upper lip threading",
@@ -33,7 +34,8 @@
       "description": "",
       "category": "Threading",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": ""
     },
     {
       "name": "Full arms waxing",
@@ -41,7 +43,8 @@
       "description": "",
       "category": "Waxing",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": ""
     },
     {
       "name": "Fruit facial",
@@ -49,7 +52,8 @@
       "description": "",
       "category": "Facials",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": ""
     },
     {
       "name": "Gold facial",
@@ -57,7 +61,8 @@
       "description": "",
       "category": "Facials",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": ""
     },
     {
       "name": "Hair cut",
@@ -65,7 +70,8 @@
       "description": "",
       "category": "Hair and makeup",
       "addon": false,
-      "price_from": true
+      "price_from": true,
+      "food_mark": ""
     },
     {
       "name": "Bridal makeup",
@@ -73,16 +79,16 @@
       "description": "",
       "category": "Hair and makeup",
       "addon": false,
-      "price_from": true
+      "price_from": true,
+      "food_mark": ""
     }
   ],
-  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only).",
-  "_theme_placeholder": true,
   "theme": "general",
-  "accent": "forest",
+  "accent": "indigo",
   "section_copy": {
-    "hero_line": "Threading, waxing, facials and bridal makeup",
-    "about": "A ladies parlour offering threading, waxing, facials and bridal makeup.",
-    "how_ordering": "This shop takes bookings, which we can't build yet."
-  }
+    "hero_line": "Threading, waxing, facials and bridal makeup in Dharampeth, Nagpur",
+    "about": "We run a ladies parlour from our home and have been doing so for 12 years. We offer threading, waxing, facials, hair cuts and bridal makeup.",
+    "how_ordering": "Choose your items, send your order, and we'll confirm it with you."
+  },
+  "allergens": ""
 }

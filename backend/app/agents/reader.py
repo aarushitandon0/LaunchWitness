@@ -13,7 +13,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from app.agents.claude_client import Claude, ClaudeBadJson
+from app.agents.claude_client import Claude, ClaudeBadJson, ClaudeCutOff
 from app.sites import fulfilment as ful
 from app.sites import items as items_mod
 from app.sites.themes import ACCENT_KEYS, THEME_KEYS, clean_accent_key, clean_theme_key
@@ -599,18 +599,28 @@ def read_business(
     content = build_user_content(description, price_list, image)
     fixture = fixture or fixture_for(description)
     last_error = ""
+    cut_off = 0
     for _attempt in range(2):  # first try + one retry
         try:
             data = claude.ask_json(fixture=fixture, tier="strong", system=SYSTEM, user=content, schema=PROFILE_SCHEMA)
             if isinstance(data, dict) and data.get("whatsapp") and indian_mobile(str(data["whatsapp"])) is None:
                 data["whatsapp"] = ""  # not a usable Indian mobile: the owner adds it on the Review form
             return choose_theme(tidy_profile(Profile.model_validate(data)))
+        except ClaudeCutOff as e:  # S21B: an unfinished reply is never tidied, saved or shown
+            cut_off += 1
+            last_error = str(e)
         except (ClaudeBadJson, ValidationError) as e:
             last_error = str(e)
+    if cut_off == 2:
+        raise ReaderError(LONG_MENU)
     raise ReaderError(
         "Sorry, we couldn't read your business details this time. Please check the text and try again."
         + (f" (details: {last_error[:200]})" if last_error else "")
     )
+
+
+LONG_MENU = ("Your menu is long, please check the items. We couldn't read all of it in one go, so nothing was saved: "
+             "try again with fewer items (you can add the rest on the next page).")
 
 
 def choose_theme(p: Profile) -> Profile:

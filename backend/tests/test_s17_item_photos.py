@@ -25,6 +25,7 @@ def test_match_finds_the_item_the_reader_made_from_her_words():
     assert m("Brownies box of 9", MENU) == ["Brownies (box of 9)"]
     assert m("Cupcakes box of 6 (assorted)", MENU) == ["Assorted Cupcakes, box of 6"]
     assert m("Pineapple cake", MENU) == ["Pineapple Cake (½ kg)"]
+    assert m("Pineapple cake 1/2 kg", ["Pineapple cake", "Red velvet cake"]) == ["Pineapple cake"]  # S21B: size moved out
     assert m("  RED VELVET  ", MENU) == ["Red Velvet with Cream Cheese (½ kg)"]
 
 

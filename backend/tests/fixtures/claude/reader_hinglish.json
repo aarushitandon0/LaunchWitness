@@ -13,46 +13,51 @@
       "name": "Kulhad chai",
       "price_inr": 20,
       "description": "",
-      "category": "Chai"
+      "category": "Chai",
+      "food_mark": ""
     },
     {
       "name": "Masala chai (large)",
       "price_inr": 30,
       "description": "Large cup",
-      "category": "Chai"
+      "category": "Chai",
+      "food_mark": ""
     },
     {
       "name": "Bun maska",
       "price_inr": 35,
       "description": "",
-      "category": "Nashta"
+      "category": "Nashta",
+      "food_mark": ""
     },
     {
       "name": "Samosa (2 pc)",
       "price_inr": 30,
       "description": "Plate of 2 pieces",
-      "category": "Nashta"
+      "category": "Nashta",
+      "food_mark": ""
     },
     {
       "name": "Poha plate",
       "price_inr": 40,
       "description": "",
-      "category": "Nashta"
+      "category": "Nashta",
+      "food_mark": ""
     },
     {
       "name": "Office bulk chai (20 cup flask)",
       "price_inr": 350,
       "description": "Flask of 20 cups, order one day before",
-      "category": "Bulk orders"
+      "category": "Bulk orders",
+      "food_mark": ""
     }
   ],
-  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only).",
-  "_theme_placeholder": true,
   "theme": "kitchen",
-  "accent": "chilli",
+  "accent": "turmeric",
   "section_copy": {
-    "hero_line": "Hot chai and nashta from a home stall in Aliganj",
-    "about": "We run a small home stall in Aliganj, Lucknow, serving chai and nashta.",
-    "how_ordering": "Choose your items, send your order, and we'll confirm it with you."
-  }
+    "hero_line": "Kulhad chai, bun maska and hot snacks from our Aliganj stall",
+    "about": "I'm Rahul, and I run a small home chai-nashta stall in Aliganj, Lucknow. We serve chai and nashta every morning and evening, except Mondays. Offices can order chai in bulk too.",
+    "how_ordering": "Choose your items and send your order. Office bulk orders need to be placed one day ahead."
+  },
+  "allergens": ""
 }

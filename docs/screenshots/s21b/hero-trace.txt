@@ -1,0 +1,11 @@
+# S21B hero scroll trace (scripts/hero_scroll_trace.js, laptop, headless Chromium, Docker stack running alongside: noisy; same conditions for both, 2 runs each)
+## origin/main (325485e) landing, :8012
+{"case":"1440","idle_busy_pct":1.5,"frames":197,"avg_ms":42,"p95_ms":99.9,"over_50ms":60,"fps":24,"cls":0.0284}
+{"case":"1440","idle_busy_pct":1.3,"frames":197,"avg_ms":43.2,"p95_ms":100,"over_50ms":61,"fps":23,"cls":0.0271}
+{"case":"390 x4","idle_busy_pct":26,"frames":163,"avg_ms":70,"p95_ms":150,"over_50ms":86,"fps":14,"cls":0.0006}
+{"case":"390 x4","idle_busy_pct":13.5,"frames":169,"avg_ms":51.1,"p95_ms":83.3,"over_50ms":67,"fps":20,"cls":0.0006}
+## s21b landing (laptop frames, <picture>), :8011
+{"case":"1440","idle_busy_pct":3.4,"frames":216,"avg_ms":34.2,"p95_ms":83.3,"over_50ms":48,"fps":29,"cls":0.026}
+{"case":"1440","idle_busy_pct":1.1,"frames":212,"avg_ms":39.7,"p95_ms":100.1,"over_50ms":52,"fps":25,"cls":0.0262}
+{"case":"390 x4","idle_busy_pct":6.4,"frames":206,"avg_ms":36.2,"p95_ms":66.6,"over_50ms":16,"fps":28,"cls":0.0006}
+{"case":"390 x4","idle_busy_pct":11.2,"frames":198,"avg_ms":37.2,"p95_ms":66.7,"over_50ms":24,"fps":27,"cls":0.0006}

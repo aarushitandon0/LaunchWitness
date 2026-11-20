@@ -13,58 +13,65 @@
       "name": "Bridal mehendi, full hands and feet",
       "price_inr": 4500,
       "description": "Needs 2 weeks notice for booking",
-      "category": "Mehendi"
+      "category": "Mehendi",
+      "food_mark": ""
     },
     {
       "name": "Engagement mehendi",
       "price_inr": 2000,
       "description": "",
-      "category": "Mehendi"
+      "category": "Mehendi",
+      "food_mark": ""
     },
     {
       "name": "Simple mehendi, one hand",
       "price_inr": 300,
       "description": "",
-      "category": "Mehendi"
+      "category": "Mehendi",
+      "food_mark": ""
     },
     {
       "name": "Arabic design, both hands",
       "price_inr": 600,
       "description": "",
-      "category": "Mehendi"
+      "category": "Mehendi",
+      "food_mark": ""
     },
     {
       "name": "Party makeup",
       "price_inr": 2500,
       "description": "",
-      "category": "Makeup & styling"
+      "category": "Makeup & styling",
+      "food_mark": ""
     },
     {
       "name": "Hairstyle",
       "price_inr": 800,
       "description": "",
-      "category": "Makeup & styling"
+      "category": "Makeup & styling",
+      "food_mark": ""
     },
     {
       "name": "Saree draping",
       "price_inr": 500,
       "description": "",
-      "category": "Makeup & styling"
+      "category": "Makeup & styling",
+      "food_mark": ""
     },
     {
       "name": "Travel charge within 10 km",
       "price_inr": 300,
       "description": "For service at your home",
-      "category": "Add-ons"
+      "category": "Add-ons",
+      "food_mark": ""
     }
   ],
-  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only).",
-  "_theme_placeholder": true,
   "theme": "general",
   "accent": "indigo",
   "section_copy": {
-    "hero_line": "Mehendi and simple makeup in Tolichowki",
-    "about": "We offer mehendi and simple makeup in Tolichowki, Hyderabad.",
-    "how_ordering": "Choose your items, send your order, and we'll confirm it with you."
-  }
+    "hero_line": "Mehendi and simple makeup from my home studio in Tolichowki",
+    "about": "I'm Farah, and I do mehendi and simple makeup from my home studio in Tolichowki, Hyderabad. I also travel to the client's home.",
+    "how_ordering": "Bridal bookings need 2 weeks notice. Call or WhatsApp to book."
+  },
+  "allergens": ""
 }

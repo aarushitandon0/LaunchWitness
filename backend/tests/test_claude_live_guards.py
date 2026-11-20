@@ -39,6 +39,8 @@ class FakeMessages:
 def make_client(make_settings, engine, replies, **overrides):
     overrides.setdefault("claude_mode", "live")
     overrides.setdefault("anthropic_api_key", "sk-test-not-real")
+    # S21B: the strong tier has its own ceiling (CLAUDE_READER_MAX_TOKENS, 3000); these guard tests pin both to one value
+    overrides.setdefault("claude_reader_max_tokens", overrides.get("claude_max_tokens", 1500))
     sdk = SimpleNamespace(messages=FakeMessages(replies))
     return LiveClaudeClient(make_settings(**overrides), engine, sdk=sdk), sdk.messages
 

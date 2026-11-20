@@ -25,7 +25,8 @@
       "description": "",
       "category": "Batters",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": "veg"
     },
     {
       "name": "Dosa batter 1 kg",
@@ -33,7 +34,8 @@
       "description": "",
       "category": "Batters",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": "veg"
     },
     {
       "name": "Ragi dosa batter 1 kg",
@@ -41,7 +43,8 @@
       "description": "",
       "category": "Batters",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": "veg"
     },
     {
       "name": "Idli podi 200 g",
@@ -49,7 +52,8 @@
       "description": "",
       "category": "Podi and sides",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": "veg"
     },
     {
       "name": "Coconut chutney 250 g",
@@ -57,7 +61,8 @@
       "description": "",
       "category": "Podi and sides",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": "veg"
     },
     {
       "name": "Sambar 500 ml",
@@ -65,16 +70,16 @@
       "description": "",
       "category": "Podi and sides",
       "addon": false,
-      "price_from": false
+      "price_from": false,
+      "food_mark": "veg"
     }
   ],
-  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only).",
-  "_theme_placeholder": true,
   "theme": "kitchen",
   "accent": "turmeric",
   "section_copy": {
-    "hero_line": "Fresh idli dosa batter and podi, made at home every day",
-    "about": "We make our batter fresh each day at home. Order a day ahead and we'll have it ready.",
-    "how_ordering": "Choose what you need, send your order a day ahead, and we'll confirm it with you."
-  }
+    "hero_line": "Fresh idli and dosa batter, made at home every morning",
+    "about": "We make fresh idli and dosa batter and podi at home every morning in Mylapore, Chennai. Order by evening and get it the next day.",
+    "how_ordering": "Order before 7 pm for the next day."
+  },
+  "allergens": ""
 }

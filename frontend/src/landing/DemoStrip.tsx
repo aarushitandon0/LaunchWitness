@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useCalm } from "../motion";
 import "./demo-strip.css";
-import { DEMO_SHOPS, THUMB_H, THUMB_W } from "./demoShops";
+import { DEMO_SHOPS, LAPTOP_H, LAPTOP_MIN, LAPTOP_W, laptopThumb, THUMB_H, THUMB_W } from "./demoShops";
 
-/** S21: "See shops made with LaunchWitness": a row of phone-shaped cards, one per demo shop.
+/** S21: "See shops made with LaunchWitness": a row of cards, one per demo shop (S21B: laptop-shaped from 1024 px,
+ * phone-shaped below).
  *
  * It is a normal horizontal scroller (swipe, drag with a trackpad, scroll-snap, arrow buttons, Tab through the links).
  * While nobody is touching it, it drifts slowly to the left like a marquee: the row's scroll position moves (composited,
@@ -89,8 +90,12 @@ export function DemoStrip() {
           tabIndex={copy ? -1 : undefined}
           aria-label={copy ? undefined : `${d.name}, ${d.look} demo shop (opens in a new tab)`}
         >
-          <span className="demo-phone">
-            <img src={d.thumb} width={THUMB_W} height={THUMB_H} alt="" loading="lazy" decoding="async" />
+          {/* S21B: a laptop frame with the 1440-wide page on a laptop, a phone frame with the 390 page below LAPTOP_MIN. */}
+          <span className="demo-device">
+            <picture>
+              <source media={`(min-width: ${LAPTOP_MIN}px)`} srcSet={laptopThumb(d)} width={LAPTOP_W} height={LAPTOP_H} />
+              <img src={d.thumb} width={THUMB_W} height={THUMB_H} alt={copy ? "" : d.name} loading="lazy" decoding="async" />
+            </picture>
           </span>
           <span className="demo-name">{d.name}</span>
           <span className="demo-look">{d.look}</span>

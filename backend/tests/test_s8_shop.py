@@ -153,6 +153,9 @@ def meera_live() -> Profile:
 
 def test_tidy_moves_delivery_out_of_the_menu_and_reads_notice():
     raw = meera_live()
+    # S21B: the live re-capture already puts the delivery fee outside the menu; add the old reply's line back to test tidy
+    raw = raw.model_copy(update={"products": [*raw.products, raw.products[0].model_copy(
+        update={"name": "Delivery within 10 km", "price_inr": 80, "category": "Add-ons", "options": []})]})
     assert any("delivery" in x.name.lower() for x in raw.products)
     p = tidy_profile(raw)
     assert not any("delivery" in x.name.lower() for x in p.products)
@@ -162,7 +165,7 @@ def test_tidy_moves_delivery_out_of_the_menu_and_reads_notice():
     extras = [x.name for x in p.products if x.addon]
     assert extras == ["Photo print on cake", "Theme topper"]
     topper = next(x for x in p.products if x.name == "Theme topper")
-    assert topper.price_from and topper.description == ""  # "Price starts from ₹300" would just repeat it
+    assert topper.price_from and "starts from" not in topper.description.lower()  # would just repeat "from ₹300"
     assert tidy_profile(p) == p  # running it again changes nothing
 
 
