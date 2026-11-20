@@ -243,8 +243,9 @@ export default function Landing() {
                 For small sellers · runs on GoDaddy
               </motion.p>
               <h1 className="display" id="hero-title">
-                <Line i={0}>Is your shop</Line>
-                <Line i={1}>
+                <Line i={0}>From business</Line>
+                <Line i={1}>idea to</Line>
+                <Line i={2}>
                   <motion.span
                     className="inline-icon"
                     aria-hidden
@@ -256,10 +257,17 @@ export default function Landing() {
                       <path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="var(--accent-ink)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </motion.span>
-                  actually ready
+                  customer-ready.
                 </Line>
-                <Line i={2}>for customers?</Line>
               </h1>
+              <motion.h2
+                className="hero-sub"
+                initial={calm ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.35, ease: EASE }}
+              >
+                Be ready before your first customer arrives.
+              </motion.h2>
             </div>
             <HeroShape progress={p} tiltX={sx} tiltY={sy} />
             <motion.div
@@ -269,8 +277,9 @@ export default function Landing() {
               transition={{ duration: 0.7, delay: 0.45, ease: EASE }}
             >
               <p>
-                Describe your business. LaunchWitness puts it online on GoDaddy, proves a real order reaches you, fixes what
-                breaks, and keeps checking.
+                LaunchWitness builds your online presence, puts your store to the test, and makes sure customer orders
+                actually reach you. If something goes wrong, it helps put things right, so your first sale doesn&apos;t become
+                your first problem.
               </p>
               <div className="hero-meta">
                 <a className="btn btn-primary" href="#/new">
