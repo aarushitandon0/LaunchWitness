@@ -21,7 +21,6 @@
   <a href="https://meeras-eggless-bakes.launchwitness.com">Live demo shop</a> ·
   <a href="https://launchwitness.com/r/GsZj7gOAoCydSauqdNpoaWksKHVW-HSz">Its proof report</a> ·
   <a href="https://launchwitness.com/build">How it was built</a> ·
-  <code>&lt;demo video link&gt;</code>
 </p>
 
 <p align="center">
