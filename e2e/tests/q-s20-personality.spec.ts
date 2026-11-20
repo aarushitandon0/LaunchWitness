@@ -113,7 +113,7 @@ test("six themes x two motifs, then basket, quick view, reduced motion and a JS-
   const nojs = await plain.newPage();
   await nojs.goto(shopUrl(slug));
   expect(await nojs.locator(".qv-open").count()).toBe(0);
-  await nojs.locator('input[name="qty_0"]').fill("2");
+  await nojs.locator('input[name="qty_0_0"]').fill("2"); // S21: item 0 (Meera's truffle cake) has sizes: one box each
   await nojs.locator("#customer_name").fill("Riya NoJS");
   await nojs.locator("#customer_phone").fill("98765 43210");
   await pickDate(nojs);

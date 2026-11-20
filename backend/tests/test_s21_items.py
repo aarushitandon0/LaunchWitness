@@ -490,3 +490,19 @@ def test_s21_placeholders_are_marked_for_the_laptop_recapture(name):
 def test_prompt_injection_reply_still_ignores_the_injected_prices():
     p = tidy_profile(Profile.model_validate(json.loads((FIX / "claude" / "reader_prompt_injection.json").read_text(encoding="utf-8"))))
     assert p.name != "Hacked" and all(x.price_inr > 1 for x in p.products) and all(not x.options for x in p.products)
+
+
+def test_a_changed_option_label_on_a_live_shop_goes_through_the_policy_check(client, monkeypatch):
+    from app.agents.policy import Verdict
+    from app.routers import businesses
+
+    biz = shop(client)
+    seen = []
+    monkeypatch.setattr(businesses.live_contact, "is_real_live", lambda b: True)
+    monkeypatch.setattr("app.agents.policy.policy_check", lambda claude, p: seen.append(p) or Verdict(False, "Needs a look."))
+    cur = client.get(f"/api/businesses/{biz['id']}").json()["profile"]
+    products = [dict(x) for x in cur["products"]]
+    products[0]["options"] = [{"label": "½ kg", "price_inr": 650}, {"label": "Huge 5 kg", "price_inr": 1200}]
+    out = change(client, biz, products=products)
+    assert len(seen) == 1 and out["pending_edit"]  # held for the team; customers keep the approved menu
+    assert "Huge 5 kg" not in client.get("/", headers=HOST).text
