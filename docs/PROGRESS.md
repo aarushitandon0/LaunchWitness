@@ -17,7 +17,7 @@ after 30 days; demos mark Meera's photo print / topper, both tailors' stitching,
 in code (no fixture re-capture). Transcript scripts find Windows sessions. Live: hero, demo WhatsApp, demo custom order
 (nothing stored), manual check run 168 = 7 of 7, `/verify` intact. **Still with the owner: (a) merge the two live truffle
 items on Review + Team Publish, (b) real UPI order, (c) real photo-cake order (tick "Takes custom requests" on "Photo
-print on cake" first).** README kept at the previous version at the owner's request; new `docs/JUDGE_QA.md`,
+print on cake" first).** README kept at the previous version at the owner's request; new `docs/FAQ.md` (was `docs/JUDGE_QA.md`),
 `docs/SUBMISSION.md`, rewritten `docs/PROJECT_BRIEF.md`.
 
 Decisions (S22): the custom note is one line (line breaks become spaces), cut at 500; a photo sent with no custom item in
