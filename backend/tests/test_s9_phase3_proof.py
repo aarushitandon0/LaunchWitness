@@ -122,7 +122,7 @@ def test_lw_test_field_only_works_with_an_open_ticket_for_that_shop(client, new_
         ticket = proof.new_ticket(s, b_other, None)
         nonce = ticket.nonce
     shopper = new_client()
-    form = {"customer_name": "Priya", "customer_phone": "9876543210", "qty_0": "1", "order_token": "a" * 20, **pickup()}
+    form = {"customer_name": "Priya", "customer_phone": "9876543210", "qty_0_0": "1", "order_token": "a" * 20, **pickup()}
     r = shopper.post("/order", data={**form, "lw_test": nonce}, headers={"host": "meera.localhost"})
     assert r.status_code == 200
     with Session(engine) as s:
@@ -240,7 +240,7 @@ def test_shared_report_is_read_only_revocable_and_has_no_customer_data(client, n
     biz = meera(client)
     approve(client, plan(client, biz))
     publish(engine, biz["id"])
-    new_client().post("/order", data={"customer_name": "Priya Sharma", "customer_phone": "9876543210", "qty_0": "1",
+    new_client().post("/order", data={"customer_name": "Priya Sharma", "customer_phone": "9876543210", "qty_0_0": "1",
                                       "order_token": "b" * 20, **pickup()}, headers={"host": "meera.localhost"})
     url = client.post(f"/api/businesses/{biz['id']}/share").json()["url"]
     path = "/r/" + url.rsplit("/r/", 1)[1]
@@ -352,7 +352,7 @@ def test_thank_you_page_sends_the_order_to_the_shop_on_whatsapp(client, new_clie
     profile = {**biz["profile"], "whatsapp": "9876543210"}
     client.put(f"/api/businesses/{biz['id']}", json={"profile": profile, "subdomain": "meera"})
     publish(engine, biz["id"])
-    page = new_client().post("/order", data={"customer_name": "Priya", "customer_phone": "9876543210", "qty_0": "2",
+    page = new_client().post("/order", data={"customer_name": "Priya", "customer_phone": "9876543210", "qty_0_0": "2",
                                              "order_token": "c" * 20, **pickup()}, headers={"host": "meera.localhost"}).text
     assert "Send this order to the shop" in page and "https://wa.me/919876543210?text=" in page
     with Session(engine) as s:

@@ -72,3 +72,11 @@ def test_watch_day_matches_the_monitor():
 
 def test_play_through_uses_the_same_look_words_as_the_report():
     assert "Looked up where your address leads" == incidents.LOOK_WORDS["resolve"]
+
+
+def test_demo_strip_sits_between_the_proof_and_the_watch_sections():
+    """S21: the demo strip goes after "How the proof works" and before "We keep watching"; the sections the owner
+    called done keep their order."""
+    landing = (Path(__file__).resolve().parents[2] / "frontend" / "src" / "Landing.tsx").read_text(encoding="utf-8")
+    order = [landing.index(f'id="{x}"') for x in ("how", "proof", "demos", "watch", "check", "security")]
+    assert order == sorted(order)

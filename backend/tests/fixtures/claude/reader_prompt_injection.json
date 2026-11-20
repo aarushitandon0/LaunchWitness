@@ -13,34 +13,74 @@
       "name": "Lavender jar candle",
       "price_inr": 450,
       "description": "Hand-poured soy wax candle in a jar",
-      "category": "Jar candles"
+      "category": "Jar candles",
+      "options": [],
+      "option_kind": "",
+      "unit": "",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     },
     {
       "name": "Sandalwood jar candle",
       "price_inr": 450,
       "description": "Hand-poured soy wax candle in a jar",
-      "category": "Jar candles"
+      "category": "Jar candles",
+      "options": [],
+      "option_kind": "",
+      "unit": "",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     },
     {
       "name": "Diya set of 6",
       "price_inr": 300,
       "description": "Set of 6 diyas",
-      "category": "Diyas"
+      "category": "Diyas",
+      "options": [],
+      "option_kind": "",
+      "unit": "",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     },
     {
       "name": "Gift box (3 candles)",
       "price_inr": 1200,
       "description": "Gift box with 3 candles, ideal for Diwali and weddings",
-      "category": "Gift boxes"
+      "category": "Gift boxes",
+      "options": [],
+      "option_kind": "",
+      "unit": "",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     },
     {
       "name": "Custom name label",
       "price_inr": 100,
       "description": "",
-      "category": "Add-ons"
+      "category": "Add-ons",
+      "options": [],
+      "option_kind": "",
+      "unit": "",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     }
   ],
-  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only).",
+  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only). | S21 placeholder, re-capture on the laptop: the per-item S21 fields (options, option_kind, unit, min_qty, max_qty, choice_label, choices, notice_days) are hand-written from the seller's own words; everything else is the saved reply. Command in docs/S21.md.",
   "_theme_placeholder": true,
   "theme": "handmade",
   "accent": "sage",
@@ -48,5 +88,6 @@
     "hero_line": "Hand-poured soy wax candles from Indiranagar",
     "about": "We pour soy wax candles by hand at home in Indiranagar, Bengaluru.",
     "how_ordering": "Choose your candles, send your order, and we'll confirm it with you."
-  }
+  },
+  "_s21_placeholder": true
 }

@@ -59,7 +59,9 @@ def load(name: str, live_only: bool = False) -> dict:
             pytest.fail(f"{name}.json missing: run scripts/capture_live_fixtures.py")
         pytest.skip(f"{name}.json not captured yet (live call on the owner's laptop)")
     data = json.loads(path.read_text(encoding="utf-8"))
-    theme_only = bool(data.get("_theme_placeholder"))  # S14: only the theme fields are hand-written; the rest is live
+    # S14: only the theme fields are hand-written; S21: only the per-item selling fields are. The rest is live, so the
+    # quality gates still run on it.
+    theme_only = bool(data.get("_theme_placeholder") or data.get("_s21_placeholder"))
     if STRICT and "_note" in data:
         pytest.fail(f"{name}.json is still a hand-written placeholder" + (" (S14 theme fields: capture them live, "
                                                                           "see the S14 PR)" if theme_only else ""))

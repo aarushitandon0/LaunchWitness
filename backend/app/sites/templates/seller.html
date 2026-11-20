@@ -6,9 +6,22 @@
 {% if shop %}<meta name="lw-shop" content="{{ shop }}">
 {% endif %}<title>{% if page == "privacy" %}Privacy · {% elif page == "thanks" %}Order received · {% endif %}{{ p.name }}</title>
 <meta name="description" content="{{ p.tagline or p.about[:150] }}">
+{% if share %}{# S21: the link preview when someone shares the shop (public shop home only; never preview or demo) #}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ p.name }}">
 <meta property="og:title" content="{{ p.name }}">
-<meta property="og:description" content="{{ p.tagline }}">
-<meta name="theme-color" content="{{ theme.tokens['bg'] }}">
+<meta property="og:description" content="{{ share.description }}">
+<meta property="og:url" content="{{ share.url }}">
+{% if share.image %}<meta property="og:image" content="{{ share.image.url }}">
+<meta property="og:image:width" content="{{ share.image.w }}">
+<meta property="og:image:height" content="{{ share.image.h }}">
+<meta property="og:image:alt" content="{{ share.image.alt or p.name }}">
+{% endif %}<meta name="twitter:card" content="{{ 'summary_large_image' if share.image else 'summary' }}">
+<meta name="twitter:title" content="{{ p.name }}">
+<meta name="twitter:description" content="{{ share.description }}">
+{% if share.image %}<meta name="twitter:image" content="{{ share.image.url }}">
+{% endif %}<link rel="canonical" href="{{ share.url }}">
+{% endif %}<meta name="theme-color" content="{{ theme.tokens['bg'] }}">
 <link rel="preload" href="{{ font_base }}{{ theme.display[0].file }}" as="font" type="font/woff2" crossorigin>
 {#
   ONE template and ONE safety layer for every seller and every theme (app/sites/themes.py).
@@ -25,6 +38,7 @@
 {% include "css/fx.css" %}
 {% include "css/hero_" ~ theme.hero ~ ".css" %}
 {% include "css/menu_" ~ theme.menu ~ ".css" %}
+{% include "css/items.css" %}
 </style>
 </head>
 <body class="theme-{{ theme.key }}">
@@ -55,29 +69,39 @@
 {%- elif name == "check" -%}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
 {%- endif -%}
 {%- endmacro -%}
-{%- macro price(item) -%}{% if item.price_from %}<small>from </small>{% endif %}{{ item.price_inr | inr }}{%- endmacro -%}
+{%- macro price(item) -%}{% if item.price_from or item.options | length > 1 %}<small>from </small>{% endif %}{{ item.price_inr | inr }}{% if item.unit %} <small class="unit">{{ sell.unit_word(item) }}</small>{% endif %}{%- endmacro -%}
 {%- macro food_mark(k) -%}{% if k %}<span class="fm fm-{{ k }}"><span class="fm-box" role="img" aria-label="{{ mark_words[k] }}"><i></i></span><span class="fm-t">{{ mark_words[k] }}</span></span>{% endif %}{%- endmacro -%}
 {%- macro art_svg() -%}<svg class="art" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><use href="#lw-art"/></svg>{%- endmacro -%}
 {%- macro art_panel(mono=true) -%}<div class="art-panel">{{ art_svg() }}{% if mono %}<span class="mono" aria-hidden="true">{{ monogram }}</span>{% endif %}</div>{%- endmacro -%}
 {%- macro photo_panel(ph, first=false) -%}<div class="photo-panel"><img src="{{ ph.large }}" width="{{ ph.large_w }}" height="{{ ph.large_h }}" alt="{{ ph.alt }}" {% if first %}fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async"></div>{%- endmacro -%}
+{%- macro qty_unit(i, item, field, name, price, label="") -%}
+<div class="q{% if label %} opt{% endif %}">{% if label %}<label class="opt-l" for="{{ field }}"><span>{{ label }}</span> <b>{{ price | inr }}</b></label>{% else %}<label for="{{ field }}">Qty</label>{% endif %}
+<input id="{{ field }}" name="{{ field }}" type="number" inputmode="numeric" min="0" max="{{ [50, sell.cap(item)] | max }}" step="1" value="{{ form.get(field, 0) }}" data-price="{{ price }}" data-name="{{ name }}">
+<button type="button" class="btn btn-line btn-sm add" aria-describedby="n{{ i }}"{% if label %} aria-label="Add {{ name }}"{% endif %}>Add</button>
+<span class="step"><button type="button" class="minus" aria-label="One less {{ name }}">−</button><output aria-live="polite">0</output><button type="button" class="plus" aria-label="One more {{ name }}">+</button></span></div>
+{%- endmacro -%}
 {%- macro item_row(i, item) -%}
 {%- set ph = photos["items"].get(item.name) -%}
-<li class="item{% if ph %} has-photo{% endif %}" data-i="{{ i }}">
+{%- set notes = sell.notes(item, p.min_notice_days) -%}
+<li class="item{% if ph %} has-photo{% endif %}{% if item.options and not item.sold_out %} has-opts{% endif %}{% if item.sold_out %} sold-out{% endif %}" data-i="{{ i }}" data-item="{{ item.name }}"{% if item.min_qty > 1 %} data-min="{{ item.min_qty }}"{% endif %}>
   {% if theme.menu == "cards" %}{% if ph %}<div class="thumb"><img src="{{ ph.small }}" width="{{ ph.small_w }}" height="{{ ph.small_h }}" alt="{{ ph.alt }}" loading="lazy" decoding="async"></div>{% else %}<div class="thumb art-tile"><svg class="art" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false" style="transform:rotate({{ (i % 4) * 90 }}deg) scale(1.7) translate({{ (i % 3) * 6 - 6 }}px,{{ (i % 5) * 4 - 8 }}px)"><use href="#lw-art"/></svg><b aria-hidden="true">{{ item.name[:1] | upper }}</b></div>{% endif %}
   {% elif ph %}<img class="item-photo" src="{{ ph.small }}" width="{{ ph.small_w }}" height="{{ ph.small_h }}" alt="{{ ph.alt }}" loading="lazy" decoding="async">{% endif %}
   <div class="item-main">
     <div class="nameline"><div class="name" id="n{{ i }}">{{ item.name }}{% if i in new_idx %} <span class="new-badge">New</span>{% endif %}</div><span class="leader" aria-hidden="true"></span></div>
     {% if item.food_mark %}<div class="fm-row">{{ food_mark(item.food_mark) }}</div>{% endif %}
     {% if item.description %}<div class="desc">{{ item.description }}</div>{% endif %}
+    {%- if notes %}<ul class="item-notes">{% for n in notes %}<li>{{ n }}</li>{% endfor %}</ul>{% endif %}
+    {%- if item.choices and not item.sold_out %}<div class="choice">
+      <label for="choice_{{ i }}">{{ sell.choice_word(item) }}</label>
+      <select id="choice_{{ i }}" name="choice_{{ i }}"><option value="">Choose…</option>{% for c in item.choices %}<option value="{{ c }}"{% if form.get('choice_' ~ i) == c %} selected{% endif %}>{{ c }}</option>{% endfor %}</select>
+      <small>Pick one if you order this.</small>
+    </div>{% endif %}
   </div>
   <div class="price">{{ price(item) }}</div>
-  <div class="qty">
-    <label for="qty_{{ i }}">Qty</label>
-    <input id="qty_{{ i }}" name="qty_{{ i }}" type="number" inputmode="numeric" min="0" max="50" step="1"
-      value="{{ form.get('qty_' ~ i, 0) }}" data-price="{{ item.price_inr }}" data-name="{{ item.name }}">
-    <button type="button" class="btn btn-line btn-sm add" aria-describedby="n{{ i }}">Add</button>
-    <span class="step"><button type="button" class="minus" aria-label="One less {{ item.name }}">−</button><output aria-live="polite">0</output><button type="button" class="plus" aria-label="One more {{ item.name }}">+</button></span>
-  </div>
+  {% if item.sold_out %}<div class="qty sold"><span class="sold-tag">Sold out today</span></div>
+  {%- elif item.options %}<div class="qty opts" role="group" aria-labelledby="n{{ i }} oh{{ i }}"><p class="opts-h" id="oh{{ i }}">{{ sell.kind_word(item) }}</p>
+  {%- for o in item.options %}{{ qty_unit(i, item, "qty_" ~ i ~ "_" ~ loop.index0, item.name ~ " · " ~ o.label, o.price_inr, o.label) }}{% endfor %}</div>
+  {%- else %}<div class="qty">{{ qty_unit(i, item, "qty_" ~ i, item.name, item.price_inr) }}</div>{% endif %}
 </li>
 {%- endmacro -%}
 
@@ -213,7 +237,7 @@
     data-local="{{ 1 if offers.local else 0 }}" data-terms="{{ p.payment_terms }}" data-advance="{{ p.advance_percent }}"
     data-pins="{{ area_pins }}" data-places="{{ area_places }}" data-refusal="{{ refusal_text }}">
     <div>
-      <section class="section" id="menu" aria-labelledby="menu-h" style="padding-top:{{ '44px' if not theme.before else '40px' }}">
+      <section class="section menu-{{ theme.menu }}" id="menu" aria-labelledby="menu-h" style="padding-top:{{ '44px' if not theme.before else '40px' }}">
         <h2 class="section-h" id="menu-h">{{ 'Price list' if theme.menu == 'pricelist' else 'Menu' }}</h2>
         <p class="section-sub">Prices in rupees. Tap Add to build your order.</p>
         {% if new_names %}<p class="new-strip"><span class="new-badge">New</span> New on the menu: {{ new_names | join(", ") }}</p>{% endif %}
@@ -285,12 +309,12 @@
       </div>
       {% endif %}
       {% endif %}
-      {% if p.min_notice_days or p.days_off or p.max_orders_per_day or choices %}
+      {% if p.min_notice_days or p.days_off or p.max_orders_per_day or choices or item_notice %}
       <div class="field">
         <label for="wanted_date">Date you want it by{% if not (p.min_notice_days or p.days_off or p.max_orders_per_day) %} <span class="hint">(optional)</span>{% endif %}</label>
         <input id="wanted_date" name="wanted_date" type="date" min="{{ date_min }}" max="{{ date_max }}" value="{{ form.get('wanted_date', '') }}"
           {% if p.min_notice_days or p.days_off or p.max_orders_per_day %}required{% endif %} data-off="{{ days_off }}" data-full="{{ full_dates }}" data-shop="{{ p.name }}">
-        <small>{% if p.min_notice_days %}Earliest: {{ date_min }}. {% endif %}{% if p.days_off %}Not on {{ days_off_text }}. {% endif %}{% if p.max_orders_per_day %}Fully booked days can't be picked.{% endif %}</small>
+        <small>{% if p.min_notice_days %}Earliest: {{ date_min }}. {% endif %}{% if p.days_off %}Not on {{ days_off_text }}. {% endif %}{% if p.max_orders_per_day %}Fully booked days can't be picked.{% endif %}{% if item_notice %}Some items need more notice: see the menu.{% endif %}</small>
         <p class="notice" id="date-msg" role="status" hidden></p>
       </div>
       {% endif %}
@@ -346,7 +370,7 @@
   <section class="panel" style="position:static">
     <h2>Your order</h2>
     <ul class="basket">
-      {% for it in order["items"] %}<li><span>{{ it.qty }} × {{ it.name }}</span><span>{{ (it.qty * it.price_inr) | inr }}</span></li>{% endfor %}
+      {% for it in order["items"] %}<li><span>{{ it.qty }} × {{ it | line }}</span><span>{{ (it.qty * it.price_inr) | inr }}</span></li>{% endfor %}
     </ul>
     {% if order.fee_inr %}<div class="sub"><span>{{ delivery_word }}</span><span>{{ order.fee_inr | inr }}</span></div>{% endif %}
     {% if order["items"] %}<div class="total"><span>{{ "Total" if pay else "Estimated total" }}</span><span>{{ order.total_inr | inr }}</span></div>{% endif %}
@@ -438,19 +462,28 @@
     return freeAbove && items >= freeAbove ? 0 : baseFee;
   }
   var bar = document.getElementById("bar-order");
-  function val(input) { var n = parseInt(input.value, 10); return isNaN(n) || n < 0 ? 0 : Math.min(n, 50); }
+  /* S21: an item has one quantity box (.q), or one per size / pack (qty_<i>_<j>); a sold-out item has none. */
+  function val(input) { var n = parseInt(input.value, 10), top = parseInt(input.max, 10) || 50; return isNaN(n) || n < 0 ? 0 : Math.min(n, top); }
+  function units(row) { return Array.prototype.slice.call(row.querySelectorAll(".q")); }
+  function rowSum(row) { return units(row).reduce(function (a, q) { return a + val(q.querySelector("input")); }, 0); }
   function refresh() {
     var count = 0, total = 0, lines = [];
     rows.forEach(function (row) {
-      var input = row.querySelector("input"), n = val(input);
-      row.classList.toggle("chosen", n > 0);
-      row.querySelector("output").textContent = n;
-      if (n > 0) {
-        count += n; total += n * Number(input.dataset.price);
-        var li = document.createElement("li"), a = document.createElement("span"), b = document.createElement("span");
-        a.textContent = n + " × " + input.dataset.name; b.textContent = inr(n * Number(input.dataset.price));
-        li.appendChild(a); li.appendChild(b); lines.push(li);
-      }
+      var sum = 0, sel = row.querySelector(".choice select"), pick = sel && sel.value ? " · " + sel.value : "";
+      units(row).forEach(function (q) {
+        var input = q.querySelector("input"), n = val(input);
+        q.classList.toggle("chosen", n > 0);
+        q.querySelector("output").textContent = n;
+        sum += n;
+        if (n > 0) {
+          count += n; total += n * Number(input.dataset.price);
+          var li = document.createElement("li"), a = document.createElement("span"), b = document.createElement("span");
+          a.textContent = n + " × " + input.dataset.name + pick; b.textContent = inr(n * Number(input.dataset.price));
+          li.appendChild(a); li.appendChild(b); lines.push(li);
+        }
+      });
+      row.classList.toggle("chosen", sum > 0);
+      if (sel) sel.required = sum > 0;
     });
     basket.innerHTML = "";
     if (lines.length) { lines.forEach(function (li) { basket.appendChild(li); }); }
@@ -471,12 +504,18 @@
     document.body.classList.toggle("has-bar", count > 0);
   }
   rows.forEach(function (row) {
-    var input = row.querySelector("input");
-    var set = function (n) { input.value = Math.max(0, Math.min(50, n)); refresh(); };
-    row.querySelector(".add").addEventListener("click", function () { set(1); row.querySelector(".plus").focus(); });
-    row.querySelector(".plus").addEventListener("click", function () { set(val(input) + 1); });
-    row.querySelector(".minus").addEventListener("click", function () {
-      set(val(input) - 1); if (!val(input)) row.querySelector(".add").focus();
+    var min = parseInt(row.dataset.min, 10) || 1, sel = row.querySelector(".choice select");
+    if (sel) sel.addEventListener("change", refresh);
+    units(row).forEach(function (q) {
+      var input = q.querySelector("input");
+      var set = function (n) { input.value = Math.max(0, Math.min(parseInt(input.max, 10) || 50, n)); refresh(); };
+      q.querySelector(".add").addEventListener("click", function () { set(rowSum(row) ? 1 : min); q.querySelector(".plus").focus(); });
+      q.querySelector(".plus").addEventListener("click", function () { set(val(input) + 1); });
+      q.querySelector(".minus").addEventListener("click", function () {
+        var after = rowSum(row) - 1;
+        set(after > 0 && after < min ? 0 : val(input) - 1);
+        if (!val(input)) q.querySelector(".add").focus();
+      });
     });
   });
   /* Delivery: show the address box only for delivery, and say politely (before sending) when the PIN/address is outside the

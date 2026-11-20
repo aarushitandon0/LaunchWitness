@@ -24,7 +24,7 @@ from app.integrations import Integrations, for_business, get_integrations, get_p
 from app.mail.smtp import Mailer, get_mailer
 from app.models import Business, ShopReport
 from app.safety.access import start_of_today, visitor_id
-from app.sites.hosts import business_for_host, normalize_host, subdomain_label
+from app.sites.hosts import business_for_host, normalize_host, shop_url, subdomain_label
 from app.sites.orders import accept_order_form
 from app.sites.render import render_site
 
@@ -121,7 +121,7 @@ def seller_page(path: str, request: Request, settings: Settings, session: Sessio
         from app.sites.orders import full_days
 
         return shop_response(render_site(profile, shop=b.subdomain or str(b.id), photos=photos.for_site(session, b.id),
-                                         full_dates=full_days(session, b, profile)))
+                                         full_dates=full_days(session, b, profile), share_url=shop_url(b, settings)))
     if path.rstrip("/") == "privacy":
         return shop_response(render_site(profile, page="privacy"))
     if path.rstrip("/") == "report-shop":

@@ -54,13 +54,13 @@ def test_meera_input_produces_profile(client, claude):
 def test_editing_a_price_updates_rendered_site(client):
     biz = create(client)
     save(client, biz)
-    assert "₹650" in client.get("/", headers={"host": MEERA}).text
+    assert "₹550" in client.get("/", headers={"host": MEERA}).text
     products = [dict(p) for p in biz["profile"]["products"]]
-    products[0]["price_inr"] = 725
+    products[1]["price_inr"] = 725  # S21: item 0 (the truffle cake) has sizes; its price is its lowest size's
     save(client, biz, products=products)
     html = client.get("/", headers={"host": MEERA}).text
-    assert "₹725" in html and "₹650" not in html
-    assert client.get(f"/api/businesses/{biz['id']}").json()["profile"]["products"][0]["price_inr"] == 725
+    assert "₹725" in html and "₹550" not in html
+    assert client.get(f"/api/businesses/{biz['id']}").json()["profile"]["products"][1]["price_inr"] == 725
 
 
 def test_profile_edit_is_validated(client):
@@ -180,7 +180,8 @@ def test_template_escapes_seller_text(client):
 # ---------- AC3: order form -> stored order -> email ----------
 
 def order_form(**extra):
-    return {"qty_0": "1", "qty_5": "2", "customer_name": "Asha Rao", "customer_phone": "+91 99887 76655",
+    # S21: Meera's truffle cake is one item with sizes (qty_0_0 = ½ kg); item 4 = cupcakes box of 6
+    return {"qty_0_0": "1", "qty_4": "2", "customer_name": "Asha Rao", "customer_phone": "+91 99887 76655",
             "note": "Happy birthday Riya on top", **pickup(), **extra}
 
 
@@ -193,7 +194,7 @@ def test_order_is_stored_and_emailed(client, engine, mailer, meera, settings):
     mail = mailer.sent[0]
     assert mail["to"] == settings.smtp_user
     assert mail["subject"].startswith("New order for Meera's Eggless Bakes from Asha Rao")
-    assert "1 x Chocolate truffle cake 1/2 kg" in mail["body"]
+    assert "1 x Chocolate truffle cake · ½ kg @ ₹650 = ₹650" in mail["body"]
     assert "2 x Cupcakes box of 6 @ ₹420 = ₹840" in mail["body"]
     assert "+91 99887 76655" in mail["body"] and "Happy birthday Riya" in mail["body"]
 
@@ -216,9 +217,9 @@ def test_note_only_order_is_ok(client, mailer, meera):
 @pytest.mark.parametrize("bad", [
     {"customer_name": ""},
     {"customer_phone": "123"},
-    {"qty_0": "-1"},
-    {"qty_0": "500"},
-    {"qty_0": "0", "qty_5": "0", "note": ""},
+    {"qty_0_0": "-1"},
+    {"qty_0_0": "500"},
+    {"qty_0_0": "0", "qty_4": "0", "note": ""},
     {"website": "http://spam"},
 ])
 def test_invalid_orders_are_rejected_and_not_emailed(client, engine, mailer, meera, bad):
@@ -231,7 +232,7 @@ def test_invalid_orders_are_rejected_and_not_emailed(client, engine, mailer, mee
 
 def test_invalid_order_keeps_what_customer_typed(client, meera):
     r = client.post("/order", data=order_form(customer_phone="12"), headers={"host": MEERA})
-    assert 'value="Asha Rao"' in r.text and re.search(r'name="qty_5" type="number"[^>]*value="2"', r.text)
+    assert 'value="Asha Rao"' in r.text and re.search(r'name="qty_4" type="number"[^>]*value="2"', r.text)
 
 
 def test_order_saved_even_if_email_fails(client, engine, mailer, meera):

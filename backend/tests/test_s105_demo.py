@@ -26,7 +26,7 @@ def test_unknown_demo_is_404(client):
 
 def test_demo_order_places_nothing(client, engine, mailer):
     before = len(getattr(mailer, "sent", []))
-    r = client.post("/demo/meera/order", data={"customer_name": "Asha", "customer_phone": "98765 43210", "qty_0": "1"})
+    r = client.post("/demo/meera/order", data={"customer_name": "Asha", "customer_phone": "98765 43210", "qty_0_0": "1"})
     assert r.status_code == 200
     assert "This is a demo" in r.text and "no order was placed" in r.text
     with Session(engine) as s:

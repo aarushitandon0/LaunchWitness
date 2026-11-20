@@ -1,4 +1,6 @@
 {
+  "_note": "S21 placeholder, re-capture on the laptop: the per-item S21 fields (options, option_kind, unit, min_qty, max_qty, choice_label, choices, notice_days) are hand-written from the seller's own words; everything else is the saved reply. Command in docs/S21.md.",
+  "_s21_placeholder": true,
   "name": "Annapurna Ghar Ka Khana",
   "tagline": "Fresh home-style veg tiffin in HSR Layout and Koramangala",
   "about": "We are two sisters cooking fresh Maharashtrian and North Indian veg food every morning for students and office people. Our food is made with less oil and less spice, and we can do a no onion-garlic option on request. We deliver in a steel tiffin and collect the empty one the next day. You can pause your monthly plan for travel with 1 day notice.",
@@ -14,49 +16,105 @@
       "price_inr": 110,
       "description": "3 roti, sabzi, dal, rice",
       "category": "Daily thalis",
-      "food_mark": "veg"
+      "food_mark": "veg",
+      "options": [],
+      "option_kind": "",
+      "unit": "",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     },
     {
       "name": "Full thali",
       "price_inr": 150,
       "description": "4 roti, 2 sabzi, dal, rice, salad, sweet",
       "category": "Daily thalis",
-      "food_mark": "veg"
+      "food_mark": "veg",
+      "options": [],
+      "option_kind": "",
+      "unit": "",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     },
     {
       "name": "Trial meal (one time)",
       "price_inr": 99,
       "description": "Try us once before you subscribe",
       "category": "Daily thalis",
-      "food_mark": "veg"
+      "food_mark": "veg",
+      "options": [],
+      "option_kind": "",
+      "unit": "",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     },
     {
       "name": "Only lunch monthly",
       "price_inr": 3400,
       "description": "26 days, full thali",
       "category": "Monthly plans",
-      "food_mark": "veg"
+      "food_mark": "veg",
+      "options": [],
+      "option_kind": "",
+      "unit": "",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     },
     {
       "name": "Lunch + dinner monthly",
       "price_inr": 6200,
       "description": "Lunch and dinner, cheapest way to eat with us",
       "category": "Monthly plans",
-      "food_mark": "veg"
+      "food_mark": "veg",
+      "options": [],
+      "option_kind": "",
+      "unit": "",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     },
     {
       "name": "Extra roti",
       "price_inr": 10,
       "description": "Per roti",
       "category": "Add-ons",
-      "food_mark": "veg"
+      "food_mark": "veg",
+      "options": [],
+      "option_kind": "",
+      "unit": "piece",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     },
     {
       "name": "Sunday special puran poli",
       "price_inr": 60,
       "description": "Per piece, pre-order only",
       "category": "Add-ons",
-      "food_mark": "veg"
+      "food_mark": "veg",
+      "options": [],
+      "option_kind": "",
+      "unit": "piece",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     }
   ],
   "theme": "kitchen",

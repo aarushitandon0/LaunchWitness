@@ -801,3 +801,16 @@ fieldset.field > legend { font-weight: 600; padding: 0; margin-bottom: 0.35rem; 
 .sig-opt small { font-size: 12px; }
 .sig-opt:disabled { opacity: .6; cursor: progress; }
 .sig-opt .motif-thumb { opacity: .85; }
+
+/* S21: how one item is sold (Review) and the "Sold out today" switches (Review, Orders, My shops) */
+.products .product .sell-how { grid-column: 1 / -1; margin-top: var(--s-2, 0.5rem); border: 1px solid var(--line); border-radius: 10px; padding: 0.5rem 0.75rem; }
+.sell-how > summary { cursor: pointer; font-weight: 600; font-size: var(--fs-sm); min-height: 32px; display: flex; align-items: center; gap: 0.25rem; }
+.sell-group { border: 0; padding: 0; margin: var(--s-3, 0.75rem) 0 0; display: grid; gap: 0.25rem; justify-items: start; }
+.sell-group legend { font-weight: 600; font-size: var(--fs-sm); margin-bottom: 0.25rem; }
+.sell-row { display: flex; flex-wrap: wrap; align-items: end; gap: 0 var(--s-3, 0.75rem); width: 100%; }
+.sell-row .field.grow { flex: 1 1 12rem; }
+.sell-row .field.price { flex: 0 1 9rem; }
+.soldout-list { list-style: none; margin: 0.5rem 0; padding: 0; display: grid; gap: 0.4rem; }
+.soldout-list li { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
+.soldout-compact { margin-top: 0.4rem; font-size: var(--fs-sm); }
+.soldout-compact > summary { cursor: pointer; font-weight: 600; min-height: 32px; display: inline-flex; align-items: center; }

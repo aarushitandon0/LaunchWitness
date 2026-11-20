@@ -7,6 +7,16 @@ export type Product = {
   price_from: boolean; // shown as "from ₹X"
   food_mark: "" | "veg" | "egg" | "nonveg"; // the Reader may suggest it; she confirms it
   new_until?: string; // S19D: "YYYY-MM-DD" while shown as New (the server keeps at most 15 days ahead)
+  // S21: how the item is sold (all optional; the server validates every field)
+  options?: { label: string; price_inr: number }[]; // sizes / packs with their own prices
+  option_kind?: "" | "size" | "weight" | "pack" | "count" | "other";
+  unit?: "" | "piece" | "box" | "kg" | "g" | "dozen" | "set" | "bunch" | "metre";
+  min_qty?: number;
+  max_qty?: number;
+  choice_label?: string;
+  choices?: string[];
+  notice_days?: number;
+  sold_out?: boolean; // "Sold out today": hers alone
 };
 
 export type Profile = {
@@ -220,7 +230,7 @@ export type Order = {
   tel_url: string | null;
   customer_name: string;
   customer_phone: string;
-  items: { name: string; qty: number; price_inr: number }[];
+  items: { name: string; qty: number; price_inr: number; option_label?: string; choice?: string }[]; // S21: size / pick
   total_inr: number;
   note: string;
   email_status: string;
@@ -586,6 +596,9 @@ export const api = {
     request<Business>(`/api/businesses/${id}/theme`, json({ theme, accent }, "PUT")),
   setSignature: (id: number, motif: string, art: string) =>
     request<Business>(`/api/businesses/${id}/signature`, json({ motif, art }, "PUT")),
+  // S21: one item's "Sold out today" switch (named by place AND name; a changed menu answers 409)
+  setSoldOut: (id: number, index: number, name: string, sold_out: boolean) =>
+    request<Business>(`/api/businesses/${id}/sold-out`, json({ index, name, sold_out }, "PUT")),
   contact: (name: string, email: string, message: string, website: string) =>
     request<{ ok: boolean; message: string }>("/api/contact", json({ name, email, message, website })),
   // look: the picker's small inline preview; it doesn't count as "she looked at her preview" for the go-live list.

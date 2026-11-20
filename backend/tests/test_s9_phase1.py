@@ -22,7 +22,7 @@ from tests.test_m3_launch import approve, meera, plan
 from tests.test_m4_repair import ctx_for
 
 HOST = {"host": "meera.localhost"}
-ORDER = {"qty_0": "1", "customer_name": "Asha Rao", "customer_phone": "98765 43210", **pickup()}
+ORDER = {"qty_0_0": "1", "customer_name": "Asha Rao", "customer_phone": "98765 43210", **pickup()}
 
 
 def launched_shop(client, engine, owner_email: str | None = None) -> tuple[dict, dict]:

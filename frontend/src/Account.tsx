@@ -4,6 +4,7 @@ import { api, ApiError, BusinessSummary, Me, session, Watch } from "./api";
 import { goTo } from "./App";
 import { ErrorBox } from "./Describe";
 import { ShopLink } from "./ShopLink";
+import { SoldOutToday } from "./SoldOut";
 import { resumeHash, resumeLabel } from "./Steps";
 
 /** The signed-in account (null while loading). The server decides what anyone may do; this is only for display. */
@@ -236,6 +237,13 @@ export function MyShopsPage() {
                     </a>
                   </>
                 )}
+                {b.public && (
+                  <SoldOutToday
+                    biz={b}
+                    compact
+                    onChange={(nb) => setShops((list) => (list ?? []).map((x) => (x.id === nb.id ? { ...x, ...nb } : x)))}
+                  />
+                )}
                 {b.renewal && (
                   <>
                     <br />
@@ -257,6 +265,28 @@ export function MyShopsPage() {
                   previewLabel="Preview"
                   className="btn btn-ghost btn-sm"
                 />
+                {b.public && b.live_url && (
+                  <>
+                    <a
+                      className="btn btn-ghost btn-sm"
+                      href={`https://wa.me/?text=${encodeURIComponent(`Order from ${b.name}: ${b.live_url}`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Share ${b.name} on WhatsApp`}
+                    >
+                      Share on WhatsApp
+                    </a>
+                    <a
+                      className="btn btn-ghost btn-sm"
+                      href={`/api/businesses/${b.id}/poster`}
+                      target="_blank"
+                      rel="noopener"
+                      aria-label={`Printable poster with a QR code for ${b.name}`}
+                    >
+                      Print a poster
+                    </a>
+                  </>
+                )}
                 {resumeLabel(b) === "Report" && (
                   <a className="btn btn-ghost btn-sm" href={`#/b/${b.id}`}>
                     Edit shop

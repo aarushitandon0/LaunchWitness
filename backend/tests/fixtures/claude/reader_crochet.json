@@ -1,0 +1,85 @@
+{
+  "_note": "S21 placeholder, re-capture on the laptop: this whole reply is hand-written from the seller's own words (no live call yet). Command in docs/S21.md.",
+  "name": "Loops by Lata",
+  "tagline": "Hand-made crochet roses and bouquets",
+  "about": "I'm Lata, and I crochet flowers that never wilt, by hand at home in Kakkanad, Kochi. I make single roses for gifting and bouquets for birthdays and anniversaries.",
+  "area": "Kakkanad, Kochi",
+  "hours": "",
+  "phone": "",
+  "whatsapp": "",
+  "upi_id": "",
+  "tone": "friendly",
+  "selling_point": "Hand-made",
+  "min_notice_days": 0,
+  "pickup_available": true,
+  "delivery_available": true,
+  "delivery_fee_inr": 0,
+  "allow_item_message": false,
+  "upi_display_name": "",
+  "fssai_number": "",
+  "kind": "orders",
+  "not_supported_reason": "",
+  "allergens": "",
+  "theme": "handmade",
+  "accent": "plum",
+  "section_copy": {
+    "hero_line": "Crochet roses and bouquets that never wilt",
+    "about": "I crochet every flower by hand at home in Kakkanad, Kochi.",
+    "how_ordering": "Choose your roses or a bouquet and a colour; pick up from Kakkanad or get it couriered across India."
+  },
+  "products": [
+    {
+      "name": "Crochet roses",
+      "price_inr": 40,
+      "description": "Single hand-made rose",
+      "category": "Roses",
+      "addon": false,
+      "price_from": false,
+      "food_mark": "",
+      "options": [],
+      "option_kind": "",
+      "unit": "piece",
+      "min_qty": 5,
+      "max_qty": 0,
+      "choice_label": "Colour",
+      "choices": [
+        "Red",
+        "Pink",
+        "White",
+        "Yellow"
+      ],
+      "notice_days": 0
+    },
+    {
+      "name": "Crochet bouquet",
+      "price_inr": 260,
+      "description": "Bouquet of crochet roses",
+      "category": "Bouquets",
+      "addon": false,
+      "price_from": false,
+      "food_mark": "",
+      "options": [
+        {
+          "label": "6 roses",
+          "price_inr": 260
+        },
+        {
+          "label": "12 roses",
+          "price_inr": 480
+        }
+      ],
+      "option_kind": "pack",
+      "unit": "",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "Colour",
+      "choices": [
+        "Red",
+        "Pink",
+        "White",
+        "Yellow"
+      ],
+      "notice_days": 0
+    }
+  ]
+}

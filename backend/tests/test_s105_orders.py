@@ -12,7 +12,7 @@ from tests.test_m3_launch import meera
 
 
 def place(shopper, name="Priya", phone="9876543210", token="a" * 20):
-    form = {"customer_name": name, "customer_phone": phone, "qty_0": "1", "order_token": token, **pickup()}
+    form = {"customer_name": name, "customer_phone": phone, "qty_0_0": "1", "order_token": token, **pickup()}
     r = shopper.post("/order", data=form, headers={"host": "meera.localhost"})
     assert r.status_code == 200, r.text
 

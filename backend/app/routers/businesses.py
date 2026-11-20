@@ -167,6 +167,38 @@ def set_signature(body: SignatureChoice, actor: ActorDep, b: Annotated[Business,
     return business_out(b, settings, session)
 
 
+class SoldOut(BaseModel):
+    index: int
+    name: str
+    sold_out: bool
+
+
+@router.put("/businesses/{business_id}/sold-out")
+def set_sold_out(body: SoldOut, actor: ActorDep, b: Annotated[Business, Depends(require_business_access)],
+                 settings: Annotated[Settings, Depends(get_settings)],
+                 session: Annotated[Session, Depends(get_session)]) -> dict:
+    """S21: the one-tap "Sold out today" switch (Review, Orders, My shops). It changes no words, so a live shop takes it
+    at once with no policy re-check; a held edit waiting for the team gets the same switch. The item is named by its
+    place AND its name, so a list changed in another tab is refused rather than switching the wrong item."""
+    seen = Profile.model_validate_json(b.pending_profile_json or b.profile_json)  # the list she sees (business_out)
+    if not 0 <= body.index < len(seen.products) or seen.products[body.index].name != body.name:
+        raise HTTPException(status_code=409, detail="Your menu has changed. Please reload the page and try again.")
+    for field in ("profile_json", "pending_profile_json"):  # the live shop and a held edit alike, by the item's name
+        if getattr(b, field):
+            p = Profile.model_validate_json(getattr(b, field))
+            for item in p.products:
+                if item.name == body.name:
+                    item.sold_out = body.sold_out
+            setattr(b, field, p.model_dump_json())
+    session.add(b)
+    session.commit()
+    session.refresh(b)
+    audit.record(session, actor="owner", action="item_sold_out", target=f"business:{b.id}", result="ok",
+                 business_id=b.id, user_id=actor.user_id,
+                 detail=f"item {body.index + 1}: {'sold out today' if body.sold_out else 'back on sale'}")
+    return business_out(b, settings, session)
+
+
 @router.put("/businesses/{business_id}/theme")
 def set_theme(body: ThemeChoice, actor: ActorDep, b: Annotated[Business, Depends(require_business_access)],
               settings: Annotated[Settings, Depends(get_settings)],
@@ -609,6 +641,23 @@ def preview(b: Annotated[Business, Depends(require_business_access)], actor: Act
     return HTMLResponse(render_site(profile, page="privacy" if page == "privacy" else "home", preview=True,
                                     photos=photos.for_site(session, b.id), full_dates=full_days(session, b, profile)),
                         headers={"X-Robots-Tag": "noindex", "Cache-Control": "no-store"})
+
+
+@router.get("/businesses/{business_id}/poster", response_class=HTMLResponse)
+def poster(b: Annotated[Business, Depends(require_business_access)],
+           settings: Annotated[Settings, Depends(get_settings)],
+           session: Annotated[Session, Depends(get_session)]) -> HTMLResponse:
+    """S21: a printable poster with a QR code of the live shop's address (owner only, app host). A shop that isn't live
+    has no public address to print, so it answers 404."""
+    from app.sites.poster import poster_html
+
+    url = live_url(session, settings, b)
+    if not url:
+        raise HTTPException(status_code=404, detail="Your shop has no public address yet.")
+    html = poster_html(Profile.model_validate_json(b.profile_json), url)
+    return HTMLResponse(html, headers={"X-Robots-Tag": "noindex", "Cache-Control": "no-store",
+                                       "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; "
+                                       "img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"})
 
 
 def claim_out(c) -> dict | None:

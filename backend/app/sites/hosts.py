@@ -74,3 +74,12 @@ def site_url(subdomain: str, settings: Settings) -> str:
     base = urlsplit(settings.app_base_url)
     port = f":{base.port}" if base.port else ""
     return f"{base.scheme or 'http'}://{subdomain}.{settings.app_domain}{port}/"
+
+
+def shop_url(b: Business, settings: Settings) -> str:
+    """S21: the public address of a live shop (its own domain, or <subdomain>.APP_DOMAIN), with APP_BASE_URL's scheme:
+    https on the server. Used for the shop's link preview; never built from the request's Host header."""
+    if b.subdomain:
+        return site_url(b.subdomain, settings)
+    scheme = urlsplit(settings.app_base_url).scheme or "https"
+    return f"{scheme}://{b.domain}/" if b.domain else ""

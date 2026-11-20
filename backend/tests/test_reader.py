@@ -51,8 +51,8 @@ def test_fixture_mode_reads_each_sample_seller(name):
 def test_meera_profile_has_her_prices():
     s = sample("meera_cakes")
     profile = read_business(FixtureClaudeClient(), description=s["description"], price_list=s["price_list"])
-    prices = {p.price_inr for p in profile.products}
-    assert {650, 1200, 550, 750, 1400, 420, 480} <= prices
+    prices = {p.price_inr for p in profile.products} | {o.price_inr for p in profile.products for o in p.options}
+    assert {650, 1200, 550, 750, 1400, 420, 480} <= prices  # S21: ½ kg / 1 kg truffle cake are one item's two sizes
 
 
 def test_unknown_input_falls_back_to_default_fixture():

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, Business, inr, Order, OrderStatus } from "./api";
 import { ErrorBox } from "./Describe";
+import { SoldOutToday } from "./SoldOut";
 
 const LABEL: Record<OrderStatus, string> = {
   new: "New",
@@ -76,6 +77,7 @@ export function OrdersPage({ businessId }: { businessId: number }) {
           ? "No orders yet. When a customer orders on your shop, it appears here and in your email."
           : `${orders.length} order${orders.length === 1 ? "" : "s"}${fresh ? `, ${fresh} new` : ""}. Newest first.`}
       </p>
+      <SoldOutToday biz={biz} onChange={setBiz} compact />
       <p className="muted small">
         “Message on WhatsApp” opens your own WhatsApp with a message ready to send to the customer. We never send
         anything for you, and customers don't see these statuses.
@@ -95,7 +97,7 @@ export function OrdersPage({ businessId }: { businessId: number }) {
                 o.items.map((it, i) => (
                   <li key={i}>
                     <span>
-                      {it.qty} × {it.name}
+                      {it.qty} × {[it.name, it.option_label, it.choice].filter(Boolean).join(" · ")}
                     </span>
                     <span>{inr(it.qty * it.price_inr)}</span>
                   </li>
