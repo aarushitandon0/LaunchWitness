@@ -83,15 +83,12 @@
       "food_mark": "veg"
     }
   ],
-  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only). S15: `allergens` and each item's `food_mark` are hand-written too (a food mark only where the seller's own words say veg / eggless); the same --theme-only re-capture refreshes them.",
-  "_theme_placeholder": true,
   "theme": "kitchen",
-  "accent": "leaf",
+  "accent": "turmeric",
   "section_copy": {
-    "hero_line": "Pure vegetarian home-style tiffin, light on oil and masala",
-    "about": "We make home-style pure vegetarian tiffin with less oil and masala.",
-    "how_ordering": "Choose a thali or monthly plan, order a day ahead, and we'll confirm delivery."
+    "hero_line": "Fresh home-cooked vegetarian thalis and monthly tiffin plans",
+    "about": "We cook pure vegetarian, home-style food with less oil and spice. Lunch and dinner are delivered fresh from our home kitchen in Sector 62, Noida.",
+    "how_ordering": "Tell us a day ahead for monthly tiffin. Delivery is free from Sector 58 to 63, and you can order on WhatsApp."
   },
-  "allergens": "",
-  "_food_placeholder": true
+  "allergens": ""
 }

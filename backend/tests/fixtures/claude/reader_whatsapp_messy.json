@@ -13,52 +13,58 @@
       "name": "Mango achaar 500 g",
       "price_inr": 220,
       "description": "Made in mustard oil, no preservatives",
-      "category": "Achaar"
+      "category": "Achaar",
+      "food_mark": ""
     },
     {
       "name": "Mango achaar 1 kg",
       "price_inr": 400,
       "description": "Made in mustard oil, no preservatives",
-      "category": "Achaar"
+      "category": "Achaar",
+      "food_mark": ""
     },
     {
       "name": "Nimbu achaar 500 g",
       "price_inr": 180,
       "description": "Made in mustard oil, no preservatives",
-      "category": "Achaar"
+      "category": "Achaar",
+      "food_mark": "veg"
     },
     {
       "name": "Mirchi achaar 250 g",
       "price_inr": 120,
       "description": "Made in mustard oil, no preservatives",
-      "category": "Achaar"
+      "category": "Achaar",
+      "food_mark": "veg"
     },
     {
       "name": "Moong papad 1 kg",
       "price_inr": 350,
       "description": "",
-      "category": "Papad"
+      "category": "Papad",
+      "food_mark": "veg"
     },
     {
       "name": "Masala papad 500 g",
       "price_inr": 190,
       "description": "",
-      "category": "Papad"
+      "category": "Papad",
+      "food_mark": "veg"
     },
     {
       "name": "Courier outside Indore",
       "price_inr": 100,
       "description": "Extra charge for delivery outside Indore",
-      "category": "Delivery"
+      "category": "Delivery",
+      "food_mark": ""
     }
   ],
-  "_note": "Hand-written placeholder for the S14 theme fields (theme, accent, section_copy): no live Claude call made yet. Everything else in this file is the saved live reply. Re-capture with the command in the S14 PR description (scripts/capture_live_fixtures.py --theme-only).",
-  "_theme_placeholder": true,
   "theme": "kitchen",
-  "accent": "chilli",
+  "accent": "turmeric",
   "section_copy": {
-    "hero_line": "Homemade achaar and papad from Vijay Nagar, Indore",
-    "about": "We make achaar and papad at home in Vijay Nagar, Indore.",
-    "how_ordering": "Choose your jars and packs, send your order, and we'll confirm it with you."
-  }
+    "hero_line": "Homemade achaar and papad in mustard oil, from dadi's recipe",
+    "about": "I'm Sunita, and I make mango, nimbu and mirchi achaar at home in Vijay Nagar, Indore. Everything is made in mustard oil with no preservatives, following dadi's recipe.",
+    "how_ordering": "Orders are taken on WhatsApp only. Delivery within Indore takes 2-3 days, and outside Indore goes by courier for Rs 100 extra."
+  },
+  "allergens": ""
 }
