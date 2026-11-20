@@ -5,7 +5,7 @@ import json
 import smtplib
 import threading
 import time
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlmodel import Session, select
@@ -200,12 +200,24 @@ def test_practice_mail_doesnt_use_the_real_budget(make_settings, engine, mailer)
         assert put(s, settings, mailer, key="k2", kind="digest").status == "queued"
 
 
-def test_held_mail_goes_out_the_next_day(make_settings, engine, mailer):
+@pytest.mark.parametrize("clock", ["00:05", "05:30", "12:00", "18:29", "23:50"])
+def test_held_mail_goes_out_the_next_day(make_settings, engine, mailer, monkeypatch, clock):
+    # S21B: the outbox clock is frozen, so this no longer depends on the time of day. It used to fail when run in the
+    # last 15 minutes of the UTC day: the held mail's next look (now + HOLD_S) fell after "tomorrow 00:01".
+    hour, minute = map(int, clock.split(":"))
+    now = datetime(2026, 11, 20, hour, minute, tzinfo=UTC)
+    monkeypatch.setattr(outbox, "utcnow", lambda: now)
     settings = make_settings(smtp_daily_limit=1)
-    fill_today(engine, 1)
     with Session(engine) as s:
-        put(s, settings, mailer, kind="digest")
-    tomorrow = outbox.start_of_day(utcnow()) + timedelta(days=1, minutes=1)
+        s.add(Outbox(key="old0", kind="alert", to_addr="x@example.org", subject="s", status="sent", sent_at=now,
+                     channel="smtp"))
+        s.commit()
+        row = put(s, settings, mailer, kind="digest")
+        assert row.last_error == "waiting: daily send budget" and mailer.sent == []
+    later_today = min(now + timedelta(seconds=outbox.HOLD_S + 60), outbox.start_of_day(now) + timedelta(hours=23, minutes=59))
+    if later_today > now + timedelta(seconds=outbox.HOLD_S):
+        assert outbox.run_once(engine, settings, lambda _c: mailer, now=later_today) == {"held": 1}  # still today: waits
+    tomorrow = outbox.start_of_day(now) + timedelta(days=1, seconds=outbox.HOLD_S + 60)
     assert outbox.run_once(engine, settings, lambda _c: mailer, now=tomorrow) == {"sent": 1}
 
 
