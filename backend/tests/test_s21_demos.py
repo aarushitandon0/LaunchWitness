@@ -89,6 +89,14 @@ def test_the_strip_lists_every_demo_with_its_real_name_look_and_a_small_thumbnai
         assert e["look"] == re.split(r" & |, ", themes.resolve(shop)[0].label)[0]
         thumb = ROOT / "frontend" / "public" / e["thumb"].lstrip("/")
         assert thumb.exists() and thumb.stat().st_size <= 60 * 1024, e["thumb"]
+        laptop = thumb.with_name(thumb.stem + "-laptop.webp")  # S21B: the laptop frame's picture, same naming as laptopThumb
+        assert laptop.exists() and laptop.stat().st_size <= 80 * 1024, laptop.name
+        for f, size in ((thumb, (390, 780)), (laptop, (960, 600))):
+            head = f.read_bytes()[:64]
+            assert head[:4] == b"RIFF" and head[8:12] == b"WEBP", f.name
+            from PIL import Image
+            with Image.open(f) as im:
+                assert im.size == size, f.name
 
 
 def test_thumbnails_are_served_on_the_app_host_only(tmp_path, client):
@@ -106,5 +114,8 @@ def test_thumbnails_are_served_on_the_app_host_only(tmp_path, client):
     with TestClient(app) as c:
         r = c.get("/demos/meera.webp")
         assert r.status_code == 200 and r.headers["content-type"] == "image/webp" and r.content == b"RIFFxxxxWEBP"
-        assert "spa" in c.get("/demos/nobody.webp").text  # not a file: the app's page, never a directory listing
+        # S21B: a missing picture is a 404 (it used to be the app's page with a 200: a broken image on every card)
+        for missing in ("/demos/nobody.webp", "/demos/meera-laptop.webp", "/demos/", "/nothing.png", "/x/y.js"):
+            r = c.get(missing)
+            assert (r.status_code == 404 and "spa" not in r.text) or (missing == "/demos/" and "spa" in r.text), missing
         assert c.get("/demos/meera.webp", headers={"host": "meera.localhost"}).status_code == 404  # never on a shop

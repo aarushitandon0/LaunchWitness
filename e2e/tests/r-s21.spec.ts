@@ -185,11 +185,11 @@ test("Sold out today: one tap on Orders, no box on the shop, the server refuses 
   const { id, slug } = await liveShop(page, "s21s");
   await page.goto(`/#/b/${id}/orders`);
   await page.locator("details.soldout summary").click();
-  await page.getByRole("button", { name: "Pineapple cake 1/2 kg: sold out today" }).click();
-  await expect(page.getByRole("button", { name: "Pineapple cake 1/2 kg: sold out today" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Pineapple cake: sold out today" }).click();
+  await expect(page.getByRole("button", { name: "Pineapple cake: sold out today" })).toHaveAttribute("aria-pressed", "true");
   const { ctx, page: c } = await customer(browser, 390);
   await c.goto(shopUrl(slug));
-  const row = c.locator('li.item[data-item="Pineapple cake 1/2 kg"]');
+  const row = c.locator('li.item[data-item="Pineapple cake"]');
   await expect(row).toContainText("Sold out today");
   await expect(row.locator("input")).toHaveCount(0);
   const index = await row.getAttribute("data-i");
@@ -205,7 +205,7 @@ test("Sold out today: one tap on Orders, no box on the shop, the server refuses 
     f.requestSubmit();
   }, index);
   await c.waitForLoadState("load");
-  await expect(c.getByRole("alert")).toContainText("Pineapple cake 1/2 kg is sold out today");
+  await expect(c.getByRole("alert")).toContainText("Pineapple cake is sold out today");
   await ctx.close();
 });
 
@@ -261,5 +261,53 @@ test("landing: a strip of at least 6 demo shops, each opens its labelled demo wi
       expect(errors, errors.join("\n")).toEqual([]);
       await ctx.close();
     }
+  }
+});
+
+// S21B: the strip's pictures are real images (a stale build used to answer them with the app's page: broken icons).
+// Laptop frame + 1440-wide picture from 1024 px; phone frame + 390 picture below, and a phone never fetches the laptop one.
+test("landing strip: every picture is a real image, laptop frames on a laptop, phone frames on a phone", async ({ browser }) => {
+  test.setTimeout(120_000);
+  for (const width of [390, 1023, 1024, 1440]) {
+    const ctx = await browser.newContext({ ignoreHTTPSErrors: BASE.includes(".localhost"), reducedMotion: "reduce",
+      viewport: { width, height: 900 } });
+    const page = await ctx.newPage();
+    const fetched: string[] = [];
+    page.on("request", (r) => { if (r.url().includes("/demos/")) fetched.push(r.url()); });
+    await page.goto("/");
+    const strip = page.locator("#demos");
+    await strip.scrollIntoViewIfNeeded();
+    // bring every card on screen once, so each lazy picture loads
+    const row = strip.locator(".demo-row");
+    for (let x = 0; x <= 6000; x += 300) {
+      await row.evaluate((e, left) => { e.scrollLeft = left; }, x);
+      await page.waitForTimeout(60);
+    }
+    const imgs = strip.locator("a.demo-card img");
+    const n = await imgs.count();
+    expect(n).toBeGreaterThanOrEqual(6);
+    const laptop = width >= 1024;
+    for (let i = 0; i < n; i++) {
+      const img = imgs.nth(i);
+      await expect(img).toHaveJSProperty("complete", true);
+      const info = await img.evaluate((e: HTMLImageElement) => ({ src: e.currentSrc, w: e.naturalWidth, h: e.naturalHeight,
+        alt: e.alt, attrW: e.getAttribute("width"), box: e.parentElement!.parentElement!.getBoundingClientRect() }));
+      expect(info.w, info.src).toBeGreaterThan(0);
+      expect(info.src).toMatch(laptop ? /\/demos\/[a-z]+-laptop\.webp$/ : /\/demos\/[a-z]+\.webp$/);
+      expect(info.src.includes("-laptop")).toBe(laptop);
+      expect([info.w, info.h]).toEqual(laptop ? [960, 600] : [390, 780]);
+      const ratio = info.box.width / info.box.height;
+      if (laptop) expect(ratio).toBeGreaterThan(1.4); else expect(ratio).toBeLessThan(0.7);
+      const r = await page.request.get(info.src);
+      expect(r.status(), info.src).toBe(200);
+      expect(r.headers()["content-type"], info.src).toMatch(/^image\//);
+    }
+    const alts = await strip.locator('a.demo-card:not([tabindex="-1"]) img').evaluateAll((els) => els.map((e) => (e as HTMLImageElement).alt));
+    expect(alts.every((a) => a.length > 3)).toBe(true); // alt = the shop's name
+    if (!laptop) expect(fetched.filter((u) => u.includes("-laptop"))).toEqual([]);
+    const missing = await page.request.get("/demos/nobody.webp");
+    expect(missing.status()).toBe(404);
+    await shot(page, `landing-strip-frames-${width}`, strip);
+    await ctx.close();
   }
 });
