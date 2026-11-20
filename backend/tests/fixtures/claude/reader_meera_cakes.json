@@ -1,4 +1,6 @@
 {
+  "_note": "S21 placeholder, re-capture on the laptop: the per-item S21 fields (options, option_kind, unit, min_qty, max_qty, choice_label, choices, notice_days) are hand-written from the seller's own words; everything else is the saved reply. Command in docs/S21.md.",
+  "_s21_placeholder": true,
   "name": "Meera's Eggless Bakes",
   "tagline": "Fresh eggless cakes and cupcakes from Baner, Pune",
   "about": "I'm Meera, and I bake eggless cakes and cupcakes in my home kitchen in Baner, Pune. I started 3 years back for friends and family, and now we take orders from all over Pune. Everything is made fresh to order with no preservatives, using real butter and Belgian chocolate. Custom birthday and anniversary cakes with photo print or theme toppers are also possible.",
@@ -10,74 +12,148 @@
   "tone": "homely",
   "products": [
     {
-      "name": "Chocolate truffle cake 1/2 kg",
+      "name": "Chocolate truffle cake",
       "price_inr": 650,
       "description": "Eggless, made fresh to order",
       "category": "Cakes",
-      "food_mark": "veg"
-    },
-    {
-      "name": "Chocolate truffle cake 1 kg",
-      "price_inr": 1200,
-      "description": "Eggless, made fresh to order",
-      "category": "Cakes",
-      "food_mark": "veg"
+      "food_mark": "veg",
+      "options": [
+        {
+          "label": "½ kg",
+          "price_inr": 650
+        },
+        {
+          "label": "1 kg",
+          "price_inr": 1200
+        }
+      ],
+      "option_kind": "weight",
+      "unit": "",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     },
     {
       "name": "Pineapple cake 1/2 kg",
       "price_inr": 550,
       "description": "Eggless, made fresh to order",
       "category": "Cakes",
-      "food_mark": "veg"
+      "food_mark": "veg",
+      "options": [],
+      "option_kind": "",
+      "unit": "",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     },
     {
       "name": "Red velvet cake with cream cheese 1/2 kg",
       "price_inr": 750,
       "description": "Eggless, with cream cheese frosting",
       "category": "Cakes",
-      "food_mark": "veg"
+      "food_mark": "veg",
+      "options": [],
+      "option_kind": "",
+      "unit": "",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     },
     {
       "name": "Rasmalai cake 1 kg",
       "price_inr": 1400,
       "description": "Festive special",
       "category": "Cakes",
-      "food_mark": "veg"
+      "food_mark": "veg",
+      "options": [],
+      "option_kind": "",
+      "unit": "",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     },
     {
       "name": "Cupcakes box of 6",
       "price_inr": 420,
       "description": "Assorted flavours",
       "category": "Cupcakes & brownies",
-      "food_mark": "veg"
+      "food_mark": "veg",
+      "options": [],
+      "option_kind": "",
+      "unit": "",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     },
     {
       "name": "Brownies box of 9",
       "price_inr": 480,
       "description": "Box of 9 brownies",
       "category": "Cupcakes & brownies",
-      "food_mark": "veg"
+      "food_mark": "veg",
+      "options": [],
+      "option_kind": "",
+      "unit": "",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     },
     {
       "name": "Photo print on cake",
       "price_inr": 250,
       "description": "Extra charge on top of the cake price",
       "category": "Add-ons",
-      "food_mark": ""
+      "food_mark": "",
+      "options": [],
+      "option_kind": "",
+      "unit": "",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     },
     {
       "name": "Theme topper",
       "price_inr": 300,
       "description": "Price starts from ₹300",
       "category": "Add-ons",
-      "food_mark": ""
+      "food_mark": "",
+      "options": [],
+      "option_kind": "",
+      "unit": "",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     },
     {
       "name": "Delivery within 10 km",
       "price_inr": 80,
       "description": "Delivery charge for orders within 10 km; pickup from Baner is also available",
       "category": "Delivery",
-      "food_mark": ""
+      "food_mark": "",
+      "options": [],
+      "option_kind": "",
+      "unit": "",
+      "min_qty": 1,
+      "max_qty": 0,
+      "choice_label": "",
+      "choices": [],
+      "notice_days": 0
     }
   ],
   "theme": "bakery",

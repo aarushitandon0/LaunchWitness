@@ -450,3 +450,43 @@ def test_poster_is_owner_only_for_a_live_shop_with_a_qr_and_no_script(client, ne
 
     draft = create(client)  # a draft is not on the internet: nothing to print
     assert client.get(f"/api/businesses/{draft['id']}/poster").status_code == 404
+
+
+# ---------- STEP 2: the Reader (saved replies; the S21 fields are hand-written placeholders until re-captured) ----------
+
+def test_reader_crochet_reply_keeps_her_minimum_packs_and_colours():
+    from app.agents.claude_client import FixtureClaudeClient
+    from app.agents.reader import read_business
+
+    s = json.loads((FIX / "sellers_hard" / "crochet.json").read_text(encoding="utf-8"))
+    claude = FixtureClaudeClient()
+    p = read_business(claude, description=s["description"], price_list=s["price_list"])
+    assert claude.calls == ["reader_crochet"]
+    roses, bouquet = p.products
+    assert (roses.price_inr, roses.unit, roses.min_qty, roses.choice_label, roses.choices) == \
+        (40, "piece", 5, "Colour", ["Red", "Pink", "White", "Yellow"])
+    assert [(o.label, o.price_inr) for o in bouquet.options] == [("6 roses", 260), ("12 roses", 480)]
+    assert bouquet.price_inr == 260 and not any(x.sold_out for x in p.products)
+
+
+def test_reader_schema_asks_only_for_keys_code_can_check_and_never_sold_out():
+    from app.agents.reader import PROFILE_SCHEMA, SYSTEM
+
+    item = PROFILE_SCHEMA["properties"]["products"]["items"]
+    assert "sold_out" not in item["properties"] and "new_until" not in item["properties"]
+    assert item["properties"]["unit"]["enum"] == ["", *items.UNITS]
+    assert item["properties"]["option_kind"]["enum"] == ["", *items.OPTION_KINDS]
+    assert "never invent sizes, prices, minimums or choices" in SYSTEM
+
+
+@pytest.mark.parametrize("name", ["reader_meera_cakes", "reader_tiffin_service", "reader_prompt_injection", "reader_crochet"])
+def test_s21_placeholders_are_marked_for_the_laptop_recapture(name):
+    data = json.loads((FIX / "claude" / f"{name}.json").read_text(encoding="utf-8"))
+    assert "S21 placeholder, re-capture on the laptop" in data["_note"]
+    for x in data["products"]:  # every per-item key the schema asks for is present
+        assert {"options", "option_kind", "unit", "min_qty", "max_qty", "choice_label", "choices", "notice_days"} <= set(x)
+
+
+def test_prompt_injection_reply_still_ignores_the_injected_prices():
+    p = tidy_profile(Profile.model_validate(json.loads((FIX / "claude" / "reader_prompt_injection.json").read_text(encoding="utf-8"))))
+    assert p.name != "Hacked" and all(x.price_inr > 1 for x in p.products) and all(not x.options for x in p.products)
