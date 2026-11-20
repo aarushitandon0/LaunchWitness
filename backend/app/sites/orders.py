@@ -115,6 +115,18 @@ def full_days(session: Session | None, business: Business | None, profile: Profi
 
 
 _QTY_FIELD = re.compile(r"qty_(\d{1,3})(?:_(\d{1,2}))?")
+CUSTOM_NOTE_MAX = 500  # S22: "Tell us what you want" per custom item
+
+
+def custom_note(raw: str) -> str:
+    """Plain text on one line (control characters and line breaks become spaces), at most CUSTOM_NOTE_MAX. It is
+    escaped wherever it is shown (shop pages, the email's HTML part, the owner's Orders page)."""
+    return " ".join("".join(" " if (ord(c) < 32 or 0x7F <= ord(c) < 0xA0) else c for c in (raw or "")).split())[:CUSTOM_NOTE_MAX]
+
+
+def custom_notes(items: list[dict]) -> list[tuple[str, str]]:
+    """(item name, note) for each custom item the customer described, in order."""
+    return [(it["name"], it["custom_note"]) for it in items if it.get("custom_note")]
 
 
 def _qty(raw: str, top: int) -> int:
@@ -167,6 +179,7 @@ def order_lines(form: dict[str, str], profile: Profile) -> tuple[list[dict], tup
                 raise OrderInvalid(f"Please choose a {items_mod.choice_word(product).lower()} for {product.name}.")
         if product.notice_days > profile.min_notice_days and (notice is None or product.notice_days > notice[0]):
             notice = (product.notice_days, product.name)
+        first = len(lines)
         for o, n in picked:
             line = {"name": product.name, "qty": n, "price_inr": o.price_inr if o else product.price_inr,
                     "addon": product.addon}
@@ -174,7 +187,11 @@ def order_lines(form: dict[str, str], profile: Profile) -> tuple[list[dict], tup
                 line["option_label"] = o.label
             if choice:
                 line["choice"] = choice
+            if product.custom:  # S22: a custom item; its note (if any) rides on its first line
+                line["custom"] = True
             lines.append(line)
+        if product.custom and (wish := custom_note(form.get(f"custom_{i}", ""))):
+            lines[first]["custom_note"] = wish
     return lines, notice
 
 
@@ -299,6 +316,10 @@ def order_email(business: Business, profile: Profile, order: Order, items: list[
     if order.fee_inr:
         what = "Shipping" if ful.offers(profile)["india"] else "Delivery"
         lines.append(f"- {what}: {format_inr(order.fee_inr)}")
+    if wishes := custom_notes(items):  # S22: what the customer asked for, per custom item
+        lines += ["", "Custom requests:", *[f"- {name}: {wish}" for name, wish in wishes]]
+    if order.ref_photo and not order.is_test:
+        lines.append("Reference photo: open it in Orders (it is not attached to this email).")
     lines += ["", f"Total: {format_inr(order.total_inr)}"]
     if order.payment_terms:  # S15: what the customer was told to pay, and what is left
         lines.append(f"Paid now (asked of the customer): {format_inr(order.pay_now_inr)}" if order.pay_now_inr
@@ -422,7 +443,8 @@ def order_view(order: Order, claim=None, status_token: str = "") -> dict:
             "items": json.loads(order.items_json), "total_inr": order.total_inr, "ref": order.ref,
             "fulfilment": order.fulfilment, "delivery_pin": order.delivery_pin, "wanted_date": order.wanted_date,
             "time_slot": order.time_slot, "fee_inr": order.fee_inr, "payment_terms": order.payment_terms,
-            "pay_now_inr": order.pay_now_inr, "pay_later_inr": order.pay_later_inr}
+            "pay_now_inr": order.pay_now_inr, "pay_later_inr": order.pay_later_inr,
+            "has_ref_photo": bool(order.ref_photo)}  # S22: only THAT a photo was sent, never a link to it
 
 
 def place_order(session: Session, mailer: Mailer, settings: Settings, *, business: Business, profile: Profile,
@@ -446,13 +468,16 @@ def place_order(session: Session, mailer: Mailer, settings: Settings, *, busines
                   time_slot=data.get("time_slot", ""), fee_inr=data.get("fee_inr", 0),
                   payment_terms=data.get("payment_terms", ""), pay_now_inr=data.get("pay_now_inr", 0),
                   pay_later_inr=data.get("pay_later_inr", 0))
+    if (shot := data.get("ref_photo")) and not is_test:  # S22: already re-encoded by payclaims.process_reference
+        order.ref_photo, order.ref_photo_w, order.ref_photo_h = shot
     session.add(order)
     session.commit()
     session.refresh(order)
     audit.record(session, actor="checker" if is_test else "customer", action="order_placed", target=f"order:{order.id}", result="ok",
                  business_id=business.id,  # never the address, PIN or phone: only counts and the mode
                  detail=f"{len(data['items'])} item(s), total {data['total_inr']}"
-                 + (f", {data['fulfilment']}" if data.get("fulfilment") else ""))
+                 + (f", {data['fulfilment']}" if data.get("fulfilment") else "")
+                 + (", with a reference photo" if order.ref_photo else ""))
 
     recipients = recipients or order_recipients(session, settings, business)
     orders_url = f"{settings.app_base_url.rstrip('/')}/#/b/{business.id}/orders"
@@ -468,7 +493,8 @@ def place_order(session: Session, mailer: Mailer, settings: Settings, *, busines
 
 
 def accept_order_form(session: Session, settings: Settings, mailer: Mailer, *, business: Business, profile: Profile,
-                      form: dict[str, str], visitor: str, channel: str = "smtp") -> tuple[int, str]:
+                      form: dict[str, str], visitor: str, channel: str = "smtp", photo: bytes | None = None,
+                      photo_error: str = "") -> tuple[int, str]:
     """What the shop's order form does with a POST: (HTTP status, page HTML). The public route and the
     checker's practice test order both come through here, so the test order exercises the real path.
 
@@ -497,6 +523,16 @@ def accept_order_form(session: Session, settings: Settings, mailer: Mailer, *, b
         data = parse_order_form(form, profile, test=ticket is not None, session=session, business=business)
     except OrderInvalid as e:
         return 422, render_site(profile, form_error=str(e), form_values=form, full_dates=full_days(**shown, profile=profile))
+    # S22: one reference photo, only for an order with a custom item (otherwise it is dropped, never stored), through the
+    # S20 screenshot gate (size, content sniff, pixel cap, re-encoded WebP: no EXIF or anything else of the file). The
+    # checker's test order never carries one.
+    if ticket is None and any(it.get("custom") for it in data["items"]) and (photo or photo_error):
+        try:
+            if photo_error:
+                raise payclaims.ClaimRefused(photo_error)
+            data["ref_photo"] = payclaims.process_reference(photo)
+        except payclaims.ClaimRefused as e:
+            return 422, render_site(profile, form_error=str(e), form_values=form, full_dates=full_days(**shown, profile=profile))
     if ticket is None:
         try:
             check_order_limits(session, settings, business, visitor)

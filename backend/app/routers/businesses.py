@@ -687,6 +687,7 @@ def order_out(o: Order, shop_name: str, claim=None) -> dict:
             "next_statuses": list(STATUS_STEPS.get(o.status, ())),
             "whatsapp_url": customer_whatsapp_link(shop_name, o), "tel_url": tel_link(o.customer_phone) or None,
             "payment_claim": claim_out(claim),
+            "has_ref_photo": bool(o.ref_photo),  # S22: shown through the owner-only route below, never a public link
             "created_at": o.created_at.replace(tzinfo=None).isoformat() + "Z"}
 
 
@@ -717,6 +718,25 @@ def payment_screenshot(order_id: int, request: Request, b: Annotated[Business, D
     if claim is None or not claim.screenshot:
         raise HTTPException(status_code=404, detail="There is no screenshot for that order.")
     return Response(claim.screenshot, media_type="image/webp",
+                    headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
+                             "Content-Security-Policy": "default-src 'none'; sandbox", "X-Robots-Tag": "noindex"})
+
+
+@router.get("/businesses/{business_id}/orders/{order_id}/reference-photo")
+def reference_photo(order_id: int, request: Request, b: Annotated[Business, Depends(require_business_access)],
+                    settings: Annotated[Settings, Depends(get_settings)],
+                    session: Annotated[Session, Depends(get_session)]) -> Response:
+    """S22: a custom order's reference photo. Same rules as the payment screenshot: only the owner, only on the app's own
+    host, never cached; another shop's order, a test order or an order without one answer 404."""
+    from app.sites.hosts import normalize_host, subdomain_label
+
+    if subdomain_label(normalize_host(request.headers.get("host", "")), settings) is not None:
+        raise HTTPException(status_code=404)
+    o = session.exec(select(Order).where(Order.id == order_id, Order.business_id == b.id,
+                                         Order.is_test == False)).first()  # noqa: E712
+    if o is None or not o.ref_photo:
+        raise HTTPException(status_code=404, detail="There is no reference photo for that order.")
+    return Response(o.ref_photo, media_type="image/webp",
                     headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
                              "Content-Security-Policy": "default-src 'none'; sandbox", "X-Robots-Tag": "noindex"})
 

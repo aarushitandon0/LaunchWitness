@@ -151,8 +151,8 @@ def test_matrix_owner_routes(world, browser, engine):
         counts["guest_404"] += 1
     # A can read every GET of their own (writes are covered by the flow tests)
     for method, url in urls:
-        # S20: 404 until a customer attaches one (see test_s20); S21: the poster is 404 until the shop is live (test_s21)
-        if method == "GET" and "payment-screenshot" not in url and not url.endswith("/poster"):
+        # S20/S22: 404 until a customer attaches one (see test_s20, test_s22_custom_orders); S21: the poster is 404 until the shop is live (test_s21)
+        if method == "GET" and "payment-screenshot" not in url and "reference-photo" not in url and not url.endswith("/poster"):
             assert a.get(url).status_code == 200, (url, a.get(url).text)
     assert all(v == len(urls) for v in counts.values())
 
@@ -162,7 +162,7 @@ def test_matrix_admin_reads_are_audited_and_token_works(world, browser, engine, 
     team = browser()
     sign_in(team, TEAM)
     gets = [u for m, u in owner_urls(shop_a["id"], plan_a["id"])
-            if m == "GET" and "payment-screenshot" not in u and not u.endswith("/poster")]
+            if m == "GET" and "payment-screenshot" not in u and "reference-photo" not in u and not u.endswith("/poster")]
     before = len(events(engine, "admin_access"))
     for url in gets:
         assert team.get(url).status_code == 200, url

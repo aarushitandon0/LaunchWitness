@@ -51,6 +51,11 @@ def order_whatsapp_link(profile: Profile, order: dict | None) -> str | None:
         return None
     items = ", ".join(f"{it['qty']} x {line_label(it)}" for it in order.get("items", []))[:600]
     text = f"Hi {profile.name}, this is my order {order['ref']}" + (f": {items}" if items else "") + "."
+    wishes = " ".join(f"{it['name']}: {it['custom_note']}." for it in order.get("items", []) if it.get("custom_note"))
+    if wishes:  # S22: what she asked for travels with the order
+        text += f" What I want: {wishes[:700]}"
+    if order.get("has_ref_photo"):
+        text += " I added a reference photo to the order."
     return f"https://wa.me/{number}?{urlencode({'text': text}, quote_via=quote)}"
 
 
@@ -255,6 +260,7 @@ def render_site(profile: Profile, *, page: str = "home", order: dict | None = No
         categories=cats,
         extras=extras(profile.products),
         new_idx=new_idx,
+        custom_items=[(i, x) for i, x in enumerate(profile.products) if x.custom and not x.sold_out],  # S22
         sell=sell,  # S21: wording for options, units, notes (app/sites/items.py)
         item_notice=sell.longest_notice(profile.products, profile.min_notice_days),
         new_names=[profile.products[i].name for i in new_idx],

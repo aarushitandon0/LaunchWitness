@@ -98,6 +98,12 @@ export function OrdersPage({ businessId }: { businessId: number }) {
                   <li key={i}>
                     <span>
                       {it.qty} × {[it.name, it.option_label, it.choice].filter(Boolean).join(" · ")}
+                      {it.custom_note && (
+                        <span className="order-wish" data-testid="custom-note">
+                          <br />
+                          <strong>What they want:</strong> {it.custom_note}
+                        </span>
+                      )}
                     </span>
                     <span>{inr(it.qty * it.price_inr)}</span>
                   </li>
@@ -132,6 +138,19 @@ export function OrdersPage({ businessId }: { businessId: number }) {
               </div>
             )}
             {!o.fulfilment && o.wanted_date && <p className="order-where">Wanted by {o.wanted_date}</p>}
+            {o.has_ref_photo && (
+              <div className="order-photo" data-testid="ref-photo">
+                <strong>Reference photo</strong>
+                <a href={`/api/businesses/${businessId}/orders/${o.id}/reference-photo`} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src={`/api/businesses/${businessId}/orders/${o.id}/reference-photo`}
+                    alt={`Reference photo from ${o.customer_name}`}
+                    loading="lazy"
+                    style={{ display: "block", maxWidth: "min(100%, 280px)", maxHeight: 280, borderRadius: 8, marginTop: 6 }}
+                  />
+                </a>
+              </div>
+            )}
             {o.payment_label && <p className="order-pay">{o.payment_label}</p>}
             {o.payment_claim && (
               <div className="order-claim" data-testid="payment-claim">

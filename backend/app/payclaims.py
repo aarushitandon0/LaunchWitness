@@ -52,12 +52,30 @@ def show_utr(utr: str) -> str:
     return " ".join(utr[i:i + 4] for i in range(0, len(utr), 4))
 
 
+REF_PHOTO_BYTES = 5 * 1024 * 1024  # S22: a customer's reference photo (photo cake, design, garment)
+REF_BODY_BYTES = REF_PHOTO_BYTES + 128 * 1024  # the whole order form with one photo
+HEIC_BRANDS = (b"heic", b"heix", b"hevc", b"hevx", b"heim", b"heis", b"mif1", b"msf1", b"avif")
+
+
 def process_screenshot(data: bytes) -> tuple[bytes, int, int]:
+    return process_image(data, max_bytes=MAX_SHOT_BYTES, word="screenshot")
+
+
+def process_reference(data: bytes) -> tuple[bytes, int, int]:
+    """S22: a custom order's reference photo, through the very same gate as a payment screenshot. iPhone HEIC can't
+    be decoded here (no HEIF codec in the image), so it gets its own polite sentence instead of "not a photo"."""
+    if data[4:8] == b"ftyp" and data[8:12] in HEIC_BRANDS:
+        raise ClaimRefused("This photo is in the iPhone HEIC format, which we can't open. Please choose a JPEG or PNG "
+                           "(a screenshot of the photo works), or leave it out and send it to the shop on WhatsApp.")
+    return process_image(data, max_bytes=REF_PHOTO_BYTES, word="photo")
+
+
+def process_image(data: bytes, *, max_bytes: int, word: str) -> tuple[bytes, int, int]:
     """Same gate as shop photos (photos.clean_image), one WebP at SHOT_WIDTH. Nothing of the original survives."""
     try:
-        clean = photos.clean_image(data, max_bytes=MAX_SHOT_BYTES)
+        clean = photos.clean_image(data, max_bytes=max_bytes)
     except photos.PhotoRefused as e:
-        raise ClaimRefused(str(e).replace("photo", "screenshot")) from None
+        raise ClaimRefused(str(e).replace("photo", word)) from None
     if clean.width > SHOT_WIDTH:
         clean = clean.resize((SHOT_WIDTH, round(clean.height * SHOT_WIDTH / clean.width)), Image.Resampling.LANCZOS)
     out = io.BytesIO()
@@ -149,6 +167,15 @@ def purge_old(session: Session, now=None) -> int:
                                               Order.status_changed_at < cutoff)).all()
     if not ids:
         return 0
+    # S22: a custom order's reference photo goes on the same day as the payment note
+    old_photos = session.exec(select(Order).where(Order.id.in_(ids), Order.ref_photo != None)).all()  # type: ignore[attr-defined]  # noqa: E711
+    for o in old_photos:
+        o.ref_photo, o.ref_photo_w, o.ref_photo_h = None, 0, 0
+        session.add(o)
+    if old_photos:
+        session.commit()
+        audit.record(session, actor="system", action="reference_photos_purged", result="ok",
+                     detail=f"{len(old_photos)} reference photo(s) removed, 30 days after the order closed")
     n = session.exec(select(func.count()).select_from(PaymentClaim).where(
         PaymentClaim.order_id.in_(ids))).one()  # type: ignore[attr-defined]
     if n:

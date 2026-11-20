@@ -232,7 +232,7 @@
 
   {% for name in theme.before %}{{ section(name) }}{% endfor %}
 
-  <form class="layout" method="post" action="{{ base }}/order" id="order-form"
+  <form class="layout" method="post" action="{{ base }}/order" id="order-form" enctype="multipart/form-data"
     data-fee="{{ p.shipping_fee_inr if offers.india else p.delivery_fee_inr }}" data-free-above="{{ p.free_delivery_above_inr if offers.local else 0 }}"
     data-local="{{ 1 if offers.local else 0 }}" data-terms="{{ p.payment_terms }}" data-advance="{{ p.advance_percent }}"
     data-pins="{{ area_pins }}" data-places="{{ area_places }}" data-refusal="{{ refusal_text }}">
@@ -330,6 +330,19 @@
         <input id="item_message" name="item_message" maxlength="200" placeholder="e.g. Happy Birthday Riya" value="{{ form.get('item_message', '') }}">
       </div>
       {% endif %}
+      {% if custom_items %}{# S22: custom requests. Without JavaScript every box shows; the basket script hides the ones not ordered. #}
+      <div class="custom-box" id="custom-box">
+        {% for i, x in custom_items %}<div class="field" id="custom_{{ i }}_f">
+          <label for="custom_{{ i }}">Tell us what you want: {{ x.name }} <span class="hint">(only if you order it)</span></label>
+          <textarea id="custom_{{ i }}" name="custom_{{ i }}" rows="2" maxlength="500" placeholder="e.g. the name or message you want, design, colours, measurements">{{ form.get('custom_' ~ i, '') }}</textarea>
+        </div>{% endfor %}
+        <div class="field">
+          <label for="reference_photo">Reference photo <span class="hint">(optional: one JPG, PNG or WebP photo, up to 5 MB)</span></label>
+          <input id="reference_photo" name="reference_photo" type="file" accept="image/jpeg,image/png,image/webp">
+          <p class="hint">Only the shop sees it. If your form shows an error, please choose the photo again.</p>
+        </div>
+      </div>
+      {% endif %}
       <div class="field">
         <label for="note">Anything else? <span class="hint">(optional)</span></label>
         <textarea id="note" name="note" rows="2" maxlength="1000" placeholder="Date you need it, size, colour…">{{ form.get('note', '') }}</textarea>
@@ -370,11 +383,12 @@
   <section class="panel" style="position:static">
     <h2>Your order</h2>
     <ul class="basket">
-      {% for it in order["items"] %}<li><span>{{ it.qty }} × {{ it | line }}</span><span>{{ (it.qty * it.price_inr) | inr }}</span></li>{% endfor %}
+      {% for it in order["items"] %}<li><span>{{ it.qty }} × {{ it | line }}{% if it.custom_note %}<br><span class="hint">Your request: {{ it.custom_note }}</span>{% endif %}</span><span>{{ (it.qty * it.price_inr) | inr }}</span></li>{% endfor %}
     </ul>
     {% if order.fee_inr %}<div class="sub"><span>{{ delivery_word }}</span><span>{{ order.fee_inr | inr }}</span></div>{% endif %}
     {% if order["items"] %}<div class="total"><span>{{ "Total" if pay else "Estimated total" }}</span><span>{{ order.total_inr | inr }}</span></div>{% endif %}
     {% if order.note %}<p class="hint">Your note: {{ order.note }}</p>{% endif %}
+    {% if order.has_ref_photo %}<p class="hint">{% if demo %}On a real shop, your reference photo would go to the seller. Here it was checked and thrown away.{% else %}Your reference photo was sent to the shop.{% endif %}</p>{% endif %}
     {% if order.fulfilment == "pickup" %}<p class="hint">Pickup{% if order.wanted_date %} on {{ order.wanted_date }}{% endif %}{% if order.time_slot %}, {{ order.time_slot }}{% endif %}. The shop will share the exact address on WhatsApp once your order is confirmed.</p>
     {% elif order.fulfilment == "delivery" %}<p class="hint">{{ delivery_word }} to PIN code {{ order.delivery_pin }}{% if order.wanted_date %}, wanted by {{ order.wanted_date }}{% endif %}{% if order.time_slot %}, {{ order.time_slot }}{% endif %}.</p>
     {% elif order.wanted_date %}<p class="hint">Wanted by {{ order.wanted_date }}{% if order.time_slot %}, {{ order.time_slot }}{% endif %}.</p>{% endif %}
@@ -431,6 +445,7 @@
     <p><strong>Why.</strong> Only to prepare your order and contact you about it (to confirm timing, delivery and payment).</p>
     <p><strong>Who sees it.</strong> Your order, including your delivery address, is sent by email to {{ p.name }} and shown to {{ p.name }} on their orders page. Nobody else can see your address: it is never shown on this website, and it is not in the reports or logs that LaunchWitness keeps about the shop. It is stored securely by the service that runs this website, LaunchWitness, so the order isn't lost. We never sell or share your details for marketing.</p>
     <p><strong>Payments.</strong> This site does not take payments. If you pay by UPI, the payment happens in your own UPI app, and the shop's UPI details appear only after you place an order. If you tell the shop you paid, we keep the 12-digit UPI reference number you type and, if you add one, your screenshot (we re-save it as a plain picture, so nothing hidden in the file such as a location travels with it). Only {{ p.name }} can see them, on their orders page. The LaunchWitness team can also open a screenshot when it is helping the shop with a problem, and each time it does, that is logged. They are never shown on this website, and they are not in the reports or logs that LaunchWitness keeps. Telling us you paid does not mark your order paid: the shop checks its own UPI app first.</p>
+    <p><strong>Reference photos.</strong> If you add a reference photo to a custom order, only {{ p.name }} can see it, on their orders page; it is kept for your order and deleted 30 days after your order is done or cancelled.</p>
     <p><strong>How long.</strong> Only as long as needed to handle your order and keep the shop's records. Your UPI reference number and screenshot are deleted 30 days after your order is done or cancelled. If the shop is deleted, its orders, including addresses, references and screenshots, are deleted with it.</p>
     <p><strong>Your choice.</strong> To see, correct or delete your details, contact us{% if p.phone %} on {{ p.phone }}{% endif %}{% if whatsapp_url %} or <a href="{{ whatsapp_url }}"{% if not demo %} target="_blank" rel="noopener"{% endif %}>on WhatsApp</a>{% endif %}.</p>
   </section>
@@ -479,7 +494,7 @@
   function units(row) { return Array.prototype.slice.call(row.querySelectorAll(".q")); }
   function rowSum(row) { return units(row).reduce(function (a, q) { return a + val(q.querySelector("input")); }, 0); }
   function refresh() {
-    var count = 0, total = 0, lines = [];
+    var count = 0, total = 0, lines = [], anyCustom = false;
     rows.forEach(function (row) {
       var sum = 0, sel = row.querySelector(".choice select"), pick = sel && sel.value ? " · " + sel.value : "";
       units(row).forEach(function (q) {
@@ -496,7 +511,11 @@
       });
       row.classList.toggle("chosen", sum > 0);
       if (sel) sel.required = sum > 0;
+      var cf = document.getElementById("custom_" + row.dataset.i + "_f"); /* S22: a custom item's "tell us what you want" */
+      if (cf) { cf.hidden = sum === 0; anyCustom = anyCustom || sum > 0; }
     });
+    var cbox = document.getElementById("custom-box");
+    if (cbox) cbox.hidden = !anyCustom;
     basket.innerHTML = "";
     if (lines.length) { lines.forEach(function (li) { basket.appendChild(li); }); }
     else { var e = document.createElement("li"); e.className = "empty"; e.textContent = "Add items from the menu."; basket.appendChild(e); }

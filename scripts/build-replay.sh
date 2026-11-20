@@ -27,12 +27,33 @@ OUT_DIR="$REPO/replay"
 OUT="$OUT_DIR/build.html"
 RAW="$OUT_DIR/raw"          # git-ignored working copies
 mkdir -p "$OUT_DIR" "$RAW"
+# A Python that really runs (on Windows `python3` can be the Store stub): $PYTHON, the repo's venv, then the PATH.
+PY="${PYTHON:-}"
+if [ -z "$PY" ]; then
+  for c in "$REPO/.venv/Scripts/python" "$REPO/.venv/bin/python" python3 python; do
+    if "$c" -c "import sys" >/dev/null 2>&1; then PY="$c"; break; fi
+  done
+fi
+[ -n "$PY" ] || { echo "No working python found (set PYTHON=...)" >&2; exit 1; }
 
 # 1) Find every transcript whose working directory is this repo (or inside it),
 #    sorted by the first timestamp in each file.
-mapfile -t FILES < <(python3 - "$PROJECTS" "$REPO" "${INCLUDE_SUBAGENTS:-0}" "$REPO/replay/sessions" <<'PY'
-import json, os, sys
-root, repo, include_sub, committed = sys.argv[1], sys.argv[2], sys.argv[3] == "1", sys.argv[4]
+mapfile -t FILES < <("$PY" - "$PROJECTS" "$REPO" "${INCLUDE_SUBAGENTS:-0}" "$REPO/replay/sessions" <<'PY'
+import json, os, re, sys
+
+
+def norm(p):
+    """One spelling for a path on any OS: Git Bash /c/Users/x and the c-colon-backslash form are one folder."""
+    p = p.replace(chr(92), "/").rstrip("/")
+    m = re.match(r"^/([A-Za-z])(/.*)?$", p)
+    if m:
+        p = m.group(1) + ":" + (m.group(2) or "/")
+    if re.match(r"^[A-Za-z]:", p):
+        p = p.lower()
+    return p
+
+
+root, repo, include_sub, committed = sys.argv[1], norm(sys.argv[2]), sys.argv[3] == "1", sys.argv[4]
 
 
 def scan(p, need_repo):
@@ -45,8 +66,8 @@ def scan(p, need_repo):
                     d = json.loads(line)
                 except Exception:
                     continue
-                cwd = d.get("cwd") or ""
-                if cwd == repo or cwd.startswith(repo + os.sep):
+                cwd = norm(d.get("cwd") or "")
+                if cwd and (cwd == repo or cwd.startswith(repo + "/")):
                     in_repo = True
                 if first_ts is None and d.get("timestamp"):
                     first_ts = d["timestamp"]
@@ -115,8 +136,8 @@ npx --yes claude-replay "${INPUTS[@]}" -o "$OUT" "${REDACT_ARGS[@]}" \
 
 # 4) Secret scan of what will be published: the turn data extracted from the page, and the page text.
 npx --yes claude-replay extract "$OUT" -o "$RAW/extracted.jsonl" >/dev/null
-if ! python3 "$REPO/scripts/transcript_scrub.py" --check "$RAW/extracted.jsonl" "$EMAILS" \
-   || ! python3 "$REPO/scripts/transcript_scrub.py" --check "$OUT" "$EMAILS"; then
+if ! "$PY" "$REPO/scripts/transcript_scrub.py" --check "$RAW/extracted.jsonl" "$EMAILS" \
+   || ! "$PY" "$REPO/scripts/transcript_scrub.py" --check "$OUT" "$EMAILS"; then
   rm -f "$OUT"
   echo "FAIL: secret scan found something in the replay; $OUT was deleted. Do not publish." >&2
   exit 1

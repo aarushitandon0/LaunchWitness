@@ -207,14 +207,47 @@ async def submit_order(
     business, profile = found
     if business.paused:
         return HTMLResponse(PAUSED, status_code=503)
-    form = {k: v for k, v in (await request.form()).items() if isinstance(v, str)}
+    # S22: the form is multipart (one optional reference photo for a custom order). Read through the same caps as the
+    # S20 "I've paid" form: a body over the cap is refused before it is read; the photo is read to at most cap + 1.
+    form, photo, photo_error = await read_order_form(request)
+    if photo_error and not form:  # refused before the body was read: nothing to fill back in
+        from app.sites.orders import full_days
+
+        return shop_response(render_site(profile, form_error=photo_error,
+                                         full_dates=full_days(session, business, profile)), 413)
     # The mailer is chosen per business: a practice shop can never reach the real mail server.
     from app.outbox import channel_of
 
     integ = for_business(business, server, practice)
     status, html = accept_order_form(session, settings, integ.mailer, business=business, profile=profile, form=form,
-                                     visitor=visitor_id(request), channel=channel_of(integ))
+                                     visitor=visitor_id(request), channel=channel_of(integ), photo=photo,
+                                     photo_error=photo_error)
     return shop_response(html, status)
+
+
+PHOTO_TOO_BIG = "That photo is too big. Please use one under 5 MB, or leave it out and send it to the shop on WhatsApp."
+
+
+async def read_order_form(request: Request) -> tuple[dict[str, str], bytes | None, str]:
+    """(text fields, reference photo bytes or None, a refusal for the photo). Shared by shop and demo order forms.
+    The parsed form is closed before returning, so a spooled upload never outlives the request."""
+    from app import payclaims
+
+    try:
+        declared = int(request.headers.get("content-length", "0") or 0)
+    except ValueError:
+        declared = 0
+    if declared > payclaims.REF_BODY_BYTES:
+        return {}, None, PHOTO_TOO_BIG
+    async with request.form(max_files=1, max_fields=400) as raw:
+        form = {k: v for k, v in raw.items() if isinstance(v, str)}
+        up = raw.get("reference_photo")
+        data = None
+        if up is not None and not isinstance(up, str):
+            data = await up.read(payclaims.REF_PHOTO_BYTES + 1)
+    if data and len(data) > payclaims.REF_PHOTO_BYTES:
+        return form, None, PHOTO_TOO_BIG
+    return form, data or None, ""
 
 
 @router.post("/order/{token}/paid")
